@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura - Your Campus Expense Tracker</title>
+    
+    <!-- External Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    
+</head>
+<body>
+
+    <!-- Header -->
+    <header id="main-header">
+        <div class="container">
+            <a href="#" class="logo-link">
+                <h1 class="logo-text">Aura</h1>
+            </a>
+            
+            <div class="header-right-group">
+                <!-- Mobile Menu Button (Unscrolled) -->
+                <button id="mobile-menu-button" class="mobile-menu-toggle">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                </button>
+
+                <!-- Desktop Nav -->
+                <div class="desktop-nav-container">
+                    <nav class="desktop-nav">
+                        <a href="#features" class="nav-link">Features</a>
+                        <a href="#how-it-works" class="nav-link">How It Works</a>
+                    </nav>
+                    <a href="login.html" id="desktop-login-button" class="desktop-cta-button">Get Started</a>
+                    <a href="dashboard.html" id="user-avatar-link" class="user-avatar-link hidden">
+                        <img id="user-avatar-img" src="" alt="User Avatar" class="user-avatar" />
+                    </a>
+                </div>
+
+                <!-- Scrolled Mobile Dropdown -->
+                <div id="scrolled-menu-container" class="scrolled-menu-container">
+                    <button id="scrolled-menu-trigger" class="scrolled-menu-trigger">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                    </button>
+                    <div id="scrolled-menu-panel" class="scrolled-menu-panel">
+                         <a href="#features" class="nav-link">Features</a>
+                         <a href="#how-it-works" class="nav-link">How It Works</a>
+                         <a href="login.html" id="scrolled-cta-button" class="desktop-cta-button">Get Started</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Mobile Menu Panel (Unscrolled) -->
+    <div id="mobile-menu-overlay" class="mobile-menu-overlay"></div>
+    <div id="mobile-menu" class="mobile-menu-panel">
+        <a href="#features" class="mobile-menu-link">Features</a>
+        <a href="#how-it-works" class="mobile-menu-link">How It Works</a>
+        <a href="login.html" class="mobile-menu-button">Get Started</a>
+    </div>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-content-wrapper">
+                <div class="hero-text-container">
+                    <h2 class="hero-headline">
+                        <span class="muted-text">Stop Running Out</span>
+                        <span class="highlight-text">Start Eating Smart</span>
+                    </h2>
+                </div>
+                <p class="sub-heading">
+                    The essential website for students to finally get a grip on their campus funds and meal plans.
+                </p>
+                <a href="login.html" id="hero-cta-button" class="hero-button">
+                    Take Control Now
+                </a>
+            </div>
+        </section>
+
+        <!-- Wall of Fame Section -->
+        <section id="wall-of-fame" class="wall-of-fame-section">
+            <div class="container">
+                <div class="wall-of-fame-card liquid-glass">
+                    <h3 class="wall-of-fame-title">🔥 Wall of Fame</h3>
+                    <div id="wall-of-fame-list" class="wall-of-fame-list">
+                        <!-- Top players will be injected here by JS -->
+                        <p class="loading-text">Loading top players...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section id="features" class="features-section">
+            <div class="container">
+                <div class="features-grid">
+                    <!-- Feature 1 -->
+                    <div class="feature-card">
+                        <div class="feature-card-content">
+                            <div class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg></div>
+                            <h3 class="feature-title">Track Everything</h3>
+                            <p class="feature-description">Log Campus Credits, Dining Dollars, and Meal Swipes in one place.</p>
+                        </div>
+                    </div>
+                    <!-- Feature 2 -->
+                    <div class="feature-card">
+                        <div class="feature-card-content">
+                            <div class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></div>
+                            <h3 class="feature-title">Campus Directory</h3>
+                            <p class="feature-description">See every spot on & off campus that takes your funds. No more guessing.</p>
+                        </div>
+                    </div>
+                    <!-- Feature 3 -->
+                    <div class="feature-card">
+                        <div class="feature-card-content">
+                            <div class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg></div>
+                            <h3 class="feature-title">Live Weather</h3>
+                            <p class="feature-description">Check the campus weather to decide if that walk to the dining hall is worth it.</p>
+                        </div>
+                    </div>
+                    <!-- Feature 4 -->
+                    <div class="feature-card">
+                        <div class="feature-card-content">
+                           <div class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-3 14-3 6-3-6-3-14h18z"></path><path d="m17.5 22-5-10-5 10"></path></svg></div>
+                            <h3 class="feature-title">Find Deals</h3>
+                            <p class="feature-description">Our scraper finds the best deals at local spots so you save money.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- How It Works Section -->
+        <section id="how-it-works" class="how-it-works-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2 class="section-title">It's This Easy.</h2>
+                    <p class="section-subtitle">Three steps to financial freedom on campus.</p>
+                </div>
+                <div class="steps-container">
+                    <!-- The connecting line -->
+                    <div class="steps-line"></div>
+                    <!-- Step 1 -->
+                    <div class="step-item fade-in-element">
+                        <div class="step-text-content">
+                            <span class="step-number">01</span>
+                            <h3 class="step-title">Set Your Balance</h3>
+                            <p class="step-description">Check your account once, punch in your numbers, and you're set for the semester.</p>
+                        </div>
+                        <div class="step-visual">
+                            <!-- Video for Step 1 -->
+                            <video class="step-video" src="SB.mp4" muted loop playsinline></video>
+                        </div>
+                    </div>
+                    <!-- Step 2 -->
+                    <div class="step-item fade-in-element">
+                        <div class="step-text-content">
+                            <span class="step-number">02</span>
+                            <h3 class="step-title">Log Your Buys</h3>
+                            <p class="step-description">Bought a coffee? Tap the '+' button, find your item, and confirm. Done in seconds.</p>
+                        </div>
+                        <div class="step-visual">
+                            <!-- Video for Step 2 -->
+                            <video class="step-video" src="UB.mp4" muted loop playsinline></video>
+                        </div>
+                    </div>
+                    <!-- Step 3 -->
+                    <div class="step-item fade-in-element">
+                        <div class="step-text-content">
+                            <span class="step-number">03</span>
+                            <h3 class="step-title">Never Go Broke</h3>
+                            <p class="step-description">Watch your balance update instantly. Make smarter choices and finish strong.</p>
+                        </div>
+                         <div class="step-visual">
+                            <!-- Video for Step 3 -->
+                            <video class="step-video" src="BH.mp4" muted loop playsinline></video>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>Built by students, for students.</p>
+        <p class="footer-subtext">Let's get this bread 🍞</p>
+    </footer>
+
+    <!-- Back to Top Button -->
+    <div id="back-to-top-wrapper" class="back-to-top-wrapper">
+        <a href="#" id="back-to-top" class="back-to-top-button">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        </a>
+    </div>
+
+    <!-- Firebase -->
+    <script src="script.js" type="module"></script>
+</body>
+</html>
