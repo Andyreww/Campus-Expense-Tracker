@@ -3,7 +3,6 @@ const fetch = require('node-fetch');
 exports.handler = async function(event, context) {
     const { university } = event.queryStringParameters;
     
-    // Switched back to the secure environment variable
     const apiKey = process.env.OPENWEATHERMAP_API_KEY; 
 
     // --- ERROR CHECKING ---
@@ -25,7 +24,8 @@ exports.handler = async function(event, context) {
     const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${university}&appid=${apiKey}&units=imperial`;
 
     try {
-        const response = await fetch(apiUrl);
+        // We added a 10-second timeout to be more patient with the network
+        const response = await fetch(apiUrl, { timeout: 10000 });
         const data = await response.json();
 
         if (!response.ok) {
