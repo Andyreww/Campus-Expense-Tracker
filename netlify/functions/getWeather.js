@@ -1,18 +1,11 @@
 const fetch = require('node-fetch');
 
 exports.handler = async function(event, context) {
-    const { university } = event.queryStringParameters;
+    const location = "Granville, OH";
     
     const apiKey = process.env.OPENWEATHERMAP_API_KEY; 
 
     // --- ERROR CHECKING ---
-    if (!university) {
-        console.error("Function Error: University parameter was not provided.");
-        return {
-            statusCode: 400,
-            body: JSON.stringify({ error: 'University parameter is missing' }),
-        };
-    }
     if (!apiKey) {
         console.error("Function Error: OPENWEATHERMAP_API_KEY is missing from Netlify environment variables.");
         return {
@@ -21,7 +14,8 @@ exports.handler = async function(event, context) {
         };
     }
 
-    const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${university}&appid=${apiKey}&units=imperial`;
+    // The API URL now uses our hardcoded location variable.
+    const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${location}&appid=${apiKey}&units=imperial`;
 
     try {
         // We added a 10-second timeout to be more patient with the network
