@@ -3,20 +3,22 @@ exports.handler = async function(event, context) {
     const { university } = event.queryStringParameters;
     
     // Your secret API key is stored in Netlify's system, not in your code.
-    // We access it like this. It's much safer!
     const apiKey = process.env.OPENWEATHERMAP_API_KEY;
 
-    // If the university name or API key is missing, we can't proceed.
+    // --- BETTER ERROR CHECKING ---
     if (!university) {
+        console.error("Function Error: University parameter was not provided.");
         return {
             statusCode: 400,
             body: JSON.stringify({ error: 'University parameter is missing' }),
         };
     }
     if (!apiKey) {
+        // This will now show up clearly in your Netlify function logs
+        console.error("Function Error: OPENWEATHERMAP_API_KEY is missing from Netlify environment variables.");
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'API key is not configured' }),
+            body: JSON.stringify({ error: 'API key is not configured on the server.' }),
         };
     }
 
@@ -30,6 +32,7 @@ exports.handler = async function(event, context) {
 
         // If the weather API gives an error (e.g., city not found), pass it along
         if (!response.ok) {
+            console.error("OpenWeatherMap API Error:", data);
             return {
                 statusCode: data.cod || 500,
                 body: JSON.stringify(data),
@@ -46,7 +49,7 @@ exports.handler = async function(event, context) {
             body: JSON.stringify(data),
         };
     } catch (error) {
-        // Catch any other network errors
+        console.error("General Fetch Error:", error);
         return {
             statusCode: 500,
             body: JSON.stringify({ error: 'Failed to fetch weather data' }),

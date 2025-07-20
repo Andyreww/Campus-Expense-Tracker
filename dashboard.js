@@ -4,42 +4,19 @@ import { getFirestore, doc, getDoc, updateDoc, collection, query, orderBy, getDo
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
 // --- DOM Elements ---
-const loadingIndicator = document.getElementById('loading-indicator');
-const dashboardContainer = document.getElementById('dashboard-container');
-const pageTitle = document.getElementById('page-title');
-const welcomeMessage = document.getElementById('welcome-message');
-const userAvatar = document.getElementById('user-avatar');
-const avatarButton = document.getElementById('avatar-button');
-const classYearDisplay = document.getElementById('class-year-display');
-const creditsBalanceEl = document.getElementById('credits-balance');
-const diningBalanceEl = document.getElementById('dining-balance');
-const swipesBalanceEl = document.getElementById('swipes-balance');
-const bonusBalanceEl = document.getElementById('bonus-balance');
-const swipesCard = document.getElementById('swipes-card');
-const bonusCard = document.getElementById('bonus-card');
-const locationListContainer = document.getElementById('location-list');
-const logoutButton = document.querySelector('.tab-item[href="login.html"]');
-const editableTitles = document.querySelectorAll('[data-title-key]');
-const tabItems = document.querySelectorAll('.tab-item');
-const mainSections = document.querySelectorAll('.main-section');
-const leaderboardList = document.getElementById('leaderboard-list');
-const publicLeaderboardContainer = document.getElementById('public-leaderboard-container');
-const publicLeaderboardCheckbox = document.getElementById('public-leaderboard-checkbox');
-const weatherWidget = document.getElementById('weather-widget');
-
-// --- PFP Modal Elements ---
-const pfpModalOverlay = document.getElementById('pfp-modal-overlay');
-const pfpPreview = document.getElementById('pfp-preview');
-const pfpUploadInput = document.getElementById('pfp-upload-input');
-const pfpSaveButton = document.getElementById('pfp-save-button');
-const pfpCloseButton = document.getElementById('pfp-close-button');
-const pfpError = document.getElementById('pfp-error');
+// We declare them here, but we'll assign them after the DOM is loaded.
+let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar, avatarButton,
+    classYearDisplay, creditsBalanceEl, diningBalanceEl, swipesBalanceEl, bonusBalanceEl,
+    swipesCard, bonusCard, locationListContainer, logoutButton, editableTitles, tabItems,
+    mainSections, leaderboardList, publicLeaderboardContainer, publicLeaderboardCheckbox,
+    weatherWidget, pfpModalOverlay, pfpPreview, pfpUploadInput, pfpSaveButton,
+    pfpCloseButton, pfpError;
 
 // --- App State ---
 let map = null;
 let currentUser = null;
 let selectedPfpFile = null;
-let firebaseServices = null; // To hold auth, db, storage after init
+let firebaseServices = null;
 
 // --- Main App Initialization ---
 async function main() {
@@ -47,7 +24,6 @@ async function main() {
         // 1. Fetch the secure Firebase config from our serverless function
         const response = await fetch('/.netlify/functions/getFirebaseConfig');
         if (!response.ok) {
-            // This is new: It will log the specific error from the function
             const errorBody = await response.text();
             console.error("Failed to load config from serverless function:", errorBody);
             throw new Error('Could not load Firebase configuration.');
@@ -59,7 +35,7 @@ async function main() {
         const auth = getAuth(app);
         const db = getFirestore(app);
         const storage = getStorage(app);
-        firebaseServices = { auth, db, storage }; // Store services for later use
+        firebaseServices = { auth, db, storage };
 
         // 3. Set up authentication listener
         onAuthStateChanged(auth, (user) => {
@@ -111,7 +87,37 @@ function renderDashboard(userData) {
     updateTitlesUI(customTitles);
     fetchAndRenderWeather(university);
     renderLocationList();
-    // Leaderboard is now fetched when its tab is clicked
+}
+
+function assignDOMElements() {
+    loadingIndicator = document.getElementById('loading-indicator');
+    dashboardContainer = document.getElementById('dashboard-container');
+    pageTitle = document.getElementById('page-title');
+    welcomeMessage = document.getElementById('welcome-message');
+    userAvatar = document.getElementById('user-avatar');
+    avatarButton = document.getElementById('avatar-button');
+    classYearDisplay = document.getElementById('class-year-display');
+    creditsBalanceEl = document.getElementById('credits-balance');
+    diningBalanceEl = document.getElementById('dining-balance');
+    swipesBalanceEl = document.getElementById('swipes-balance');
+    bonusBalanceEl = document.getElementById('bonus-balance');
+    swipesCard = document.getElementById('swipes-card');
+    bonusCard = document.getElementById('bonus-card');
+    locationListContainer = document.getElementById('location-list');
+    logoutButton = document.querySelector('.tab-item[href="login.html"]');
+    editableTitles = document.querySelectorAll('[data-title-key]');
+    tabItems = document.querySelectorAll('.tab-item');
+    mainSections = document.querySelectorAll('.main-section');
+    leaderboardList = document.getElementById('leaderboard-list');
+    publicLeaderboardContainer = document.getElementById('public-leaderboard-container');
+    publicLeaderboardCheckbox = document.getElementById('public-leaderboard-checkbox');
+    weatherWidget = document.getElementById('weather-widget');
+    pfpModalOverlay = document.getElementById('pfp-modal-overlay');
+    pfpPreview = document.getElementById('pfp-preview');
+    pfpUploadInput = document.getElementById('pfp-upload-input');
+    pfpSaveButton = document.getElementById('pfp-save-button');
+    pfpCloseButton = document.getElementById('pfp-close-button');
+    pfpError = document.getElementById('pfp-error');
 }
 
 function setupEventListeners() {
@@ -263,7 +269,6 @@ function handleTabClick(e, db) {
             pageTitle.textContent = 'Streak Leaderboard';
             welcomeMessage.style.opacity = '0';
             publicLeaderboardContainer.classList.remove('hidden');
-            // LEADERBOARD FIX: Fetch data when tab is clicked
             fetchAndRenderLeaderboard(db);
         } else {
             pageTitle.textContent = 'Your Funds';
@@ -366,7 +371,7 @@ function updateBalancesUI(year, balances) {
 }
 
 async function fetchAndRenderWeather(university) {
-    const location = university || 'Granville, OH'; // WEATHER FIX: Use university or default to Granville
+    const location = university || 'Granville, OH';
     if (!weatherWidget) return;
     weatherWidget.innerHTML = `<div class="spinner"></div>`;
     const apiUrl = `/.netlify/functions/getWeather?university=${encodeURIComponent(location)}`;
@@ -439,5 +444,8 @@ function initializeMap() {
     });
 }
 
-// Start the application
-main();
+// FIX: Wait for the DOM to be fully loaded before running the script
+document.addEventListener('DOMContentLoaded', () => {
+    assignDOMElements();
+    main();
+});
