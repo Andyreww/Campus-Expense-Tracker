@@ -52,7 +52,9 @@ async function main() {
 
     } catch (error) {
         console.error("Fatal Error:", error);
-        loadingIndicator.textContent = "Failed to load application. Please try again later.";
+        if (loadingIndicator) {
+            loadingIndicator.textContent = "Failed to load application. Please try again later.";
+        }
     }
 }
 
@@ -123,30 +125,31 @@ function assignDOMElements() {
 function setupEventListeners() {
     const { auth, db, storage } = firebaseServices;
 
-    avatarButton.addEventListener('click', () => pfpModalOverlay.classList.remove('hidden'));
-    pfpCloseButton.addEventListener('click', closeModal);
-    pfpModalOverlay.addEventListener('click', (e) => {
+    // Defensive checks to prevent crashes if an element is missing
+    if (avatarButton) avatarButton.addEventListener('click', () => pfpModalOverlay.classList.remove('hidden'));
+    if (pfpCloseButton) pfpCloseButton.addEventListener('click', closeModal);
+    if (pfpModalOverlay) pfpModalOverlay.addEventListener('click', (e) => {
         if (e.target === pfpModalOverlay) closeModal();
     });
-    pfpUploadInput.addEventListener('change', handlePfpUpload);
-    pfpSaveButton.addEventListener('click', () => savePfp(storage, db));
+    if (pfpUploadInput) pfpUploadInput.addEventListener('change', handlePfpUpload);
+    if (pfpSaveButton) pfpSaveButton.addEventListener('click', () => savePfp(storage, db));
 
-    logoutButton.addEventListener('click', (e) => {
+    if (logoutButton) logoutButton.addEventListener('click', (e) => {
         e.preventDefault();
         signOut(auth).then(() => {
             window.location.href = "login.html";
         }).catch((error) => console.error("Logout Error:", error));
     });
 
-    editableTitles.forEach(titleEl => {
+    if (editableTitles) editableTitles.forEach(titleEl => {
         titleEl.addEventListener('blur', (e) => handleTitleBlur(e, db));
     });
 
-    tabItems.forEach(tab => {
+    if (tabItems) tabItems.forEach(tab => {
         tab.addEventListener('click', (e) => handleTabClick(e, db));
     });
     
-    publicLeaderboardCheckbox.addEventListener('change', (e) => handlePublicToggle(e, db));
+    if (publicLeaderboardCheckbox) publicLeaderboardCheckbox.addEventListener('change', (e) => handlePublicToggle(e, db));
 }
 
 function updateAvatar(photoURL, displayName) {
@@ -279,6 +282,7 @@ function handleTabClick(e, db) {
 }
 
 async function fetchAndRenderLeaderboard(db) {
+    if (!leaderboardList) return;
     leaderboardList.innerHTML = '<div class="spinner"></div>';
     const usersRef = collection(db, "users");
     const q = query(usersRef, orderBy("currentStreak", "desc"));
