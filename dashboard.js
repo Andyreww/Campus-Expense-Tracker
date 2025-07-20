@@ -39,6 +39,7 @@ const pfpError = document.getElementById('pfp-error');
 let map = null;
 let currentUser = null;
 let selectedPfpFile = null;
+let firebaseServices = null; // To hold auth, db, storage after init
 
 // --- Main App Initialization ---
 async function main() {
@@ -46,6 +47,9 @@ async function main() {
         // 1. Fetch the secure Firebase config from our serverless function
         const response = await fetch('/.netlify/functions/getFirebaseConfig');
         if (!response.ok) {
+            // This is new: It will log the specific error from the function
+            const errorBody = await response.text();
+            console.error("Failed to load config from serverless function:", errorBody);
             throw new Error('Could not load Firebase configuration.');
         }
         const firebaseConfig = await response.json();
@@ -55,33 +59,35 @@ async function main() {
         const auth = getAuth(app);
         const db = getFirestore(app);
         const storage = getStorage(app);
+        firebaseServices = { auth, db, storage }; // Store services for later use
 
         // 3. Set up authentication listener
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
-                const userDocRef = doc(db, "users", user.uid);
-                checkProfile(userDocRef, db);
+                checkProfile();
             } else {
                 window.location.href = "login.html";
             }
         });
 
-        // 4. Add event listeners that need auth/db
-        setupEventListeners(auth, db, storage);
+        // 4. Add event listeners
+        setupEventListeners();
 
     } catch (error) {
         console.error("Fatal Error:", error);
-        loadingIndicator.innerHTML = "Failed to load application. Please try again later.";
+        loadingIndicator.textContent = "Failed to load application. Please try again later.";
     }
 }
 
 // --- App Logic ---
-async function checkProfile(userDocRef, db) {
+async function checkProfile() {
+    const { db } = firebaseServices;
+    const userDocRef = doc(db, "users", currentUser.uid);
     for (let i = 0; i < 3; i++) {
         const docSnap = await getDoc(userDocRef);
         if (docSnap.exists()) {
-            renderDashboard(docSnap.data(), db);
+            renderDashboard(docSnap.data());
             loadingIndicator.style.display = 'none';
             dashboardContainer.style.display = 'block';
             initializeMap();
@@ -92,12 +98,12 @@ async function checkProfile(userDocRef, db) {
     window.location.href = "questionnaire.html";
 }
 
-function renderDashboard(userData, db) {
+function renderDashboard(userData) {
     const { classYear, balances, displayName, photoURL, customTitles, showOnWallOfFame, university } = userData;
     
     welcomeMessage.textContent = `Welcome back, ${displayName}!`;
     updateAvatar(photoURL, displayName);
-    publicLeaderboardCheckbox.checked = showOnWallOfFame;
+    publicLeaderboardCheckbox.checked = !!showOnWallOfFame;
     
     classYearDisplay.textContent = classYear;
     
@@ -105,10 +111,12 @@ function renderDashboard(userData, db) {
     updateTitlesUI(customTitles);
     fetchAndRenderWeather(university);
     renderLocationList();
-    fetchAndRenderLeaderboard(db);
+    // Leaderboard is now fetched when its tab is clicked
 }
 
-function setupEventListeners(auth, db, storage) {
+function setupEventListeners() {
+    const { auth, db, storage } = firebaseServices;
+
     avatarButton.addEventListener('click', () => pfpModalOverlay.classList.remove('hidden'));
     pfpCloseButton.addEventListener('click', closeModal);
     pfpModalOverlay.addEventListener('click', (e) => {
@@ -129,7 +137,7 @@ function setupEventListeners(auth, db, storage) {
     });
 
     tabItems.forEach(tab => {
-        tab.addEventListener('click', handleTabClick);
+        tab.addEventListener('click', (e) => handleTabClick(e, db));
     });
     
     publicLeaderboardCheckbox.addEventListener('change', (e) => handlePublicToggle(e, db));
@@ -238,7 +246,7 @@ async function handleTitleBlur(e, db) {
     }
 }
 
-function handleTabClick(e) {
+function handleTabClick(e, db) {
     const tab = e.currentTarget;
     if (tab.href.endsWith('#')) {
         e.preventDefault();
@@ -255,6 +263,8 @@ function handleTabClick(e) {
             pageTitle.textContent = 'Streak Leaderboard';
             welcomeMessage.style.opacity = '0';
             publicLeaderboardContainer.classList.remove('hidden');
+            // LEADERBOARD FIX: Fetch data when tab is clicked
+            fetchAndRenderLeaderboard(db);
         } else {
             pageTitle.textContent = 'Your Funds';
             welcomeMessage.style.opacity = '1';
@@ -356,9 +366,10 @@ function updateBalancesUI(year, balances) {
 }
 
 async function fetchAndRenderWeather(university) {
-    if (!university || !weatherWidget) return;
+    const location = university || 'Granville, OH'; // WEATHER FIX: Use university or default to Granville
+    if (!weatherWidget) return;
     weatherWidget.innerHTML = `<div class="spinner"></div>`;
-    const apiUrl = `/.netlify/functions/getWeather?university=${encodeURIComponent(university)}`;
+    const apiUrl = `/.netlify/functions/getWeather?university=${encodeURIComponent(location)}`;
 
     try {
         const response = await fetch(apiUrl);
