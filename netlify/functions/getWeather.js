@@ -1,18 +1,12 @@
-// This is our serverless function, our "middleman"
-// It runs on Netlify's servers, not in the user's browser.
+const fetch = require('node-fetch');
 
 exports.handler = async function(event, context) {
     const { university } = event.queryStringParameters;
     
-    // --- TEMPORARY DEBUGGING STEP ---
-    // Paste your actual OpenWeatherMap API key here inside the quotes.
-    // We're bypassing the Netlify environment variable for a moment to test.
-    const apiKey = "c517f9dc759d99b1a01932217e12cd2b";
+    // Switched back to the secure environment variable
+    const apiKey = process.env.OPENWEATHERMAP_API_KEY; 
 
-    // We'll switch back to this line later once we solve the issue:
-    // const apiKey = process.env.OPENWEATHERMAP_API_KEY; 
-
-    // --- BETTER ERROR CHECKING ---
+    // --- ERROR CHECKING ---
     if (!university) {
         console.error("Function Error: University parameter was not provided.");
         return {
@@ -20,19 +14,17 @@ exports.handler = async function(event, context) {
             body: JSON.stringify({ error: 'University parameter is missing' }),
         };
     }
-    // New check to make sure you pasted the key
-    if (!apiKey || apiKey === "PASTE_YOUR_KEY_HERE") {
-        console.error("DEBUG Error: API Key is not pasted into the function file.");
+    if (!apiKey) {
+        console.error("Function Error: OPENWEATHERMAP_API_KEY is missing from Netlify environment variables.");
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'API key is missing from the function file for debugging.' }),
+            body: JSON.stringify({ error: 'API key is not configured on the server.' }),
         };
     }
 
     const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${university}&appid=${apiKey}&units=imperial`;
 
     try {
-        const fetch = (await import('node-fetch')).default;
         const response = await fetch(apiUrl);
         const data = await response.json();
 
