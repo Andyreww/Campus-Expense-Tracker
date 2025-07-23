@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>Dashboard - Aura</title>
     
     <link rel="stylesheet" href="dashboard.css">
@@ -115,7 +116,9 @@
                     <!-- Bonus Swipes -->
                      <div id="bonus-card" class="table-item item-bonus">
                         <div class="coaster-stack">
-                            <div class="coaster bonus-coaster">★</div>
+                            <div class="coaster bonus-coaster">
+                                <span style="position: relative; z-index: 1;">★</span>
+                            </div>
                         </div>
                         <div class="item-details">
                             <span class="item-title">Bonus Swipes</span>
@@ -143,11 +146,14 @@
                 <div class="leaderboard-newspaper">
                      <div class="leaderboard-header">
                         <h2 class="newspaper-title">The Daily Grind</h2>
-                        <p class="newspaper-subtitle">Your guide to the top regulars on campus!</p>
+                        <p class="newspaper-subtitle">"All the news that's fit to sip"</p>
                         <p class="newspaper-date" id="newspaper-date"></p>
                     </div>
-                    <div id="leaderboard-list" class="leaderboard-list">
-                        <!-- Leaderboard will be rendered here -->
+                    <div class="newspaper-columns">
+                        <h3 class="section-headline">☕ Campus Coffee Champions Report Record Streaks!</h3>
+                        <div id="leaderboard-list" class="leaderboard-list">
+                            <!-- Leaderboard will be rendered here -->
+                        </div>
                     </div>
                 </div>
             </main>
@@ -161,7 +167,7 @@
             <input type="checkbox" id="public-leaderboard-checkbox">
             <span class="slider"></span>
         </label>
-        <span>Show on Wall of Fame?</span>
+        <span>Show me on "Top of the Grind"? <small style="opacity: 0.7; font-size: 0.75rem; display: block;">Public campus leaderboard</small></span>
     </div>
 
     <nav class="bottom-tab-bar">

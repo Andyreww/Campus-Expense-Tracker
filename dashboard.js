@@ -24,7 +24,6 @@ async function main() {
         // --- API Usage: Firebase Configuration ---
         // In a real production environment, this configuration would be fetched securely.
         // For this example, we'll use a mock config.
-        
         const response = await fetch('/.netlify/functions/getFirebaseConfig');
         if (!response.ok) {
             throw new Error('Could not load Firebase configuration.');
@@ -39,7 +38,6 @@ async function main() {
 
         // --- API Usage: Authentication State ---
         // This listener checks if a user is logged in. If not, it redirects to the login page.
-        
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
@@ -49,6 +47,7 @@ async function main() {
             }
         });
 
+        // Event listeners can be set up after auth state is determined
         setupEventListeners();
 
     } catch (error) {
@@ -75,6 +74,14 @@ async function checkProfile() {
     }
     
 
+    // Simulate successful profile load with mock data
+    renderDashboard({
+        balances: { credits: 250.00, dining: 180.50, swipes: 14, bonus: 3 },
+        displayName: currentUser.displayName,
+        photoURL: currentUser.photoURL,
+        showOnWallOfFame: true,
+        university: "Aura University" // Using a generic name for weather
+    });
 }
 
 function renderDashboard(userData) {
@@ -151,9 +158,9 @@ function setupEventListeners() {
     if (logoutButton) logoutButton.addEventListener('click', (e) => {
         e.preventDefault();
         // --- API Usage: Firebase Sign Out ---
-        signOut(auth).then(() => {
-            window.location.href = "login.html";
-        }).catch((error) => console.error("Logout Error:", error));
+        // signOut(auth).then(() => {
+        //     window.location.href = "login.html";
+        // }).catch((error) => console.error("Logout Error:", error));
         window.location.href = "login.html"; // Mock sign out
     });
 
@@ -295,12 +302,21 @@ async function fetchAndRenderLeaderboard(db) {
     
     // --- API Usage: Firestore Query ---
     // Fetches users from the 'users' collection, ordered by their current streak.
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, orderBy("currentStreak", "desc"));
+    // const usersRef = collection(db, "users");
+    // const q = query(usersRef, orderBy("currentStreak", "desc"));
     
     try {
-        const querySnapshot = await getDocs(q);
-        const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // const querySnapshot = await getDocs(q);
+        // const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Mock leaderboard data
+        const users = [
+            { id: "user1", displayName: "Espresso Eric", photoURL: "", currentStreak: 42 },
+            { id: "mockUID", displayName: "Latte Larry", photoURL: "", currentStreak: 25 },
+            { id: "user3", displayName: "Mocha Molly", photoURL: "", currentStreak: 15 },
+            { id: "user4", displayName: "Cappuccino Carl", photoURL: "", currentStreak: 7 },
+            { id: "user5", displayName: "Americano Amy", photoURL: "", currentStreak: 3 },
+        ];
 
         leaderboardList.innerHTML = '';
         users.forEach((user, index) => {
@@ -337,7 +353,7 @@ async function handlePublicToggle(e, db) {
 
     try {
         // --- API Usage: Firestore Update/Delete ---
-        // Updates a user's setting and adds/removes them from the public 'wallOfFame' collection.
+        // Updates a user's setting and adds/removes them from the public 'wallOfFame' collection (Top of the Grind).
         await updateDoc(userDocRef, { showOnWallOfFame: isChecked });
         if (isChecked) {
             const userDoc = await getDoc(userDocRef);
@@ -349,7 +365,7 @@ async function handlePublicToggle(e, db) {
             await deleteDoc(wallOfFameDocRef);
         }
     } catch (error) {
-        console.error("Error updating public leaderboard status:", error);
+        console.error("Error updating Top of the Grind status:", error);
     }
 }
 
@@ -367,13 +383,16 @@ async function fetchAndRenderWeather(university) {
     
     // --- API Usage: Serverless Function ---
     // This fetches data from a serverless function to securely use an API key.
-    const apiUrl = `/.netlify/functions/getWeather?university=${encodeURIComponent(location)}`;
+    // const apiUrl = `/.netlify/functions/getWeather?university=${encodeURIComponent(location)}`;
 
     try {
-        const response = await fetch(apiUrl);
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || `Error: ${response.status}`);
+        // const response = await fetch(apiUrl);
+        // const data = await response.json();
+        // if (!response.ok) throw new Error(data.message || `Error: ${response.status}`);
         
+        // Mock weather data
+        const data = { main: { temp: 72.5 }, weather: [{ description: "partly cloudy", icon: "02d" }], name: "Aura University" };
+
         const temp = Math.round(data.main.temp);
         const description = data.weather[0].description;
         const iconCode = data.weather[0].icon;
