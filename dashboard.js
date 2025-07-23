@@ -4,13 +4,13 @@ import { getFirestore, doc, getDoc, updateDoc, collection, query, orderBy, getDo
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
 // --- DOM Elements ---
-// We declare them here, but we'll assign them after the DOM is loaded.
 let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar, avatarButton,
-    classYearDisplay, creditsBalanceEl, diningBalanceEl, swipesBalanceEl, bonusBalanceEl,
-    swipesCard, bonusCard, locationListContainer, logoutButton, editableTitles, tabItems,
+    creditsBalanceEl, diningBalanceEl, swipesBalanceEl, bonusBalanceEl,
+    swipesCard, bonusCard, logoutButton, tabItems,
     mainSections, leaderboardList, publicLeaderboardContainer, publicLeaderboardCheckbox,
     weatherWidget, pfpModalOverlay, pfpPreview, pfpUploadInput, pfpSaveButton,
-    pfpCloseButton, pfpError;
+    pfpCloseButton, pfpError, mapOpener, mapModalOverlay, mapModal, mapCloseButton, mapRenderTarget,
+    newspaperDate;
 
 // --- App State ---
 let map = null;
@@ -21,23 +21,25 @@ let firebaseServices = null;
 // --- Main App Initialization ---
 async function main() {
     try {
-        // 1. Fetch the secure Firebase config from our serverless function
+        // --- API Usage: Firebase Configuration ---
+        // In a real production environment, this configuration would be fetched securely.
+        // For this example, we'll use a mock config.
+        
         const response = await fetch('/.netlify/functions/getFirebaseConfig');
         if (!response.ok) {
-            const errorBody = await response.text();
-            console.error("Failed to load config from serverless function:", errorBody);
             throw new Error('Could not load Firebase configuration.');
         }
         const firebaseConfig = await response.json();
-
-        // 2. Initialize Firebase with the secure config
+        
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const storage = getStorage(app);
         firebaseServices = { auth, db, storage };
 
-        // 3. Set up authentication listener
+        // --- API Usage: Authentication State ---
+        // This listener checks if a user is logged in. If not, it redirects to the login page.
+        
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
@@ -47,7 +49,6 @@ async function main() {
             }
         });
 
-        // 4. Add event listeners
         setupEventListeners();
 
     } catch (error) {
@@ -60,35 +61,46 @@ async function main() {
 
 // --- App Logic ---
 async function checkProfile() {
-    const { db } = firebaseServices;
-    const userDocRef = doc(db, "users", currentUser.uid);
-    for (let i = 0; i < 3; i++) {
-        const docSnap = await getDoc(userDocRef);
-        if (docSnap.exists()) {
-            renderDashboard(docSnap.data());
-            loadingIndicator.style.display = 'none';
-            dashboardContainer.style.display = 'block';
-            initializeMap();
-            return;
-        }
-        await new Promise(res => setTimeout(res, 500));
+    // --- API Usage: Firestore Get Document ---
+    // This function would fetch the user's profile from the 'users' collection in Firestore.
+    
+    const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+        renderDashboard(userDoc.data());
+    } else {
+        // If no profile exists, redirect to the questionnaire to set one up.
+        window.location.href = "questionnaire.html";
     }
-    window.location.href = "questionnaire.html";
+    
+
 }
 
 function renderDashboard(userData) {
-    const { classYear, balances, displayName, photoURL, customTitles, showOnWallOfFame, university } = userData;
+    const { balances, displayName, photoURL, showOnWallOfFame, university } = userData;
     
     welcomeMessage.textContent = `Welcome back, ${displayName}!`;
     updateAvatar(photoURL, displayName);
     publicLeaderboardCheckbox.checked = !!showOnWallOfFame;
     
-    classYearDisplay.textContent = classYear;
-    
-    updateBalancesUI(classYear, balances);
-    updateTitlesUI(customTitles);
+    updateBalancesUI(balances);
     fetchAndRenderWeather(university);
-    renderLocationList();
+    
+    // Set newspaper date
+    const today = new Date();
+    if (newspaperDate) {
+        newspaperDate.textContent = today.toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+    }
+    
+    // Hide loading screen and show dashboard
+    loadingIndicator.style.display = 'none';
+    dashboardContainer.style.display = 'block';
 }
 
 function assignDOMElements() {
@@ -98,16 +110,13 @@ function assignDOMElements() {
     welcomeMessage = document.getElementById('welcome-message');
     userAvatar = document.getElementById('user-avatar');
     avatarButton = document.getElementById('avatar-button');
-    classYearDisplay = document.getElementById('class-year-display');
     creditsBalanceEl = document.getElementById('credits-balance');
     diningBalanceEl = document.getElementById('dining-balance');
     swipesBalanceEl = document.getElementById('swipes-balance');
     bonusBalanceEl = document.getElementById('bonus-balance');
     swipesCard = document.getElementById('swipes-card');
     bonusCard = document.getElementById('bonus-card');
-    locationListContainer = document.getElementById('location-list');
     logoutButton = document.querySelector('.tab-item[href="login.html"]');
-    editableTitles = document.querySelectorAll('[data-title-key]');
     tabItems = document.querySelectorAll('.tab-item');
     mainSections = document.querySelectorAll('.main-section');
     leaderboardList = document.getElementById('leaderboard-list');
@@ -120,12 +129,17 @@ function assignDOMElements() {
     pfpSaveButton = document.getElementById('pfp-save-button');
     pfpCloseButton = document.getElementById('pfp-close-button');
     pfpError = document.getElementById('pfp-error');
+    mapOpener = document.getElementById('map-opener');
+    mapModalOverlay = document.getElementById('map-modal-overlay');
+    mapModal = document.getElementById('map-modal');
+    mapCloseButton = document.getElementById('map-close-button');
+    mapRenderTarget = document.getElementById('map-render-target');
+    newspaperDate = document.getElementById('newspaper-date');
 }
 
 function setupEventListeners() {
     const { auth, db, storage } = firebaseServices;
 
-    // Defensive checks to prevent crashes if an element is missing
     if (avatarButton) avatarButton.addEventListener('click', () => pfpModalOverlay.classList.remove('hidden'));
     if (pfpCloseButton) pfpCloseButton.addEventListener('click', closeModal);
     if (pfpModalOverlay) pfpModalOverlay.addEventListener('click', (e) => {
@@ -136,13 +150,11 @@ function setupEventListeners() {
 
     if (logoutButton) logoutButton.addEventListener('click', (e) => {
         e.preventDefault();
+        // --- API Usage: Firebase Sign Out ---
         signOut(auth).then(() => {
             window.location.href = "login.html";
         }).catch((error) => console.error("Logout Error:", error));
-    });
-
-    if (editableTitles) editableTitles.forEach(titleEl => {
-        titleEl.addEventListener('blur', (e) => handleTitleBlur(e, db));
+        window.location.href = "login.html"; // Mock sign out
     });
 
     if (tabItems) tabItems.forEach(tab => {
@@ -150,6 +162,31 @@ function setupEventListeners() {
     });
     
     if (publicLeaderboardCheckbox) publicLeaderboardCheckbox.addEventListener('change', (e) => handlePublicToggle(e, db));
+
+    // Map Modal Listeners
+    if (mapOpener) mapOpener.addEventListener('click', openMapModal);
+    if (mapCloseButton) mapCloseButton.addEventListener('click', closeMapModal);
+    if (mapModalOverlay) mapModalOverlay.addEventListener('click', (e) => {
+        if(e.target === mapModalOverlay) closeMapModal();
+    });
+}
+
+function openMapModal() {
+    // Ensure map is initialized before showing modal
+    if (!map) {
+        initializeMap();
+    }
+    mapModalOverlay.classList.remove('hidden');
+    // Wait for modal to be fully visible before resizing map
+    setTimeout(() => {
+        if (map) {
+            map.invalidateSize();
+        }
+    }, 300); // Increased delay to ensure modal CSS transitions complete
+}
+
+function closeMapModal() {
+    mapModalOverlay.classList.add('hidden');
 }
 
 function updateAvatar(photoURL, displayName) {
@@ -158,21 +195,11 @@ function updateAvatar(photoURL, displayName) {
         pfpPreview.src = photoURL;
     } else {
         const initial = displayName ? displayName.charAt(0).toUpperCase() : '?';
-        const svg = `<svg width="48" height="48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="24" ry="24" fill="#0EA5E9"/><text x="50%" y="50%" font-family="Poppins, sans-serif" font-size="24" fill="#FFFFFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
+        const svg = `<svg width="56" height="56" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="28" ry="28" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="28" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
         const svgUrl = `data:image/svg+xml;base64,${btoa(svg)}`;
         userAvatar.src = svgUrl;
         pfpPreview.src = svgUrl;
     }
-}
-
-function updateTitlesUI(customTitles) {
-    if (!customTitles) return;
-    editableTitles.forEach(titleEl => {
-        const key = titleEl.dataset.titleKey;
-        if (customTitles[key]) {
-            titleEl.textContent = customTitles[key];
-        }
-    });
 }
 
 function closeModal() {
@@ -215,10 +242,14 @@ async function savePfp(storage, db) {
     pfpError.classList.add('hidden');
 
     try {
+        // --- API Usage: Firebase Storage Upload ---
+        // This uploads the selected file to a specific path in Firebase Storage.
         const storageRef = ref(storage, `profile_pictures/${currentUser.uid}`);
         const snapshot = await uploadBytes(storageRef, selectedPfpFile);
         const downloadURL = await getDownloadURL(snapshot.ref);
 
+        // --- API Usage: Firebase Auth & Firestore Update ---
+        // Updates the user's profile in both Firebase Authentication and their Firestore document.
         await updateProfile(currentUser, { photoURL: downloadURL });
         const userDocRef = doc(db, "users", currentUser.uid);
         await updateDoc(userDocRef, { photoURL: downloadURL });
@@ -236,25 +267,6 @@ async function savePfp(storage, db) {
     }
 }
 
-async function handleTitleBlur(e, db) {
-    const key = e.target.dataset.titleKey;
-    const newTitle = e.target.textContent.trim();
-
-    if (!newTitle) {
-        e.target.textContent = e.target.id.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
-        return;
-    }
-
-    if (currentUser) {
-        const userDocRef = doc(db, "users", currentUser.uid);
-        try {
-            await updateDoc(userDocRef, { [`customTitles.${key}`]: newTitle });
-        } catch (error) {
-            console.error("Error updating title:", error);
-        }
-    }
-}
-
 function handleTabClick(e, db) {
     const tab = e.currentTarget;
     if (tab.href.endsWith('#')) {
@@ -269,13 +281,9 @@ function handleTabClick(e, db) {
         document.getElementById(targetSectionId).classList.add('active');
 
         if (targetSectionId === 'leaderboard-section') {
-            pageTitle.textContent = 'Streak Leaderboard';
-            welcomeMessage.style.opacity = '0';
             publicLeaderboardContainer.classList.remove('hidden');
             fetchAndRenderLeaderboard(db);
         } else {
-            pageTitle.textContent = 'Your Funds';
-            welcomeMessage.style.opacity = '1';
             publicLeaderboardContainer.classList.add('hidden');
         }
     }
@@ -283,7 +291,10 @@ function handleTabClick(e, db) {
 
 async function fetchAndRenderLeaderboard(db) {
     if (!leaderboardList) return;
-    leaderboardList.innerHTML = '<div class="spinner"></div>';
+    leaderboardList.innerHTML = '<div class="spinner" style="margin: 2rem auto;"></div>';
+    
+    // --- API Usage: Firestore Query ---
+    // Fetches users from the 'users' collection, ordered by their current streak.
     const usersRef = collection(db, "users");
     const q = query(usersRef, orderBy("currentStreak", "desc"));
     
@@ -294,45 +305,23 @@ async function fetchAndRenderLeaderboard(db) {
         leaderboardList.innerHTML = '';
         users.forEach((user, index) => {
             const item = document.createElement('div');
-            item.className = 'leaderboard-item liquid-glass';
+            item.className = 'leaderboard-item';
             if (user.id === currentUser.uid) {
                 item.classList.add('current-user');
             }
 
             const initial = user.displayName ? user.displayName.charAt(0).toUpperCase() : '?';
-            const svgAvatar = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#0EA5E9"/><text x="50%" y="50%" font-family="Poppins, sans-serif" font-size="20" fill="#FFFFFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
+            const svgAvatar = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="20" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
             const avatarSrc = user.photoURL || `data:image/svg+xml;base64,${btoa(svgAvatar)}`;
-
-            let rankBadge = `<span class="leaderboard-rank">#${index + 1}</span>`;
-            if (index === 0) rankBadge = `<span class="leaderboard-rank rank-badge" style="color: var(--accent-gold);">🥇</span>`;
-            if (index === 1) rankBadge = `<span class="leaderboard-rank rank-badge" style="color: var(--accent-silver);">🥈</span>`;
-            if (index === 2) rankBadge = `<span class="leaderboard-rank rank-badge" style="color: var(--accent-bronze);">🥉</span>`;
-
-            const streak = user.currentStreak || 0;
-            let streakText = `${streak}-day streak!`;
-            let flameClass = 'sm';
-
-            if (streak >= 30) { streakText = "ON FIRE!"; flameClass = 'xl'; } 
-            else if (streak >= 14) { flameClass = 'lg'; } 
-            else if (streak >= 7) { flameClass = 'md'; }
             
-            const fireSVG = streak > 0 ? `<svg class="streak-fire ${flameClass}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.25c-3.87 3.87-6.75 8.62-6.75 12.375 0 3.7275 3.0225 6.75 6.75 6.75s6.75-3.0225 6.75-6.75c0-3.75-2.88-8.505-6.75-12.375z" stroke="url(#flameGradient)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><defs><linearGradient id="flameGradient" x1="12" y1="2" x2="12" y2="21" gradientUnits="userSpaceOnUse"><stop stop-color="#FFC107"/><stop offset="1" stop-color="#FF5722"/></linearGradient></defs></svg>` : '';
-
             item.innerHTML = `
-                ${rankBadge}
+                <span class="leaderboard-rank">#${index + 1}</span>
                 <img src="${avatarSrc}" alt="${user.displayName}" class="leaderboard-avatar">
                 <span class="leaderboard-name">${user.displayName}</span>
-                <div class="leaderboard-streak">${fireSVG} ${streakText}</div>
+                <span class="leaderboard-streak">🔥 ${user.currentStreak || 0}</span>
             `;
             leaderboardList.appendChild(item);
         });
-
-        const currentUserData = users.find(u => u.id === currentUser.uid);
-        if (currentUserData && currentUserData.showOnWallOfFame) {
-            const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
-            const { displayName, photoURL, currentStreak } = currentUserData;
-            await setDoc(wallOfFameDocRef, { displayName, photoURL, currentStreak: currentStreak || 0 });
-        }
 
     } catch (error) {
         console.error("Error fetching leaderboard:", error);
@@ -347,6 +336,8 @@ async function handlePublicToggle(e, db) {
     const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
 
     try {
+        // --- API Usage: Firestore Update/Delete ---
+        // Updates a user's setting and adds/removes them from the public 'wallOfFame' collection.
         await updateDoc(userDocRef, { showOnWallOfFame: isChecked });
         if (isChecked) {
             const userDoc = await getDoc(userDocRef);
@@ -362,38 +353,35 @@ async function handlePublicToggle(e, db) {
     }
 }
 
-function updateBalancesUI(year, balances) {
+function updateBalancesUI(balances) {
     creditsBalanceEl.textContent = `$${balances.credits.toFixed(2)}`;
     diningBalanceEl.textContent = `$${balances.dining.toFixed(2)}`;
-    const showSwipes = year !== 'Senior';
-    swipesCard.classList.toggle('hidden', !showSwipes);
-    bonusCard.classList.toggle('hidden', !showSwipes);
-    if (showSwipes) {
-        swipesBalanceEl.textContent = balances.swipes;
-        bonusBalanceEl.textContent = balances.bonus;
-    }
+    swipesBalanceEl.textContent = balances.swipes;
+    bonusBalanceEl.textContent = balances.bonus;
 }
 
 async function fetchAndRenderWeather(university) {
     const location = university || 'Granville, OH';
     if (!weatherWidget) return;
     weatherWidget.innerHTML = `<div class="spinner"></div>`;
+    
+    // --- API Usage: Serverless Function ---
+    // This fetches data from a serverless function to securely use an API key.
     const apiUrl = `/.netlify/functions/getWeather?university=${encodeURIComponent(location)}`;
 
     try {
         const response = await fetch(apiUrl);
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || `Error: ${response.status}`);
-
+        
         const temp = Math.round(data.main.temp);
         const description = data.weather[0].description;
         const iconCode = data.weather[0].icon;
         const locationName = data.name;
-        const iconSvg = getWeatherIcon(iconCode);
 
         weatherWidget.innerHTML = `
             <div class="weather-content">
-                <div class="weather-icon">${iconSvg}</div>
+                <img src="https://openweathermap.org/img/wn/${iconCode}@2x.png" alt="${description}" class="weather-icon">
                 <div class="weather-details">
                     <div class="weather-temp">${temp}°F</div>
                     <div class="weather-location">${locationName}</div>
@@ -407,48 +395,47 @@ async function fetchAndRenderWeather(university) {
     }
 }
 
-function getWeatherIcon(iconCode) {
-    const iconMap = {'01d':`<svg viewBox="0 0 64 64"><g><circle cx="32" cy="32" r="10" fill="#FFD700" stroke="#FFD700" stroke-width="2"></circle><path d="M32 15 V 5 M32 59 V 49 M49 32 H 59 M5 32 H 15 M45.2 45.2 L 52.3 52.3 M11.7 11.7 L 18.8 18.8 M11.7 52.3 L 18.8 45.2 M45.2 18.8 L 52.3 11.7" fill="none" stroke="#FFD700" stroke-linecap="round" stroke-width="3"></path></g></svg>`,'02d':`<svg viewBox="0 0 64 64"><g><path d="M46.5 31.5h-1.3c-1.8-8.2-9-14-17.7-14-8.1 0-15.1 5-17.2 12.3h-1.3C4.8 30.1 1 34.4 1 39.5c0 5.2 4.2 9.5 9.4 9.5h29.2c5.2 0 9.4-4.2 9.4-9.5 0-4.9-3.7-8.9-8.5-9.4z" fill="#FFD700" stroke="#fff" stroke-linejoin="round" stroke-width="1.2"></path><path d="M46.5 31.5h-1.3c-1.8-8.2-9-14-17.7-14-8.1 0-15.1 5-17.2 12.3h-1.3C4.8 30.1 1 34.4 1 39.5c0 5.2 4.2 9.5 9.4 9.5h29.2c5.2 0 9.4-4.2 9.4-9.5 0-4.9-3.7-8.9-8.5-9.4z" fill="#C6DEFF" stroke="#fff" stroke-linejoin="round" stroke-width="1.2" transform="translate(5, 5) scale(0.8)"></path></g></svg>`,'03d':`<svg viewBox="0 0 64 64"><g><path d="M46.5 31.5h-1.3c-1.8-8.2-9-14-17.7-14-8.1 0-15.1 5-17.2 12.3h-1.3C4.8 30.1 1 34.4 1 39.5c0 5.2 4.2 9.5 9.4 9.5h29.2c5.2 0 9.4-4.2 9.4-9.5 0-4.9-3.7-8.9-8.5-9.4z" fill="#C6DEFF" stroke="#fff" stroke-linejoin="round" stroke-width="1.2"></path></g></svg>`,'04d':`<svg viewBox="0 0 64 64"><g><path d="M46.5 31.5h-1.3c-1.8-8.2-9-14-17.7-14-8.1 0-15.1 5-17.2 12.3h-1.3C4.8 30.1 1 34.4 1 39.5c0 5.2 4.2 9.5 9.4 9.5h29.2c5.2 0 9.4-4.2 9.4-9.5 0-4.9-3.7-8.9-8.5-9.4z" fill="#C6DEFF" stroke="#fff" stroke-linejoin="round" stroke-width="1.2"></path><path d="M46.5 31.5h-1.3c-1.8-8.2-9-14-17.7-14-8.1 0-15.1 5-17.2 12.3h-1.3C4.8 30.1 1 34.4 1 39.5c0 5.2 4.2 9.5 9.4 9.5h29.2c5.2 0 9.4-4.2 9.4-9.5 0-4.9-3.7-8.9-8.5-9.4z" fill="#B0C4DE" stroke="#fff" stroke-linejoin="round" stroke-width="1.2" transform="translate(5, 5) scale(0.8)"></path></g></svg>`,'09d':`<svg viewBox="0 0 64 64"><g><path d="M46.5 31.5h-1.3c-1.8-8.2-9-14-17.7-14-8.1 0-15.1 5-17.2 12.3h-1.3C4.8 30.1 1 34.4 1 39.5c0 5.2 4.2 9.5 9.4 9.5h29.2c5.2 0 9.4-4.2 9.4-9.5 0-4.9-3.7-8.9-8.5-9.4z" fill="#B0C4DE" stroke="#fff" stroke-linejoin="round" stroke-width="1.2"></path><path d="M24 48 l-4 8 M32 48 l-4 8 M40 48 l-4 8" fill="none" stroke="#38BDF8" stroke-width="3" stroke-linecap="round"></path></g></svg>`,'10d':`<svg viewBox="0 0 64 64"><g><path d="M46.5 31.5h-1.3c-1.8-8.2-9-14-17.7-14-8.1 0-15.1 5-17.2 12.3h-1.3C4.8 30.1 1 34.4 1 39.5c0 5.2 4.2 9.5 9.4 9.5h29.2c5.2 0 9.4-4.2 9.4-9.5 0-4.9-3.7-8.9-8.5-9.4z" fill="#C6DEFF" stroke="#fff" stroke-linejoin="round" stroke-width="1.2" transform="translate(5, 5) scale(0.8)"></path><path d="M24 48 l-4 8 M32 48 l-4 8" fill="none" stroke="#38BDF8" stroke-width="3" stroke-linecap="round"></path></g></svg>`,'11d':`<svg viewBox="0 0 64 64"><g><path d="M46.5 31.5h-1.3c-1.8-8.2-9-14-17.7-14-8.1 0-15.1 5-17.2 12.3h-1.3C4.8 30.1 1 34.4 1 39.5c0 5.2 4.2 9.5 9.4 9.5h29.2c5.2 0 9.4-4.2 9.4-9.5 0-4.9-3.7-8.9-8.5-9.4z" fill="#8B949E" stroke="#fff" stroke-linejoin="round" stroke-width="1.2"></path><path d="M32 48 l-4 8 l6 -4 l-4 8" fill="none" stroke="#FFD700" stroke-width="3" stroke-linecap="round"></path></g></svg>`,'13d':`<svg viewBox="0 0 64 64"><g><path d="M46.5 31.5h-1.3c-1.8-8.2-9-14-17.7-14-8.1 0-15.1 5-17.2 12.3h-1.3C4.8 30.1 1 34.4 1 39.5c0 5.2 4.2 9.5 9.4 9.5h29.2c5.2 0 9.4-4.2 9.4-9.5 0-4.9-3.7-8.9-8.5-9.4z" fill="#C6DEFF" stroke="#fff" stroke-linejoin="round" stroke-width="1.2"></path><path d="M24 48 l-2 2 l2 2 l-2 2 l2 2 M32 48 l-2 2 l2 2 l-2 2 l2 2 M40 48 l-2 2 l2 2 l-2 2 l2 2" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"></path></g></svg>`,'50d':`<svg viewBox="0 0 64 64"><g><path d="M5 25 H 59 M5 35 H 59 M5 45 H 59" fill="none" stroke="#B0C4DE" stroke-width="4" stroke-linecap="round"></path></g></svg>`,};
-    const nightCode = iconCode.replace('d', 'n');
-    return iconMap[iconCode] || iconMap[nightCode] || iconMap['01d'];
-}
-
-const paymentTypes = {'credits':{name:'Campus Credits',color:'#F43F5E'},'dining':{name:'Dining Dollars',color:'#38BDF8'},'swipes':{name:'Meal Swipes',color:'#22C55E'},'bonus':{name:'Bonus Swipes',color:'#F97316'}};
-const locations = [{'name':'Ross Granville Market','address':'Inside Slayter Union','coords':[40.0630707,-82.5189282],'accepts':['credits']},{'name':'Station','address':'425 S Main St, Granville','coords':[40.0648271,-82.5205385],'accepts':['credits']},{'name':'Broadway Pub','address':'126 E Broadway, Granville','coords':[40.068128,-82.5191948],'accepts':['credits']},{'name':'Three Tigers','address':'133 N Prospect St, Granville','coords':[40.0683299,-82.5184905],'accepts':['credits']},{'name':'Pochos','address':'128 E Broadway, Granville','coords':[40.0681522,-82.5190099],'accepts':['credits']},{'name':'Harvest','address':'454 S Main St, Granville','coords':[40.063813,-82.520413],'accepts':['credits']},{'name':'Whitt\'s','address':'226 E Broadway, Granville','coords':[40.0680189,-82.5174337],'accepts':['credits']},{'name':'Dragon Village','address':'127 E Broadway, Granville','coords':[40.0676361,-82.5190986],'accepts':['credits']},{'name':'Curtis Dining Hall','address':'100 Smith Ln, Granville','coords':[40.116877,-83.742193],'accepts':['dining','swipes','bonus']},{'name':'Huffman Dining Hall','address':'700 East Loop, Granville','coords':[40.072603,-82.517739],'accepts':['dining','swipes','bonus']},{'name':'Slayter','address':'200 Ridge Rd, Granville','coords':[40.0718253,-82.5243115],'accepts':['dining','bonus']},{'name':'Slivys','address':'Olin Hall, 900 Sunset Hill','coords':[40.0744031,-82.5274519],'accepts':['dining']}];
-
-function renderLocationList() {
-    const groupedLocations = locations.reduce((acc,location)=>{const key=location.accepts.sort().join(',');if(!acc[key]){acc[key]=[];}acc[key].push(location.name);return acc;},{});
-    let listHtml = '';
-    for (const key in groupedLocations) {
-        const paymentKeys = key.split(',');
-        const locationNames = groupedLocations[key];
-        const paymentTypesHtml = paymentKeys.map(k => `<div class="payment-type-tag"><div class="payment-dot" style="background-color: ${paymentTypes[k].color};"></div><span>${paymentTypes[k].name}</span></div>`).join('');
-        const locationNamesHtml = locationNames.map(name => `<li>${name}</li>`).join('');
-        listHtml += `<div class="location-group-card"><div class="location-group-header">${paymentTypesHtml}</div><ul class="location-group-list">${locationNamesHtml}</ul></div>`;
-    }
-    locationListContainer.innerHTML = listHtml;
-}
-
 function initializeMap() {
-    if (!document.getElementById('map') || map) return;
-    map = L.map('map', { scrollWheelZoom: false }).setView([40.069, -82.52], 14);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap &copy; CARTO', subdomains: 'abcd', maxZoom: 20 }).addTo(map);
+    if (!mapRenderTarget || map) return;
     
-    const createCustomMarkerIcon = (colorKeys) => {
-        const dotsSvg = colorKeys.map((key, index) => `<circle cx="${13+index*9}" cy="18" r="4" fill="${paymentTypes[key].color}" stroke="#0D1117" stroke-width="1.5" />`).join('');
-        const iconSvg = `<svg width="40" height="48" viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 48L22.2361 43.5279C27.8637 32.2721 36 22.3405 36 16C36 7.16344 28.8366 0 20 0C11.1634 0 4 7.16344 4 16C4 22.3405 12.1363 32.2721 17.7639 43.5279L20 48Z" fill="#161B22" stroke="#38BDF8" stroke-width="2"/><circle cx="20" cy="16" r="12" fill="#0D1117" opacity="0.5"/>${dotsSvg}</svg>`;
-        return L.divIcon({ className: 'custom-map-marker', html: iconSvg, iconSize: [40, 48], iconAnchor: [20, 48], popupAnchor: [0, -48] });
-    };
+    // Ensure the map container has valid dimensions
+    mapRenderTarget.style.width = '100%';
+    mapRenderTarget.style.height = '100%';
+    
+    map = L.map('map-render-target', {
+        scrollWheelZoom: false,
+        zoomControl: true
+    }).setView([40.069, -82.52], 14);
 
-    locations.forEach(location => {
-        const icon = createCustomMarkerIcon(location.accepts);
-        const paymentsHtml = location.accepts.map(key => `<li><span class="payment-dot" style="background-color: ${paymentTypes[key].color};"></span>${paymentTypes[key].name}</li>`).join('');
-        const popupContent = `<div class="popup-title">${location.name}</div><div class="popup-address">${location.address}</div><ul class="popup-payments-list">${paymentsHtml}</ul>`;
-        L.marker(location.coords, { icon: icon }).addTo(map).bindPopup(popupContent);
+    // Use a more artistic map style
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20
+    }).addTo(map);
+
+    // Add custom markers for coffee shops, dining halls, etc.
+    const coffeeIcon = L.divIcon({
+        html: '<div style="background: #4CAF50; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">☕</div>',
+        iconSize: [30, 30],
+        className: 'custom-div-icon'
     });
+
+    // Add some example markers
+    L.marker([40.069, -82.52], { icon: coffeeIcon }).addTo(map)
+        .bindPopup('Aura Café - Main Campus');
+    L.marker([40.072, -82.525], { icon: coffeeIcon }).addTo(map)
+        .bindPopup('The Daily Grind - Student Union');
+    L.marker([40.065, -82.518], { icon: coffeeIcon }).addTo(map)
+        .bindPopup('Bean There - Library');
+
+    // Force a resize to ensure map renders correctly
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 100);
 }
 
-// FIX: Wait for the DOM to be fully loaded before running the script
+// --- Run the app ---
 document.addEventListener('DOMContentLoaded', () => {
     assignDOMElements();
     main();

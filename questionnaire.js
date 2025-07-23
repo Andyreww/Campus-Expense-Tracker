@@ -132,6 +132,30 @@ async function main() {
             moveSlider(spentNoBtn, spentSelectorContainer, spentMoneyBg);
         });
 
+        // --- Balance Input Validation ---
+        function addBalanceValidation(inputElement, balanceType) {
+            inputElement.addEventListener('input', () => {
+                const defaults = defaultBalances[selectedYear];
+                const maxValue = defaults[balanceType];
+                
+                let currentValue;
+                if (balanceType === 'credits' || balanceType === 'dining') {
+                    currentValue = parseFloat(inputElement.value);
+                } else {
+                    currentValue = parseInt(inputElement.value);
+                }
+
+                if (!isNaN(currentValue) && currentValue > maxValue) {
+                    inputElement.value = maxValue;
+                }
+            });
+        }
+
+        addBalanceValidation(creditsInput, 'credits');
+        addBalanceValidation(diningInput, 'dining');
+        addBalanceValidation(swipesInput, 'swipes');
+        addBalanceValidation(bonusInput, 'bonus');
+
         // --- Save Logic ---
         saveButton.addEventListener('click', async () => {
             if (!currentUser) return;

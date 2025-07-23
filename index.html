@@ -8,11 +8,14 @@
     <!-- External Stylesheet -->
     <link rel="stylesheet" href="style.css">
     
-    <!-- Google Fonts -->
+    <!-- Google Fonts (Cafe Vibe) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Special+Elite&family=Patrick+Hand&display=swap" rel="stylesheet">
     
+    <!-- 3D Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
 </head>
 <body>
 
@@ -20,20 +23,23 @@
     <header id="main-header">
         <div class="container">
             <a href="#" class="logo-link">
-                <h1 class="logo-text">Aura</h1>
+                <h1 class="logo-text">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="logo-icon"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+                    Aura
+                </h1>
             </a>
             
             <div class="header-right-group">
                 <!-- Mobile Menu Button (Unscrolled) -->
                 <button id="mobile-menu-button" class="mobile-menu-toggle">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
                 </button>
 
                 <!-- Desktop Nav -->
                 <div class="desktop-nav-container">
                     <nav class="desktop-nav">
-                        <a href="#features" class="nav-link">Features</a>
-                        <a href="#how-it-works" class="nav-link">How It Works</a>
+                        <a href="#menu" class="nav-link">Menu</a>
+                        <a href="#how-it-works" class="nav-link">Our Method</a>
                     </nav>
                     <a href="login.html" id="desktop-login-button" class="desktop-cta-button">Get Started</a>
                     <a href="dashboard.html" id="user-avatar-link" class="user-avatar-link hidden">
@@ -44,11 +50,11 @@
                 <!-- Scrolled Mobile Dropdown -->
                 <div id="scrolled-menu-container" class="scrolled-menu-container">
                     <button id="scrolled-menu-trigger" class="scrolled-menu-trigger">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
                     </button>
                     <div id="scrolled-menu-panel" class="scrolled-menu-panel">
-                         <a href="#features" class="nav-link">Features</a>
-                         <a href="#how-it-works" class="nav-link">How It Works</a>
+                         <a href="#menu" class="nav-link">Menu</a>
+                         <a href="#how-it-works" class="nav-link">Our Method</a>
                          <a href="login.html" id="scrolled-cta-button" class="desktop-cta-button">Get Started</a>
                     </div>
                 </div>
@@ -59,78 +65,89 @@
     <!-- Mobile Menu Panel (Unscrolled) -->
     <div id="mobile-menu-overlay" class="mobile-menu-overlay"></div>
     <div id="mobile-menu" class="mobile-menu-panel">
-        <a href="#features" class="mobile-menu-link">Features</a>
-        <a href="#how-it-works" class="mobile-menu-link">How It Works</a>
+        <a href="#menu" class="mobile-menu-link">Menu</a>
+        <a href="#how-it-works" class="mobile-menu-link">Our Method</a>
         <a href="login.html" class="mobile-menu-button">Get Started</a>
     </div>
 
     <main>
         <!-- Hero Section -->
         <section class="hero-section">
+            <div id="hero-canvas-container"></div> <!-- This is now the background layer -->
             <div class="hero-content-wrapper">
-                <div class="hero-text-container">
+                <div class="hero-signboard">
                     <h2 class="hero-headline">
-                        <span class="muted-text">Stop Running Out</span>
-                        <span class="highlight-text">Start Eating Smart</span>
+                        Your Campus Balance,
+                        <span class="highlight-text">Served With Style.</span>
                     </h2>
+                    <p class="sub-heading">
+                        Pull up a chair at your new financial hub. Manage funds, track meals, and keep the semester cozy.
+                    </p>
+                    <a href="login.html" id="hero-cta-button" class="hero-button">
+                        Start Brewing
+                        <span class="leaf-icon">🌿</span>
+                    </a>
                 </div>
-                <p class="sub-heading">
-                    The essential website for students to finally get a grip on their campus funds and meal plans.
-                </p>
-                <a href="login.html" id="hero-cta-button" class="hero-button">
-                    Take Control Now
-                </a>
             </div>
         </section>
 
         <!-- Wall of Fame Section -->
         <section id="wall-of-fame" class="wall-of-fame-section">
             <div class="container">
-                <div class="wall-of-fame-card liquid-glass">
-                    <h3 class="wall-of-fame-title">🔥 Wall of Fame</h3>
+                <div class="wall-of-fame-card">
+                    <h3 class="wall-of-fame-title">Top of the Grind</h3>
                     <div id="wall-of-fame-list" class="wall-of-fame-list">
                         <!-- Top players will be injected here by JS -->
-                        <p class="loading-text">Loading top players...</p>
+                        <p class="loading-text">Loading our top grinders...</p>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Features Section -->
-        <section id="features" class="features-section">
+        <!-- Cafe Menu Section -->
+        <section id="menu" class="menu-section">
             <div class="container">
-                <div class="features-grid">
-                    <!-- Feature 1 -->
-                    <div class="feature-card">
-                        <div class="feature-card-content">
-                            <div class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg></div>
-                            <h3 class="feature-title">Track Everything</h3>
-                            <p class="feature-description">Log Campus Credits, Dining Dollars, and Meal Swipes in one place.</p>
+                <div class="section-header">
+                    <h2 class="section-title">Today's Specials</h2>
+                    <p class="section-subtitle">Freshly brewed features to help you thrive.</p>
+                </div>
+
+                <div class="cafe-menu-board">
+                    <!-- Menu Item 1 -->
+                    <div class="menu-item">
+                        <div class="menu-item-header">
+                            <h3 class="menu-item-title">The Daily Grind Tracker</h3>
+                            <span class="menu-item-dots"></span>
+                            <span class="menu-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12" y2="18"></line><path d="M12 14v-4"></path><path d="M12 8h.01"></path></svg></span>
                         </div>
+                        <p class="menu-item-description">Your one-stop-shop to see Campus Credits, Dining Dollars, and Meal Swipes.</p>
                     </div>
-                    <!-- Feature 2 -->
-                    <div class="feature-card">
-                        <div class="feature-card-content">
-                            <div class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></div>
-                            <h3 class="feature-title">Campus Directory</h3>
-                            <p class="feature-description">See every spot on & off campus that takes your funds. No more guessing.</p>
+                    <!-- Menu Item 2 -->
+                    <div class="menu-item">
+                        <div class="menu-item-header">
+                            <h3 class="menu-item-title">The Campus Compass</h3>
+                            <span class="menu-item-dots"></span>
+                            <span class="menu-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-1.265.813l-1.886 6.13a1 1 0 0 1-1.041.814l-5.432-.822a1 1 0 0 0-1.118 1.036l1.24 5.441a1 1 0 0 1-.53 1.154l-2.223 1.112a1 1 0 0 1-1.265-.813l-1.886-6.13a1 1 0 0 1 1.041-.814l5.432.822a1 1 0 0 0 1.118-1.036L9.83 3.75a1 1 0 0 1 .53-1.154l2.223-1.112a1 1 0 0 1 1.265.813Z"></path></svg></span>
                         </div>
+                        <p class="menu-item-description">Find every spot that takes your funds, on or off campus. Never guess again.</p>
                     </div>
-                    <!-- Feature 3 -->
-                    <div class="feature-card">
-                        <div class="feature-card-content">
-                            <div class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg></div>
-                            <h3 class="feature-title">Live Weather</h3>
-                            <p class="feature-description">Check the campus weather to decide if that walk to the dining hall is worth it.</p>
+                    <!-- Menu Item 3 -->
+                    <div class="menu-item">
+                        <div class="menu-item-header">
+                            <h3 class="menu-item-title">The Weather Window</h3>
+                            <span class="menu-item-dots"></span>
+                            <span class="menu-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path><path d="M22 10a4.5 4.5 0 0 0-8-2.3V6a4 4 0 0 0-8 0"></path></svg></span>
                         </div>
+                        <p class="menu-item-description">Check the campus forecast before you make the trek to the dining hall.</p>
                     </div>
-                    <!-- Feature 4 -->
-                    <div class="feature-card">
-                        <div class="feature-card-content">
-                           <div class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-3 14-3 6-3-6-3-14h18z"></path><path d="m17.5 22-5-10-5 10"></path></svg></div>
-                            <h3 class="feature-title">Find Deals</h3>
-                            <p class="feature-description">Our scraper finds the best deals at local spots so you save money.</p>
+                    <!-- Menu Item 4 -->
+                    <div class="menu-item">
+                        <div class="menu-item-header">
+                            <h3 class="menu-item-title">The Daily Deal</h3>
+                            <span class="menu-item-dots"></span>
+                            <span class="menu-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2.86 2.86 0 0 0-2.86 2.86v0a2.86 2.86 0 0 0 2.86 2.86h0a2.86 2.86 0 0 0 2.86-2.86v0A2.86 2.86 0 0 0 12 2Z"></path><path d="M12 22a8 8 0 0 0 8-8V9a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v5a8 8 0 0 0 8 8Z"></path><path d="M12 12a3 3 0 0 0-3 3"></path></svg></span>
                         </div>
+                        <p class="menu-item-description">We find the best deals at local spots so you can save your bells.</p>
                     </div>
                 </div>
             </div>
@@ -139,47 +156,44 @@
         <!-- How It Works Section -->
         <section id="how-it-works" class="how-it-works-section">
             <div class="container">
-                <div class="section-header">
-                    <h2 class="section-title">It's This Easy.</h2>
-                    <p class="section-subtitle">Three steps to financial freedom on campus.</p>
-                </div>
-                <div class="steps-container">
-                    <!-- The connecting line -->
-                    <div class="steps-line"></div>
-                    <!-- Step 1 -->
-                    <div class="step-item fade-in-element">
-                        <div class="step-text-content">
-                            <span class="step-number">01</span>
-                            <h3 class="step-title">Set Your Balance</h3>
-                            <p class="step-description">Check your account once, punch in your numbers, and you're set for the semester.</p>
-                        </div>
-                        <div class="step-visual">
-                            <!-- Video for Step 1 -->
-                            <video class="step-video" src="SB.mp4" muted loop playsinline></video>
-                        </div>
+                <div class="cafe-sign-board">
+                    <div class="section-header">
+                        <h2 class="section-title">Our Simple Method</h2>
+                        <p class="section-subtitle">Three steps to financial freedom on campus.</p>
                     </div>
-                    <!-- Step 2 -->
-                    <div class="step-item fade-in-element">
-                        <div class="step-text-content">
-                            <span class="step-number">02</span>
-                            <h3 class="step-title">Log Your Buys</h3>
-                            <p class="step-description">Bought a coffee? Tap the '+' button, find your item, and confirm. Done in seconds.</p>
+                    <div class="steps-container">
+                        <!-- Step 1 -->
+                        <div class="step-item fade-in-element">
+                            <div class="step-text-content">
+                                <span class="step-number">01</span>
+                                <h3 class="step-title">Set Your Balance</h3>
+                                <p class="step-description">Check your account once, punch in your numbers, and you're set for the semester.</p>
+                            </div>
+                            <div class="step-visual">
+                                <video class="step-video" src="SB.mp4" muted loop playsinline></video>
+                            </div>
                         </div>
-                        <div class="step-visual">
-                            <!-- Video for Step 2 -->
-                            <video class="step-video" src="UB.mp4" muted loop playsinline></video>
+                        <!-- Step 2 -->
+                        <div class="step-item fade-in-element">
+                            <div class="step-text-content">
+                                <span class="step-number">02</span>
+                                <h3 class="step-title">Log Your Buys</h3>
+                                <p class="step-description">Bought a coffee? Tap the '+' button, find your item, and confirm. Done in seconds.</p>
+                            </div>
+                            <div class="step-visual">
+                                <video class="step-video" src="UB.mp4" muted loop playsinline></video>
+                            </div>
                         </div>
-                    </div>
-                    <!-- Step 3 -->
-                    <div class="step-item fade-in-element">
-                        <div class="step-text-content">
-                            <span class="step-number">03</span>
-                            <h3 class="step-title">Never Go Broke</h3>
-                            <p class="step-description">Watch your balance update instantly. Make smarter choices and finish strong.</p>
-                        </div>
-                         <div class="step-visual">
-                            <!-- Video for Step 3 -->
-                            <video class="step-video" src="BH.mp4" muted loop playsinline></video>
+                        <!-- Step 3 -->
+                        <div class="step-item fade-in-element">
+                            <div class="step-text-content">
+                                <span class="step-number">03</span>
+                                <h3 class="step-title">Never Go Broke</h3>
+                                <p class="step-description">Watch your balance update instantly. Make smarter choices and finish strong.</p>
+                            </div>
+                             <div class="step-visual">
+                                <video class="step-video" src="BH.mp4" muted loop playsinline></video>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -202,5 +216,160 @@
 
     <!-- Firebase -->
     <script src="script.js" type="module"></script>
+    
+    <!-- 3D Hero Scene -->
+    <script type="module">
+        // Ensure Three.js is loaded
+        if (typeof THREE === 'undefined') {
+            console.error('Three.js has not been loaded.');
+            return;
+        }
+
+        const container = document.getElementById('hero-canvas-container');
+        if (!container) return;
+
+        // Scene, Camera, Renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        // Lighting (warmer for a cozier vibe)
+        const ambientLight = new THREE.AmbientLight(0xfff0e0, 0.7);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffeadd, 0.8);
+        directionalLight.position.set(5, 10, 7.5);
+        scene.add(directionalLight);
+
+        // Materials (more matte and ceramic-like)
+        const mugMaterial = new THREE.MeshStandardMaterial({ color: 0xfff8e7, roughness: 0.7, metalness: 0.1 });
+        const steamMaterial = new THREE.MeshStandardMaterial({ color: 0xF0EAD6, transparent: true, opacity: 0.3 });
+
+        // Coffee Mug Group
+        const mugGroup = new THREE.Group();
+        
+        // Mug Body (using a Torus)
+        const bodyGeometry = new THREE.TorusGeometry(1, 0.4, 16, 100);
+        const mugBody = new THREE.Mesh(bodyGeometry, mugMaterial);
+        mugBody.rotation.x = Math.PI / 2;
+        mugGroup.add(mugBody);
+
+        // Mug Base
+        const baseGeometry = new THREE.CylinderGeometry(0.9, 1, 0.2, 32);
+        const mugBase = new THREE.Mesh(baseGeometry, mugMaterial);
+        mugBase.position.y = -0.7;
+        mugGroup.add(mugBase);
+
+        // Mug Handle
+        const handleGeometry = new THREE.TorusGeometry(0.6, 0.15, 16, 100, Math.PI * 1.5);
+        const mugHandle = new THREE.Mesh(handleGeometry, mugMaterial);
+        mugHandle.position.x = 1.3;
+        mugHandle.rotation.y = Math.PI / 2;
+        mugGroup.add(mugHandle);
+
+        scene.add(mugGroup);
+        
+        // Steam Particles
+        const steamParticles = [];
+        for (let i = 0; i < 30; i++) {
+            const particleGeometry = new THREE.SphereGeometry(Math.random() * 0.1 + 0.05, 8, 8);
+            const particle = new THREE.Mesh(particleGeometry, steamMaterial);
+            
+            particle.position.set(
+                (Math.random() - 0.5) * 1.5,
+                (Math.random() * 1) + 0.5,
+                (Math.random() - 0.5) * 1.5
+            );
+            particle.userData.initialY = particle.position.y;
+            scene.add(particle);
+            steamParticles.push(particle);
+        }
+
+        // Floating Sparkle Particles for that Animal Crossing magic
+        const sparkles = [];
+        const sparkleGeometry = new THREE.SphereGeometry(0.03, 8, 8);
+        const sparkleMaterial = new THREE.MeshBasicMaterial({ color: 0xffe45c, transparent: true, opacity: 0.8 });
+
+        for (let i = 0; i < 50; i++) {
+            const sparkle = new THREE.Mesh(sparkleGeometry, sparkleMaterial);
+            sparkle.position.set(
+                (Math.random() - 0.5) * 8,
+                (Math.random() - 0.5) * 6,
+                (Math.random() - 0.5) * 4
+            );
+            sparkle.userData.velocity = new THREE.Vector3(
+                (Math.random() - 0.5) * 0.005,
+                (Math.random() - 0.5) * 0.005,
+                0
+            );
+            scene.add(sparkle);
+            sparkles.push(sparkle);
+        }
+
+        camera.position.z = 5;
+
+        // Mouse interaction
+        let mouseX = 0, mouseY = 0;
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        // Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Mug rotation
+            mugGroup.rotation.y += 0.005;
+            
+            // Steam animation
+            steamParticles.forEach(p => {
+                p.position.y += 0.01;
+                p.material.opacity = Math.max(0, p.material.opacity - 0.005);
+                if (p.position.y > 3) {
+                    p.position.y = p.userData.initialY;
+                    p.material.opacity = 0.3;
+                }
+            });
+
+            // Animate sparkles
+            sparkles.forEach(sparkle => {
+                sparkle.position.add(sparkle.userData.velocity);
+                // Twinkle effect
+                sparkle.material.opacity = Math.sin(Date.now() * 0.001 + sparkle.position.x) * 0.4 + 0.6; 
+
+                // Reset if they go too far
+                if (Math.abs(sparkle.position.x) > 4 || Math.abs(sparkle.position.y) > 3) {
+                    sparkle.position.set(
+                        (Math.random() - 0.5) * 8,
+                        (Math.random() - 0.5) * 6,
+                        (Math.random() - 0.5) * 4
+                    );
+                }
+            });
+
+            // Camera parallax effect
+            camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.05;
+            camera.position.y += (mouseY * 0.5 - camera.position.y) * 0.05;
+            camera.lookAt(scene.position);
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (container.clientWidth > 0 && container.clientHeight > 0) {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+        });
+
+        animate();
+    </script>
+
 </body>
 </html>

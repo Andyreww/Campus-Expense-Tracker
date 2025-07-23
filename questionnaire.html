@@ -7,84 +7,76 @@
     <link rel="stylesheet" href="questionnaire.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Patrick+Hand&family=Special+Elite&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="questionnaire-container">
-        <div class="questionnaire-card">
-            <div class="card-content">
-                <h1 id="page-title">One Last Step!</h1>
-                <p id="welcome-message">Let's get your account set up.</p>
+        <div class="order-pad">
+            <h1 id="page-title">Let's Get You Settled In!</h1>
+            <p id="welcome-message">Just a few quick questions to personalize your space.</p>
 
-                <main id="main-content">
-                    <!-- 1. Enter Display Name -->
-                    <section class="form-section">
-                        <h2 class="section-title">1. Choose your display name</h2>
-                        <div class="input-container">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="input-icon"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            <input type="text" id="name-input" placeholder="Your Name" class="form-input">
-                        </div>
-                    </section>
-                    
-                    <!-- 2. Enter University Name -->
-                    <section class="form-section">
-                        <h2 class="section-title">2. What's your university?</h2>
-                        <div class="input-container">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="input-icon"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
-                            <input type="text" id="university-input" placeholder="University Name" class="form-input">
-                        </div>
-                    </section>
+            <main id="main-content">
+                <!-- 1. Enter Display Name -->
+                <section class="form-section">
+                    <label for="name-input" class="section-title">Name for the Order:</label>
+                    <input type="text" id="name-input" placeholder="Latte Larry" class="form-input">
+                </section>
+                
+                <!-- 2. Enter University Name -->
+                <section class="form-section">
+                    <label for="university-input" class="section-title">Campus of Choice?</label>
+                    <input type="text" id="university-input" placeholder="Oatmilk University" class="form-input">
+                </section>
 
-                    <!-- 3. Select Class Year -->
-                    <section class="form-section">
-                        <h2 class="section-title">3. Select your class year</h2>
-                        <div class="selector-container year-selector-container">
-                            <div id="year-selector-bg" class="selector-bg"></div>
-                            <div class="selector-option" data-year="Freshman">Freshman</div>
-                            <div class="selector-option" data-year="Sophomore">Sophomore</div>
-                            <div class="selector-option" data-year="Junior">Junior</div>
-                            <div class="selector-option" data-year="Senior">Senior</div>
-                        </div>
-                    </section>
+                <!-- 3. Select Class Year -->
+                <section class="form-section">
+                    <h2 class="section-title">How long you been a regular?</h2>
+                    <div class="selector-container year-selector-container">
+                        <div id="year-selector-bg" class="selector-bg"></div>
+                        <div class="selector-option" data-year="Freshman">Freshman</div>
+                        <div class="selector-option" data-year="Sophomore">Sophomore</div>
+                        <div class="selector-option" data-year="Junior">Junior</div>
+                        <div class="selector-option" data-year="Senior">Senior</div>
+                    </div>
+                </section>
 
-                    <!-- 4. Ask if they've spent money -->
-                    <section class="form-section">
-                        <h2 class="section-title">4. Have you spent any money yet?</h2>
-                        <div class="selector-container spent-selector-container">
-                            <div id="spent-money-bg" class="selector-bg"></div>
-                            <div id="spent-no" class="selector-option">No, start me fresh</div>
-                            <div id="spent-yes" class="selector-option">Yes, let me update</div>
-                        </div>
-                    </section>
+                <!-- 4. Ask if they've spent money -->
+                <section class="form-section">
+                    <h2 class="section-title">Already started a tab?</h2>
+                    <div class="selector-container spent-selector-container">
+                        <div id="spent-money-bg" class="selector-bg"></div>
+                        <div id="spent-no" class="selector-option">No, start me fresh</div>
+                        <div id="spent-yes" class="selector-option">Yes, let me update</div>
+                    </div>
+                </section>
 
-                    <!-- 5. Conditionally show balance inputs -->
-                    <section id="balance-inputs-container" class="balance-inputs">
-                        <h2 class="section-title">Enter your current balances:</h2>
-                        <div class="balance-grid">
-                            <div>
-                                <label for="credits-input">Campus Credits</label>
-                                <input type="number" id="credits-input" placeholder="50.00" class="form-input">
-                            </div>
-                            <div>
-                                <label for="dining-input">Dining Dollars</label>
-                                <input type="number" id="dining-input" placeholder="375.00" class="form-input">
-                            </div>
-                            <div id="swipes-input-group">
-                                <label for="swipes-input">Meal Swipes</label>
-                                <input type="number" id="swipes-input" placeholder="15" class="form-input">
-                            </div>
-                            <div id="bonus-input-group">
-                                <label for="bonus-input">Bonus Swipes</label>
-                                <input type="number" id="bonus-input" placeholder="4" class="form-input">
-                            </div>
+                <!-- 5. Conditionally show balance inputs -->
+                <section id="balance-inputs-container" class="balance-inputs">
+                    <h2 class="section-title">Update your tab:</h2>
+                    <div class="balance-grid">
+                        <div>
+                            <label for="credits-input">Campus Credits</label>
+                            <input type="number" id="credits-input" placeholder="50.00" class="form-input balance-input">
                         </div>
-                    </section>
+                        <div>
+                            <label for="dining-input">Dining Dollars</label>
+                            <input type="number" id="dining-input" placeholder="375.00" class="form-input balance-input">
+                        </div>
+                        <div id="swipes-input-group">
+                            <label for="swipes-input">Meal Swipes</label>
+                            <input type="number" id="swipes-input" placeholder="15" class="form-input balance-input">
+                        </div>
+                        <div id="bonus-input-group">
+                            <label for="bonus-input">Bonus Swipes</label>
+                            <input type="number" id="bonus-input" placeholder="4" class="form-input balance-input">
+                        </div>
+                    </div>
+                </section>
 
-                    <!-- Save Button -->
-                    <button id="save-button" class="save-button">Save & Go to Dashboard</button>
-                    <p id="questionnaire-error" class="error-message hidden"></p>
-                </main>
-            </div>
+                <!-- Save Button -->
+                <button id="save-button" class="save-button">Place my Order!</button>
+                <p id="questionnaire-error" class="error-message hidden"></p>
+            </main>
         </div>
     </div>
 

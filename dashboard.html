@@ -9,19 +9,12 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Patrick+Hand&family=Special+Elite&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 </head>
 <body>
-
-    <!-- Aurora Background -->
-    <div class="aurora-background">
-        <div class="aurora-shape-1"></div>
-        <div class="aurora-shape-2"></div>
-        <div class="aurora-shape-3"></div>
-    </div>
 
     <!-- Loading Indicator -->
     <div id="loading-indicator" class="loading-overlay">
@@ -30,8 +23,8 @@
 
     <!-- Profile Picture Modal -->
     <div id="pfp-modal-overlay" class="modal-overlay hidden">
-        <div id="pfp-modal" class="pfp-modal liquid-glass">
-            <h2>Change Profile Picture</h2>
+        <div id="pfp-modal" class="pfp-modal">
+            <h2>Change Your Look</h2>
             <img id="pfp-preview" src="" alt="New profile picture preview" class="pfp-preview">
             <p id="pfp-error" class="error-message hidden"></p>
             <div class="pfp-buttons">
@@ -43,11 +36,19 @@
         </div>
     </div>
 
+     <!-- Map Modal -->
+    <div id="map-modal-overlay" class="modal-overlay hidden">
+        <div id="map-modal" class="map-modal">
+            <div id="map-render-target"></div>
+            <button id="map-close-button" class="close-button">&times;</button>
+        </div>
+    </div>
+
     <div id="dashboard-container" class="dashboard-container" style="display: none;">
         <!-- Main Header -->
         <header class="dashboard-header">
             <div>
-                <h1 id="page-title">Your Funds</h1>
+                <h1 id="page-title">Your Cozy Nook</h1>
                 <p id="welcome-message">Loading...</p>
             </div>
             <button id="avatar-button" class="avatar-button">
@@ -58,111 +59,119 @@
         <!-- Main Content Area -->
         <div id="main-content-wrapper">
             <main id="home-section" class="main-section active">
-                <!-- Class Year Display -->
-                <div id="class-year-display" class="class-year-display liquid-glass">
-                    <!-- Year will be injected by JS -->
+                <div class="tabletop">
+                    <!-- Aura Bells -->
+                    <div id="credits-card" class="table-item item-credits">
+                        <div class="bell-bag">
+                             <svg viewBox="0 0 100 100" class="bell-bag-svg">
+                                <defs>
+                                    <radialGradient id="bell-gradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                                        <stop offset="0%" style="stop-color:#EACCA8;stop-opacity:1" />
+                                        <stop offset="100%" style="stop-color:#DDAA66;stop-opacity:1" />
+                                    </radialGradient>
+                                </defs>
+                                <path d="M20 90 C 20 70, 30 60, 50 60 S 80 70, 80 90 Z" fill="url(#bell-gradient)"/>
+                                <path d="M50 60 C 40 50, 60 50, 50 60" fill="none" stroke="#A0522D" stroke-width="4" stroke-linecap="round"/>
+                                <text x="50" y="85" font-family="'Patrick Hand', cursive" font-size="20" fill="#A0522D" text-anchor="middle">★</text>
+                            </svg>
+                        </div>
+                        <div class="item-details">
+                            <span class="item-title">Aura Bells</span>
+                            <div class="item-balance" id="credits-balance">$0.00</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Dining Dollars Wallet -->
+                    <div id="dining-card" class="table-item item-dining">
+                        <div class="wallet">
+                            <div class="wallet-top"></div>
+                            <div class="wallet-bottom">
+                                <div class="cash-bills">
+                                    <div class="bill bill-1"></div>
+                                    <div class="bill bill-2"></div>
+                                    <div class="bill bill-3"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="item-details">
+                            <span class="item-title">Dining Dollars</span>
+                            <div class="item-balance" id="dining-balance">$0.00</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Meal Swipes -->
+                    <div id="swipes-card" class="table-item item-coasters">
+                        <div class="coaster-stack">
+                            <div class="coaster"></div>
+                            <div class="coaster"></div>
+                            <div class="coaster"></div>
+                        </div>
+                         <div class="item-details">
+                            <span class="item-title">Meal Swipes</span>
+                            <div class="item-balance" id="swipes-balance">0</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Bonus Swipes -->
+                     <div id="bonus-card" class="table-item item-bonus">
+                        <div class="coaster-stack">
+                            <div class="coaster bonus-coaster">★</div>
+                        </div>
+                        <div class="item-details">
+                            <span class="item-title">Bonus Swipes</span>
+                            <div class="item-balance" id="bonus-balance">0</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Weather Widget -->
+                    <section id="weather-widget" class="table-item weather-note">
+                        <!-- Weather content will be injected by JS -->
+                    </section>
+    
+                    <!-- Map Section -->
+                    <section class="table-item map-container" id="map-opener">
+                        <div class="folded-map">
+                            <div class="map-fold-top"></div>
+                            <div class="map-fold-bottom"></div>
+                            <span class="map-label">Campus Map</span>
+                        </div>
+                    </section>
                 </div>
-
-                <!-- Balance Cards -->
-                <section class="balance-cards">
-                    <div id="credits-card" class="balance-card">
-                        <div class="card-content">
-                            <div class="card-header">
-                                <span id="credits-title" contenteditable="true" data-title-key="credits">Campus Credits</span>
-                                <span class="card-icon">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
-                                </span>
-                            </div>
-                            <div class="card-balance" id="credits-balance" contenteditable="true" data-currency="true">$0.00</div>
-                        </div>
-                    </div>
-                    <div id="dining-card" class="balance-card">
-                        <div class="card-content">
-                            <div class="card-header">
-                                <span id="dining-title" contenteditable="true" data-title-key="dining">Dining Dollars</span>
-                                <span class="card-icon">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 002-2V2"></path><path d="M7 2v20"></path><path d="M21 15V2v0a5 5 0 00-5 5v6c0 1.1.9 2 2 2h3z"></path></svg>
-                                </span>
-                            </div>
-                            <div class="card-balance" id="dining-balance" contenteditable="true" data-currency="true">$0.00</div>
-                        </div>
-                    </div>
-                    <div id="swipes-card" class="balance-card">
-                        <div class="card-content">
-                            <div class="card-header">
-                                <span id="swipes-title" contenteditable="true" data-title-key="swipes">Meal Swipes</span>
-                                <span class="card-icon">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"></path></svg>
-                                </span>
-                            </div>
-                            <div class="card-balance" id="swipes-balance" contenteditable="true">0</div>
-                            <p class="card-subtext">Resets Sunday</p>
-                        </div>
-                    </div>
-                    <div id="bonus-card" class="balance-card">
-                        <div class="card-content">
-                            <div class="card-header">
-                                <span id="bonus-title" contenteditable="true" data-title-key="bonus">Bonus Swipes</span>
-                                <span class="card-icon">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                                </span>
-                            </div>
-                            <div class="card-balance" id="bonus-balance" contenteditable="true">0</div>
-                             <p class="card-subtext">Per Semester</p>
-                        </div>
-                    </div>
-                </section>
-                
-                <!-- Weather Widget -->
-                <section id="weather-widget" class="liquid-glass">
-                    <!-- Weather content will be injected by JS -->
-                </section>
-
-                <section class="map-section">
-                    <h2 class="section-title">Locations</h2>
-                    <div id="map"></div>
-                </section>
-
-                <section class="location-list-section">
-                     <h2 class="section-title">All Locations</h2>
-                     <div id="location-list">
-                         <!-- Location items will be injected here by JS -->
-                     </div>
-                </section>
             </main>
 
             <main id="leaderboard-section" class="main-section">
-                <div class="leaderboard-header">
-                    <h2 class="section-title">Streak Leaderboard</h2>
-                    <p class="section-subtitle">Log a purchase every day to climb the ranks!</p>
-                </div>
-                <div id="leaderboard-list" class="leaderboard-list">
-                    <!-- Leaderboard will be rendered here -->
+                <div class="leaderboard-newspaper">
+                     <div class="leaderboard-header">
+                        <h2 class="newspaper-title">The Daily Grind</h2>
+                        <p class="newspaper-subtitle">Your guide to the top regulars on campus!</p>
+                        <p class="newspaper-date" id="newspaper-date"></p>
+                    </div>
+                    <div id="leaderboard-list" class="leaderboard-list">
+                        <!-- Leaderboard will be rendered here -->
+                    </div>
                 </div>
             </main>
         </div>
     </div>
 
-    <a href="log_purchase.html" class="fab">
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-    </a>
+    <a href="log_purchase.html" class="fab">🌿</a>
     
-    <div id="public-leaderboard-container" class="public-leaderboard-container liquid-glass hidden">
+    <div id="public-leaderboard-container" class="public-leaderboard-container hidden">
         <label class="public-leaderboard-toggle">
             <input type="checkbox" id="public-leaderboard-checkbox">
             <span class="slider"></span>
         </label>
-        <span>Show on Public Leaderboard?</span>
+        <span>Show on Wall of Fame?</span>
     </div>
 
     <nav class="bottom-tab-bar">
         <a href="#" class="tab-item active" data-section="home-section">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-            <span>Home</span>
+            <span>Your Table</span>
         </a>
         <a href="#" class="tab-item" data-section="leaderboard-section">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-            <span>Streaks</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+            <span>Daily Grind</span>
         </a>
         <a href="login.html" class="tab-item">
              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
