@@ -363,6 +363,16 @@ async function main() {
                     longestStreak: longestStreak,
                     lastLogDate: Timestamp.now()
                 });
+
+                // Wall of Fame update
+                if (userData.showOnWallOfFame) {
+                    const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
+                    await setDoc(wallOfFameDocRef, {
+                        displayName: currentUser.displayName,
+                        photoURL: currentUser.photoURL || "",
+                        currentStreak: currentStreak
+                    }, { merge: true });
+                }
                 
                 cart = [];
                 await loadPurchaseHistory();
