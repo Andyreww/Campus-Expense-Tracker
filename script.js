@@ -37,9 +37,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const scrolledMenuPanel = document.getElementById('scrolled-menu-panel');
 
     // --- Auth State Logic ---
+    let currentUser = null;
     if (auth) {
         onAuthStateChanged(auth, async (user) => {
             if (user) {
+                // Set currentUser globally for use elsewhere
+                currentUser = user;
                 // User is signed in
                 desktopLoginBtn.classList.add('hidden');
                 userAvatarLink.classList.remove('hidden');
@@ -72,6 +75,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     }
                 }
+                // --- Update Wall of Fame Entry if opted-in after login ---
+                updateWallOfFameEntry();
             } else {
                 // User is signed out
                 desktopLoginBtn.classList.remove('hidden');
@@ -80,6 +85,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
+
+    // --- Function to update Wall of Fame Entry on opt-in change ---
+    const updateWallOfFameEntry = async () => {
+        try {
+            if (!db || !currentUser) return;
+            const wallOfFameRef = collection(db, "wallOfFame");
+            const userDocRef = collection(db, "users");
+            const userQuery = query(userDocRef, where("uid", "==", currentUser.uid));
+            const userSnapshot = await getDocs(userQuery);
+            if (!userSnapshot.empty) {
+                const userData = userSnapshot.docs[0].data();
+                if (userData.showOnWallOfFame) {
+                    const { setDoc, doc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                    await setDoc(doc(wallOfFameRef, currentUser.uid), {
+                        displayName: currentUser.displayName || "Anonymous",
+                        photoURL: currentUser.photoURL || "",
+                        currentStreak: userData.currentStreak || 0
+                    }, { merge: true });
+                }
+            }
+        } catch (error) {
+            console.error("Error updating Wall of Fame entry:", error);
+        }
+    };
 
     // --- Wall of Fame Logic ---
     const fetchWallOfFame = async () => {
