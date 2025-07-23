@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Auth State Logic ---
     if (auth) {
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
                 // User is signed in
                 desktopLoginBtn.classList.add('hidden');
@@ -51,6 +51,26 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const initial = (user.displayName || user.email).charAt(0).toUpperCase();
                     const svg = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#0EA5E9"/><text x="50%" y="50%" font-family="Poppins, sans-serif" font-size="20" fill="#FFFFFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
                     userAvatarImg.src = `data:image/svg+xml;base64,${btoa(svg)}`;
+                }
+
+                // --- Wall of Fame Opt-In Logic ---
+                if (db) {
+                    const userDocRef = collection(db, "users");
+                    const userQuery = query(userDocRef, where("uid", "==", user.uid));
+                    const userSnapshot = await getDocs(userQuery);
+                    if (!userSnapshot.empty) {
+                        const userData = userSnapshot.docs[0].data();
+                        if (userData.showOnWallOfFame) {
+                            const wallOfFameRef = collection(db, "wallOfFame");
+                            // Use setDoc to update or create the wallOfFame entry for this user
+                            const { setDoc, doc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                            await setDoc(doc(wallOfFameRef, user.uid), {
+                                displayName: user.displayName || "Anonymous",
+                                photoURL: user.photoURL || "",
+                                currentStreak: userData.currentStreak || 0
+                            }, { merge: true });
+                        }
+                    }
                 }
             } else {
                 // User is signed out
