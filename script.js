@@ -2,23 +2,24 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, collection, query, where, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
 
-    // --- Firebase Config ---
-    // NOTE: It's recommended to use environment variables for Firebase config in a real project
-    const firebaseConfig = {
-      apiKey: "AIzaSyCPQe0CL9FmUu2auma8s5Zkh9hCIV41jfg",
-      authDomain: "big-red-balance.firebaseapp.com",
-      projectId: "big-red-balance",
-      storageBucket: "big-red-balance.firebasestorage.app",
-      messagingSenderId: "100680274894",
-      appId: "1:100680274894:web:527953526eeffb00e9d19f"
-    };
+    // --- Fetch Firebase Config from Netlify Function and Initialize Firebase ---
+    let auth, db;
+    try {
+        const response = await fetch('/.netlify/functions/getFirebaseConfig');
+        if (!response.ok) {
+            throw new Error('Failed to load Firebase config.');
+        }
+        const firebaseConfig = await response.json();
 
-    // --- Initialize Firebase ---
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+    } catch (error) {
+        console.error("Error initializing Firebase with Netlify config:", error);
+        // Continue script execution even if Firebase fails
+    }
 
     // --- DOM Elements ---
     const desktopLoginBtn = document.getElementById('desktop-login-button');
@@ -36,27 +37,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const scrolledMenuPanel = document.getElementById('scrolled-menu-panel');
 
     // --- Auth State Logic ---
-    onAuthStateChanged(auth, (user) => {
-        if (user) {
-            // User is signed in
-            desktopLoginBtn.classList.add('hidden');
-            userAvatarLink.classList.remove('hidden');
-            heroCtaButton.href = 'dashboard.html';
-            
-            if (user.photoURL) {
-                userAvatarImg.src = user.photoURL;
+    if (auth) {
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // User is signed in
+                desktopLoginBtn.classList.add('hidden');
+                userAvatarLink.classList.remove('hidden');
+                heroCtaButton.href = 'dashboard.html';
+                
+                if (user.photoURL) {
+                    userAvatarImg.src = user.photoURL;
+                } else {
+                    const initial = (user.displayName || user.email).charAt(0).toUpperCase();
+                    const svg = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#0EA5E9"/><text x="50%" y="50%" font-family="Poppins, sans-serif" font-size="20" fill="#FFFFFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
+                    userAvatarImg.src = `data:image/svg+xml;base64,${btoa(svg)}`;
+                }
             } else {
-                const initial = (user.displayName || user.email).charAt(0).toUpperCase();
-                const svg = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#0EA5E9"/><text x="50%" y="50%" font-family="Poppins, sans-serif" font-size="20" fill="#FFFFFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
-                userAvatarImg.src = `data:image/svg+xml;base64,${btoa(svg)}`;
+                // User is signed out
+                desktopLoginBtn.classList.remove('hidden');
+                userAvatarLink.classList.add('hidden');
+                heroCtaButton.href = 'login.html';
             }
-        } else {
-            // User is signed out
-            desktopLoginBtn.classList.remove('hidden');
-            userAvatarLink.classList.add('hidden');
-            heroCtaButton.href = 'login.html';
-        }
-    });
+        });
+    }
 
     // --- Wall of Fame Logic ---
     const fetchWallOfFame = async () => {
@@ -98,7 +101,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    fetchWallOfFame();
+    if (db) {
+        fetchWallOfFame();
+    }
 
 
     // --- Mobile Menu Logic ---
