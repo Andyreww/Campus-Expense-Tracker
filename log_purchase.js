@@ -365,13 +365,17 @@ async function main() {
                 });
 
                 // Wall of Fame update
-                if (userData.showOnWallOfFame) {
-                    const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
-                    await setDoc(wallOfFameDocRef, {
-                        displayName: currentUser.displayName,
-                        photoURL: currentUser.photoURL || "",
-                        currentStreak: currentStreak
-                    }, { merge: true });
+                if (userData.showOnWallOfFame && currentUser?.uid) {
+                    try {
+                        const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
+                        await setDoc(wallOfFameDocRef, {
+                            displayName: currentUser.displayName || "Anonymous",
+                            photoURL: currentUser.photoURL || "",
+                            currentStreak: currentStreak
+                        }, { merge: true });
+                    } catch (wallError) {
+                        console.warn("Could not update wall of fame:", wallError);
+                    }
                 }
                 
                 cart = [];
