@@ -62,7 +62,6 @@ async function main() {
 async function checkProfile() {
     // --- API Usage: Firestore Get Document ---
     // This function would fetch the user's profile from the 'users' collection in Firestore.
-    
     const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
     const userDoc = await getDoc(userDocRef);
 
@@ -72,16 +71,6 @@ async function checkProfile() {
         // If no profile exists, redirect to the questionnaire to set one up.
         window.location.href = "questionnaire.html";
     }
-    
-
-    // Simulate successful profile load with mock data
-    renderDashboard({
-        balances: { credits: 250.00, dining: 180.50, swipes: 14, bonus: 3 },
-        displayName: currentUser.displayName,
-        photoURL: currentUser.photoURL,
-        showOnWallOfFame: true,
-        university: "Aura University" // Using a generic name for weather
-    });
 }
 
 function renderDashboard(userData) {
@@ -302,21 +291,12 @@ async function fetchAndRenderLeaderboard(db) {
     
     // --- API Usage: Firestore Query ---
     // Fetches users from the 'users' collection, ordered by their current streak.
-    // const usersRef = collection(db, "users");
-    // const q = query(usersRef, orderBy("currentStreak", "desc"));
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, orderBy("currentStreak", "desc"));
     
     try {
-        // const querySnapshot = await getDocs(q);
-        // const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        // Mock leaderboard data
-        const users = [
-            { id: "user1", displayName: "Espresso Eric", photoURL: "", currentStreak: 42 },
-            { id: "mockUID", displayName: "Latte Larry", photoURL: "", currentStreak: 25 },
-            { id: "user3", displayName: "Mocha Molly", photoURL: "", currentStreak: 15 },
-            { id: "user4", displayName: "Cappuccino Carl", photoURL: "", currentStreak: 7 },
-            { id: "user5", displayName: "Americano Amy", photoURL: "", currentStreak: 3 },
-        ];
+        const querySnapshot = await getDocs(q);
+        const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         leaderboardList.innerHTML = '';
         users.forEach((user, index) => {
