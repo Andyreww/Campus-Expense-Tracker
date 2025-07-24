@@ -172,6 +172,18 @@ function setupEventListeners() {
 
     // Setup listeners for editable titles
     setupEditableTitles();
+
+    // NEW: Add listener for browser back/forward cache to prevent stale auth state
+    window.addEventListener('pageshow', (event) => {
+        // event.persisted is true if the page was restored from bfcache
+        if (event.persisted) {
+            // If firebase is initialized and there's no current user, they've logged out.
+            if (firebaseServices && firebaseServices.auth && !firebaseServices.auth.currentUser) {
+                // Force a redirect to ensure they can't see stale data
+                window.location.href = "login.html";
+            }
+        }
+    });
 }
 
 // --- NEW FEATURE: EDITABLE TITLES ---
