@@ -3,156 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Log Purchase - Aura</title>
+    <title>Driftoro - Log A Purchase!</title>
     <link rel="stylesheet" href="log_purchase.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Patrick+Hand&family=Special+Elite&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Aurora Background -->
-    <div class="aurora-background">
-        <div class="aurora-shape-1"></div>
-        <div class="aurora-shape-2"></div>
-        <div class="aurora-shape-3"></div>
-    </div>
+    <!-- Cafe Background Pattern -->
+    <div class="cafe-background"></div>
 
-    <div class="main-container">
-        <!-- Header -->
-        <header class="main-header">
-            <a href="dashboard.html" class="back-link">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-left"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                <span>Dashboard</span>
-            </a>
-            <div class="user-balance-display">
-                <span>Current Credits</span>
-                <strong id="current-balance-display">$0.00</strong>
+    <!-- Wooden Header Bar -->
+    <header class="shop-header">
+        <a href="dashboard.html" class="back-to-cafe">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            <span>Back</span>
+        </a>
+        <!-- Revamped Wallet Container -->
+        <div class="wallet-container">
+            <div class="wallet-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 8.5C18 5.46243 15.3137 3 12 3C8.68629 3 6 5.46243 6 8.5C6 10.4462 6.94878 12.1643 8.40993 13.2218C8.43542 13.2403 8.46154 13.2579 8.48828 13.2747L9 13.5858V16.5C9 17.0523 9.44772 17.5 10 17.5H14C14.5523 17.5 15 17.0523 15 16.5V13.5858L15.5117 13.2747C15.5385 13.2579 15.5646 13.2403 15.5901 13.2218C17.0512 12.1643 18 10.4462 18 8.5Z" fill="#D97706"/>
+                    <path d="M12 21C13.1046 21 14 20.1046 14 19H10C10 20.1046 10.8954 21 12 21Z" fill="#FBBF24"/>
+                    <path d="M12 5.5L13.5 8.5L16.5 9L14.5 11L15 14L12 12.5L9 14L9.5 11L7.5 9L10.5 8.5L12 5.5Z" fill="#FBBF24"/>
+                </svg>
             </div>
-        </header>
+            <div class="wallet-details">
+                <div class="wallet-label">Campus Credits</div>
+                <div class="wallet-amount" id="current-balance-display">$0.00</div>
+            </div>
+        </div>
+    </header>
 
-        <!-- Main Content Grid -->
-        <div class="content-grid">
-            <!-- Left Side: Item Selection -->
-            <div class="item-selection-panel">
-                <div class="search-header">
-                    <h1 class="panel-title">Grab N' Go</h1>
-                    <p class="panel-subtitle">Select items from Ross Market</p>
-                    <div class="search-wrapper">
-                        <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                        <input type="text" id="item-search" placeholder="Search for snacks, drinks, etc...">
+    <div class="shop-container">
+        <!-- Main Shopping Area -->
+        <div class="shop-layout">
+            <!-- Left Side: Store Shelves -->
+            <div class="store-section">
+                <div class="store-sign">
+                    <div class="store-selector">
+                        <select class="store-dropdown" id="store-select">
+                            <option value="ross">Ross Market</option>
+                            <option value="coming-soon" disabled>More stores coming soon!</option>
+                        </select>
                     </div>
+                    <p class="store-subtitle">Grab what you need!</p>
                 </div>
-                <div class="item-browser">
-                    <div id="category-sidebar" class="category-sidebar">
-                        <!-- Categories will be generated here -->
-                    </div>
-                    <div id="item-list" class="item-list">
-                        <!-- Items will be generated here as a list -->
-                        <p class="loading-text">Loading goodies...</p>
+
+                <!-- Search Bar -->
+                <div class="search-container">
+                    <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" id="item-search" placeholder="Search for goodies..." class="search-input">
+                </div>
+
+                <!-- Category Tabs -->
+                <div class="category-tabs" id="category-sidebar">
+                    <!-- Categories will be generated here -->
+                </div>
+
+                <!-- Item Shelves -->
+                <div class="item-shelves" id="item-list">
+                    <div class="loading-message">
+                        <div class="loading-spinner"></div>
+                        <p>Stocking the shelves...</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Right Side: Cart, Subs, History -->
-            <div class="side-panel">
-                <div class="tab-container">
-                    <div class="tab-buttons">
-                        <button class="tab-btn active" data-tab="cart">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
-                            <span>Cart</span>
-                        </button>
-                        <button class="tab-btn" data-tab="subs">
-                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 2.7a2.7 2.7 0 0 1 3.8 0L22 4.9a2.7 2.7 0 0 1 0 3.8L13.4 17a2 2 0 0 1-1.4.6H8.5a1 1 0 0 1-1-1v-3.5a2 2 0 0 1 .6-1.4z"></path><path d="M8.5 2.5a1 1 0 0 0-1 1v2.5"></path><path d="M3.5 8a1 1 0 0 0 1 1h2.5"></path><path d="M12.5 21.5a1 1 0 0 0 1-1v-2.5"></path><path d="M18 12.5a1 1 0 0 0-1-1h-2.5"></path></svg>
-                            <span>Subscriptions</span>
-                        </button>
-                        <button class="tab-btn" data-tab="history">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
-                            <span>History</span>
-                        </button>
-                    </div>
-                    <div class="tab-indicator"></div>
+            <!-- Right Side: Shopping Basket -->
+            <div class="basket-section">
+                <!-- Tab Navigation -->
+                <div class="basket-tabs">
+                    <button class="basket-tab active" data-tab="cart">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6m0 1a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-12a1 1 0 0 1-1-1z"></path><path d="M10 6v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3"></path></svg>
+                        Basket
+                    </button>
+                    <button class="basket-tab" data-tab="subs">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M12 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        Weekly
+                    </button>
+                    <button class="basket-tab" data-tab="history">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        History
+                    </button>
                 </div>
 
-
-                <!-- Cart Tab -->
-                <div id="cart-tab" class="tab-content active">
-                    <div id="cart-items" class="cart-items">
-                        <p class="empty-message">Your cart is empty. Tap an item to add it!</p>
-                    </div>
-                    <div class="cart-footer">
-                        <div class="total-section">
-                            <span>Total</span>
-                            <span id="cart-total">$0.00</span>
-                        </div>
-                        <button id="log-purchase-btn" class="log-purchase-btn" disabled>
-                            <span>Log Purchase</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Subscriptions Tab -->
-                <div id="subs-tab" class="tab-content">
-                    <div class="subs-content">
-                        <div class="subs-section">
-                            <h3 class="subs-section-title">Active Subscriptions</h3>
-                            <div id="active-subs-list" class="subs-list">
-                                <p class="empty-message">No active subscriptions.</p>
+                <!-- Shopping Basket Content -->
+                <div class="basket-content">
+                    <!-- Cart Tab -->
+                    <div id="cart-tab" class="tab-panel active">
+                        <div class="basket-paper">
+                            <h2 class="basket-title">Shopping Basket</h2>
+                            <div id="cart-items" class="cart-items">
+                                <div class="empty-basket">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.3"><path d="M5 6m0 1a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-12a1 1 0 0 1-1-1z"></path><path d="M10 6v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3"></path></svg>
+                                    <p>Your basket is empty!</p>
+                                    <span>Click items to add them</span>
+                                </div>
                             </div>
                         </div>
-                        <div class="subs-section">
-                            <h3 class="subs-section-title">Past Subscriptions</h3>
-                            <div id="past-subs-list" class="subs-list">
-                                <p class="empty-message">No past subscriptions.</p>
+                        
+                        <div class="checkout-section">
+                            <div class="total-row">
+                                <span>Total:</span>
+                                <span id="cart-total" class="total-amount">$0.00</span>
+                            </div>
+                            <button id="log-purchase-btn" class="checkout-button" disabled>
+                                <span>Checkout</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Subscriptions Tab -->
+                    <div id="subs-tab" class="tab-panel">
+                        <div class="subs-paper">
+                            <h2 class="basket-title">Weekly Favorites</h2>
+                            <div class="subs-sections">
+                                <div class="sub-section">
+                                    <h3 class="sub-section-title">Active Subscriptions</h3>
+                                    <div id="active-subs-list" class="subs-list">
+                                        <p class="empty-message">No weekly favorites yet!</p>
+                                    </div>
+                                </div>
+                                <div class="sub-section">
+                                    <h3 class="sub-section-title">Past Subscriptions</h3>
+                                    <div id="past-subs-list" class="subs-list">
+                                        <p class="empty-message">No past subscriptions</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="projection-card">
+                            <h3>Monthly Projection</h3>
+                            <div class="projection-row">
+                                <span>Weekly Cost:</span>
+                                <span id="weekly-sub-cost">$0.00</span>
+                            </div>
+                            <div class="projection-row">
+                                <span>Weeks Left:</span>
+                                <span id="weeks-left">0</span>
+                            </div>
+                            <div class="projection-divider"></div>
+                            <div class="projection-row total">
+                                <span>End Balance:</span>
+                                <strong id="projected-balance">$0.00</strong>
                             </div>
                         </div>
                     </div>
-                    <div class="projection-section">
-                        <div class="projection-row">
-                            <span>Total Weekly Sub Cost</span>
-                            <span id="weekly-sub-cost">$0.00</span>
-                        </div>
-                        <div class="projection-row">
-                            <span>Weeks Remaining This Month</span>
-                            <span id="weeks-left">0</span>
-                        </div>
-                        <div class="projection-row">
-                            <span>Est. Future Sub Spending</span>
-                            <span id="monthly-sub-cost">$0.00</span>
-                        </div>
-                        <div class="projection-divider"></div>
-                        <div class="projection-row total">
-                            <span>Projected Balance at Month-End</span>
-                            <strong id="projected-balance">$0.00</strong>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- History Tab -->
-                <div id="history-tab" class="tab-content">
-                    <div id="history-list" class="history-list">
-                        <p class="empty-message">No purchase history found.</p>
+                    <!-- History Tab -->
+                    <div id="history-tab" class="tab-panel">
+                        <div class="history-paper">
+                            <h2 class="basket-title">Purchase History</h2>
+                            <div id="history-list" class="history-list">
+                                <p class="empty-message">No purchases yet!</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- Subscription Confirmation Modal -->
+
+    <!-- Subscription Modal -->
     <div id="sub-confirm-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 2.7a2.7 2.7 0 0 1 3.8 0L22 4.9a2.7 2.7 0 0 1 0 3.8L13.4 17a2 2 0 0 1-1.4.6H8.5a1 1 0 0 1-1-1v-3.5a2 2 0 0 1 .6-1.4z"></path><path d="M8.5 2.5a1 1 0 0 0-1 1v2.5"></path><path d="M3.5 8a1 1 0 0 0 1 1h2.5"></path><path d="M12.5 21.5a1 1 0 0 0 1-1v-2.5"></path><path d="M18 12.5a1 1 0 0 0-1-1h-2.5"></path></svg>
-            </div>
-            <h2 class="modal-title">Confirm Subscription</h2>
-            <p>Add <strong id="modal-item-name">Item Name</strong> as a weekly subscription?</p>
-            <div class="modal-buttons">
-                <button id="modal-cancel-btn" class="modal-btn secondary">Cancel</button>
-                <button id="modal-confirm-btn" class="modal-btn primary">Confirm</button>
+        <div class="modal-paper">
+            <div class="modal-pin"></div>
+            <h2 class="modal-title">Add to Weekly?</h2>
+            <p>Would you like to get <strong id="modal-item-name">Item</strong> every week?</p>
+            <div class="modal-actions">
+                <button id="modal-cancel-btn" class="modal-btn cancel">Not now</button>
+                <button id="modal-confirm-btn" class="modal-btn confirm">Yes please!</button>
             </div>
         </div>
     </div>
-
 
     <script src="log_purchase.js" type="module"></script>
 </body>

@@ -5,7 +5,7 @@ import { getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, getDocs, 
 // --- Main App Initialization ---
 async function main() {
     try {
-        // Securely fetch the Firebase config from our Netlify function
+        // Fetch Firebase config from Netlify function
         const response = await fetch('/.netlify/functions/getFirebaseConfig');
         if (!response.ok) {
             throw new Error('Could not load app configuration.');
@@ -17,10 +17,25 @@ async function main() {
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- DEPARTMENT MAP ---
+        // --- IMPROVED DEPARTMENT MAP ---
         const departmentMap = {
-            "1544840": "Dips & Spreads", "1544841": "Dips & Spreads",
-            "1547128": "Dips & Spreads", "1547131": "Dips & Spreads",
+            // Add more mappings as you discover department IDs
+            "1544840": "Dips & Spreads", 
+            "1544841": "Dips & Spreads",
+            "1547128": "Dips & Spreads", 
+            "1547131": "Dips & Spreads",
+            "1457139": "Beverages",
+            // Add categories based on common patterns in item names
+            "default": {
+                "snacks": ["chips", "cookie", "cracker", "pretzel", "popcorn", "nuts", "trail mix"],
+                "drinks": ["water", "soda", "juice", "coffee", "tea", "energy", "sport", "milk"],
+                "candy": ["chocolate", "candy", "gummy", "mint", "sweet"],
+                "fresh": ["fruit", "vegetable", "salad", "produce"],
+                "dairy": ["cheese", "yogurt", "butter", "cream"],
+                "frozen": ["ice cream", "frozen", "popsicle"],
+                "bakery": ["bread", "bagel", "muffin", "donut", "cake"],
+                "meal": ["sandwich", "wrap", "pizza", "pasta", "soup"]
+            }
         };
 
         // --- STATE ---
@@ -43,9 +58,8 @@ async function main() {
         const cartItemsContainer = document.getElementById('cart-items');
         const cartTotalEl = document.getElementById('cart-total');
         const logPurchaseBtn = document.getElementById('log-purchase-btn');
-        const tabBtns = document.querySelectorAll('.tab-btn');
-        const tabContents = document.querySelectorAll('.tab-content');
-        const tabIndicator = document.querySelector('.tab-indicator');
+        const tabBtns = document.querySelectorAll('.basket-tab');
+        const tabContents = document.querySelectorAll('.tab-panel');
         const activeSubsList = document.getElementById('active-subs-list');
         const pastSubsList = document.getElementById('past-subs-list');
         const projectedBalanceEl = document.getElementById('projected-balance');
@@ -57,6 +71,7 @@ async function main() {
         const modalItemName = document.getElementById('modal-item-name');
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
         const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+        const storeSelect = document.getElementById('store-select');
 
         // --- AUTH ---
         onAuthStateChanged(auth, (user) => {
@@ -72,14 +87,13 @@ async function main() {
         async function init() {
             listenToUserData();
             setupEventListeners();
-            await loadStoreData();
+            renderCart(); // Render empty cart initially
+            await loadStoreData(); // This will now render items as soon as they're ready
             await loadSubscriptions();
             await loadPurchaseHistory();
-            renderAll();
-            requestAnimationFrame(() => {
-                const activeTab = document.querySelector('.tab-btn.active');
-                if (activeTab) moveTabIndicator(activeTab);
-            });
+            // Render data that depends on async calls
+            renderSubscriptions();
+            renderHistory();
         }
 
         // --- DATA LOADING ---
@@ -89,10 +103,24 @@ async function main() {
             unsubscribeUserDoc = onSnapshot(userDocRef, (docSnap) => {
                 if (docSnap.exists()) {
                     userBalance = docSnap.data().balances[paymentType] || 0;
-                    updateBalanceDisplay();
+                    updateBalanceDisplay(false);
                     calculateProjection();
                 }
             });
+        }
+
+        function detectCategory(item, departmentId) {
+            if (departmentId && departmentMap[departmentId]) {
+                return departmentMap[departmentId];
+            }
+            const itemNameLower = item.name.toLowerCase();
+            const categories = departmentMap.default;
+            for (const [category, keywords] of Object.entries(categories)) {
+                if (keywords.some(keyword => itemNameLower.includes(keyword))) {
+                    return category.charAt(0).toUpperCase() + category.slice(1);
+                }
+            }
+            return 'Miscellaneous';
         }
 
         async function loadStoreData() {
@@ -103,7 +131,7 @@ async function main() {
                     const regularPrice = parseFloat(item.regular_price.replace('$', ''));
                     const salePrice = item.sale_price ? parseFloat(item.sale_price.replace('$', '')) : null;
                     const departmentId = item.department && item.department.length > 0 ? item.department[0] : null;
-                    const category = departmentMap[departmentId] || 'Miscellaneous';
+                    const category = detectCategory(item, departmentId);
                     
                     return { 
                         name: item.name, 
@@ -115,9 +143,10 @@ async function main() {
                     };
                 });
                 renderCategories();
+                renderItems(); // Render items immediately after processing
             } catch (error) {
                 console.error("Could not load store data:", error);
-                itemListContainer.innerHTML = '<p class="loading-text">Could not load items. Make sure full_store_prices.json exists.</p>';
+                itemListContainer.innerHTML = '<p class="loading-message">Could not load items. Make sure full_store_prices.json exists.</p>';
             }
         }
 
@@ -136,13 +165,6 @@ async function main() {
         }
 
         // --- RENDERING ---
-        function renderAll() {
-            renderItems();
-            renderCart();
-            renderSubscriptions();
-            renderHistory();
-        }
-        
         function renderCategories() {
             const categories = ['All', ...new Set(allItems.map(item => item.category).sort())];
             categorySidebar.innerHTML = '';
@@ -166,6 +188,7 @@ async function main() {
 
         function renderItems(searchFilter = '', categoryFilter = 'All') {
             itemListContainer.innerHTML = '';
+            itemListContainer.classList.remove('loading-message');
             
             let itemsToDisplay = allItems;
 
@@ -178,33 +201,73 @@ async function main() {
             }
             
             itemsToDisplay.slice(0, 100).forEach(item => {
-                const row = document.createElement('div');
-                row.className = 'item-row';
-                row.innerHTML = `<div class="item-row-details"><div class="item-row-name">${item.name}</div><div class="item-row-price-container"><span class="item-row-price">$${item.price.toFixed(2)}</span>${item.onSale ? `<span class="item-row-original-price">$${item.originalPrice.toFixed(2)}</span>` : ''}</div></div>${item.onSale ? '<div class="sale-tag">SALE</div>' : ''}`;
-                row.addEventListener('click', () => addItemToCart(item));
-                itemListContainer.appendChild(row);
+                const card = document.createElement('div');
+                card.className = 'item-card';
+                
+                card.innerHTML = `
+                    <div class="item-emoji">${item.emoji}</div>
+                    <div class="item-name">${item.name}</div>
+                    <div class="item-price-tag">
+                        <span class="item-price">$${item.price.toFixed(2)}</span>
+                        ${item.onSale ? `<span class="item-original-price">$${item.originalPrice.toFixed(2)}</span>` : ''}
+                    </div>
+                    ${item.onSale ? '<div class="sale-badge">SALE</div>' : ''}
+                `;
+                
+                card.addEventListener('click', () => addItemToCart(item));
+                itemListContainer.appendChild(card);
             });
+
+            if (itemsToDisplay.length === 0) {
+                itemListContainer.innerHTML = '<p class="empty-message">No items found. Try a different search or category!</p>';
+            }
         }
 
-        function renderCart() {
+        function renderCart(animatedItemName = null) {
             cartItemsContainer.innerHTML = '';
-            if (cart.length === 0) {
-                cartItemsContainer.innerHTML = '<p class="empty-message">Your cart is empty. Tap an item to add it!</p>';
-                logPurchaseBtn.disabled = true;
-                return;
-            }
-
-            cart.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'cart-item';
-                div.dataset.itemId = item.id;
-                div.innerHTML = `<div class="cart-item-emoji">${item.emoji}</div><div class="cart-item-details"><div class="cart-item-name">${item.name}</div></div><div class="cart-item-price">$${item.price.toFixed(2)}</div><button class="add-to-subs-btn" data-id="${item.id}" title="Add to weekly subscriptions"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 2.7a2.7 2.7 0 0 1 3.8 0L22 4.9a2.7 2.7 0 0 1 0 3.8L13.4 17a2 2 0 0 1-1.4.6H8.5a1 1 0 0 1-1-1v-3.5a2 2 0 0 1 .6-1.4z"></path><path d="M8.5 2.5a1 1 0 0 0-1 1v2.5"></path><path d="M3.5 8a1 1 0 0 0 1 1h2.5"></path><path d="M12.5 21.5a1 1 0 0 0 1-1v-2.5"></path><path d="M18 12.5a1 1 0 0 0-1-1h-2.5"></path></svg></button><button class="remove-item-btn" data-id="${item.id}" title="Remove from cart">&times;</button>`;
-                cartItemsContainer.appendChild(div);
-            });
-
-            const total = cart.reduce((sum, item) => sum + item.price, 0);
+            
+            // Always calculate total first
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             cartTotalEl.textContent = `$${total.toFixed(2)}`;
-            logPurchaseBtn.disabled = false;
+
+            if (cart.length === 0) {
+                cartItemsContainer.innerHTML = `
+                    <div class="empty-basket">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.3"><path d="M5 6m0 1a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-12a1 1 0 0 1-1-1z"></path><path d="M10 6v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3"></path></svg>
+                        <p>Your basket is empty!</p>
+                        <span>Click items to add them</span>
+                    </div>
+                `;
+                logPurchaseBtn.disabled = true;
+            } else {
+                cart.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'cart-item';
+                    if (item.name === animatedItemName) {
+                        div.classList.add('slide-in');
+                    }
+                    div.innerHTML = `
+                        <div class="cart-item-emoji">${item.emoji}</div>
+                        <div class="cart-item-name-and-qty">
+                            <div class="cart-item-name">${item.name}</div>
+                            <div class="cart-item-quantity">
+                                <button class="quantity-btn decrease-btn" data-name="${item.name}">-</button>
+                                <span class="quantity-display">${item.quantity}</span>
+                                <button class="quantity-btn increase-btn" data-name="${item.name}">+</button>
+                            </div>
+                        </div>
+                        <div class="cart-item-price">$${(item.price * item.quantity).toFixed(2)}</div>
+                        <div class="cart-item-actions">
+                            <button class="add-to-subs-btn" data-name="${item.name}" title="Add to weekly subscriptions">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M12 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                            </button>
+                            <button class="remove-item-btn" data-name="${item.name}" title="Remove from cart">×</button>
+                        </div>
+                    `;
+                    cartItemsContainer.appendChild(div);
+                });
+                logPurchaseBtn.disabled = false;
+            }
         }
 
         function renderSubscriptions() {
@@ -215,18 +278,26 @@ async function main() {
             const pastSubs = subscriptions.filter(s => s.status === 'ended');
 
             if (activeSubs.length === 0) {
-                activeSubsList.innerHTML = '<p class="empty-message">No active subscriptions.</p>';
+                activeSubsList.innerHTML = '<p class="empty-message">No weekly favorites yet!</p>';
             } else {
                 activeSubs.forEach(sub => {
                     const div = document.createElement('div');
                     div.className = 'sub-item';
-                    div.innerHTML = `<div class="cart-item-emoji">${sub.item.emoji}</div><div class="cart-item-details"><div class="cart-item-name">${sub.item.name}</div></div><div class="cart-item-price">$${sub.item.price.toFixed(2)}</div><button class="end-sub-btn" data-id="${sub.id}">End</button>`;
+                    div.innerHTML = `
+                        <div class="cart-item-emoji">${sub.item.emoji}</div>
+                        <div>
+                            <div class="cart-item-name">${sub.item.name}</div>
+                            <div class="sub-duration">Every week</div>
+                        </div>
+                        <div class="cart-item-price">$${sub.item.price.toFixed(2)}</div>
+                        <button class="end-sub-btn" data-id="${sub.id}">End</button>
+                    `;
                     activeSubsList.appendChild(div);
                 });
             }
 
             if (pastSubs.length === 0) {
-                pastSubsList.innerHTML = '<p class="empty-message">No past subscriptions.</p>';
+                pastSubsList.innerHTML = '<p class="empty-message">No past subscriptions</p>';
             } else {
                 pastSubs.forEach(sub => {
                     const startDate = sub.startDate.toDate();
@@ -234,7 +305,14 @@ async function main() {
                     const weeksActive = Math.max(1, Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24 * 7)));
                     const div = document.createElement('div');
                     div.className = 'sub-item ended';
-                    div.innerHTML = `<div class="cart-item-emoji">${sub.item.emoji}</div><div class="cart-item-details"><div class="cart-item-name">${sub.item.name}</div><div class="sub-duration">Active for ${weeksActive} week(s)</div></div><div class="cart-item-price">$${sub.item.price.toFixed(2)}</div>`;
+                    div.innerHTML = `
+                        <div class="cart-item-emoji">${sub.item.emoji}</div>
+                        <div>
+                            <div class="cart-item-name">${sub.item.name}</div>
+                            <div class="sub-duration">Was active for ${weeksActive} week(s)</div>
+                        </div>
+                        <div class="cart-item-price">$${sub.item.price.toFixed(2)}</div>
+                    `;
                     pastSubsList.appendChild(div);
                 });
             }
@@ -243,7 +321,7 @@ async function main() {
         function renderHistory() {
             historyList.innerHTML = '';
             if (purchaseHistory.length === 0) {
-                historyList.innerHTML = '<p class="empty-message">No purchase history found.</p>';
+                historyList.innerHTML = '<p class="empty-message">No purchases yet!</p>';
                 return;
             }
 
@@ -258,40 +336,78 @@ async function main() {
                 const groupDiv = document.createElement('div');
                 groupDiv.className = 'history-group';
                 groupDiv.innerHTML = `<h3 class="history-date">${date}</h3>`;
+                
                 groupedByDate[date].forEach(purchase => {
-                    const itemsHtml = purchase.items.map(item => `<li>${item.name}</li>`).join('');
+                    const itemsHtml = purchase.items.map(item => `<li>${item.quantity > 1 ? `${item.name} (x${item.quantity})` : item.name}</li>`).join('');
                     const purchaseDiv = document.createElement('div');
                     purchaseDiv.className = 'history-purchase';
-                    purchaseDiv.innerHTML = `<div class="history-purchase-header"><span>${purchase.store}</span><span>-$${purchase.total.toFixed(2)}</span></div><ul class="history-item-list">${itemsHtml}</ul>`;
+                    purchaseDiv.innerHTML = `
+                        <div class="history-purchase-header">
+                            <span>${purchase.store}</span>
+                            <span>-$${purchase.total.toFixed(2)}</span>
+                        </div>
+                        <ul class="history-item-list">${itemsHtml}</ul>
+                    `;
                     groupDiv.appendChild(purchaseDiv);
                 });
                 historyList.appendChild(groupDiv);
             }
         }
 
-        function updateBalanceDisplay() {
+        function updateBalanceDisplay(animate = false) {
             balanceDisplay.textContent = `$${userBalance.toFixed(2)}`;
+            if (animate) {
+                const walletContainer = document.querySelector('.wallet-container');
+                walletContainer.classList.remove('hit');
+                void walletContainer.offsetWidth;
+                walletContainer.classList.add('hit');
+                setTimeout(() => walletContainer.classList.remove('hit'), 600);
+            }
         }
 
         function addItemToCart(item) {
-            cart.push({ ...item, id: Date.now() });
+            const existingItem = cart.find(cartItem => cartItem.name === item.name);
+            if (existingItem) {
+                existingItem.quantity++;
+                renderCart(); // No animation
+            } else {
+                cart.push({ ...item, quantity: 1 });
+                renderCart(item.name); // Animate this new item
+            }
+        }
+
+        function removeItemFromCart(itemName) {
+            cart = cart.filter(item => item.name !== itemName);
             renderCart();
         }
 
-        function removeItemFromCart(id) {
-            cart = cart.filter(item => item.id !== id);
-            renderCart();
+        function changeQuantity(itemName, change) {
+            const cartItem = cart.find(item => item.name === itemName);
+            if (cartItem) {
+                cartItem.quantity += change;
+                if (cartItem.quantity <= 0) {
+                    removeItemFromCart(itemName);
+                } else {
+                    renderCart();
+                }
+            }
         }
 
         async function addSubscription(itemToSub) {
             const subsRef = collection(db, "users", currentUser.uid, "subscriptions");
             await addDoc(subsRef, {
-                item: { name: itemToSub.name, price: itemToSub.price, emoji: itemToSub.emoji, onSale: itemToSub.onSale, originalPrice: itemToSub.originalPrice },
+                item: { 
+                    name: itemToSub.name, 
+                    price: itemToSub.price, 
+                    emoji: itemToSub.emoji, 
+                    onSale: itemToSub.onSale, 
+                    originalPrice: itemToSub.originalPrice 
+                },
                 frequency: 'weekly',
                 status: 'active',
                 startDate: Timestamp.now()
             });
-            removeItemFromCart(itemToSub.id);
+            removeItemFromCart(itemToSub.name);
             await loadSubscriptions();
             renderSubscriptions();
             calculateProjection();
@@ -309,14 +425,14 @@ async function main() {
         }
 
         async function logPurchase() {
-            const totalCost = cart.reduce((sum, item) => sum + item.price, 0);
+            const totalCost = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             if (totalCost > userBalance) {
                 alert("Not enough funds!");
                 return;
             }
 
             logPurchaseBtn.disabled = true;
-            logPurchaseBtn.innerHTML = `<div class="spinner"></div> Logging...`;
+            logPurchaseBtn.innerHTML = `<span class="loading-spinner" style="display: inline-block; width: 16px; height: 16px; margin-right: 0.5rem;"></span> Processing...`;
 
             try {
                 const userDocRef = doc(db, "users", currentUser.uid);
@@ -350,10 +466,11 @@ async function main() {
                 }
                 
                 const purchaseRef = collection(db, "users", currentUser.uid, "purchases");
+                const storeName = storeSelect ? storeSelect.options[storeSelect.selectedIndex].text : "Ross Market";
                 await addDoc(purchaseRef, {
-                    items: cart.map(({ emoji, id, ...rest }) => rest),
+                    items: cart.map(({ emoji, ...rest }) => rest),
                     total: totalCost,
-                    store: "Ross Market",
+                    store: storeName,
                     purchaseDate: Timestamp.now()
                 });
 
@@ -364,9 +481,12 @@ async function main() {
                     lastLogDate: Timestamp.now()
                 });
 
-                // Wall of Fame update
+                userBalance = newBalance;
+                updateBalanceDisplay(true);
+
                 if (userData.showOnWallOfFame && currentUser?.uid) {
                     try {
+                        const { setDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
                         const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
                         await setDoc(wallOfFameDocRef, {
                             displayName: currentUser.displayName || "Anonymous",
@@ -380,14 +500,15 @@ async function main() {
                 
                 cart = [];
                 await loadPurchaseHistory();
-                renderAll();
+                renderCart();
+                renderHistory();
 
             } catch (error) {
                 console.error("Error logging purchase:", error);
                 alert("Failed to log purchase. Please try again.");
             } finally {
                 logPurchaseBtn.disabled = false;
-                logPurchaseBtn.innerHTML = `<span>Log Purchase</span><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>`;
+                logPurchaseBtn.innerHTML = `<span>Checkout</span><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>`;
             }
         }
 
@@ -403,21 +524,33 @@ async function main() {
 
             weeklySubCostEl.textContent = `$${weeklyCost.toFixed(2)}`;
             weeksLeftEl.textContent = weeksLeft;
-            monthlySubCostEl.textContent = `$${projectedMonthlyCost.toFixed(2)}`;
             projectedBalanceEl.textContent = `$${projectedBalance.toFixed(2)}`;
         }
 
         function getEmojiForItem(name, category = '') {
             const lowerName = name.toLowerCase();
             const lowerCat = category.toLowerCase();
-            if (lowerCat.includes('drink')) return '🥤';
-            if (lowerCat.includes('snack')) return '🥨';
+            
+            if (lowerCat.includes('beverage') || lowerCat.includes('drink')) return '🥤';
+            if (lowerCat.includes('snack')) return '�';
+            if (lowerCat.includes('candy')) return '🍬';
+            if (lowerCat.includes('fresh') || lowerCat.includes('produce')) return '🥗';
+            if (lowerCat.includes('dairy')) return '🧀';
             if (lowerCat.includes('frozen')) return '🍦';
-            const keywords = {'⚡️':['monster','red bull'],'☕️':['coffee','starbucks'],'💧':['water','essentia'],'🥤':['soda','coke','pepsi'],'🧃':['juice','snapple'],'🥛':['milk'],'🍔':['burger'],'🍟':['fries'],'🥪':['sandwich','sub','wrap'],'🍗':['chicken'],'🍝':['pasta','ramen'],'🥗':['salad'],'🍩':['donut'],'🍪':['cookie','oreo'],'🍫':['chocolate','kitkat'],'🍬':['candy','gummy'],'🍰':['cake'],'🍦':['ice cream'],'🥜':['peanut','nuts'],'🧀':['cheese','cheez-it'],};
+            if (lowerCat.includes('bakery')) return '🥐';
+            if (lowerCat.includes('meal')) return '🍱';
+            
+            const keywords = {
+                '☕': ['coffee', 'latte', 'espresso', 'cappuccino', 'mocha'],'🍵': ['tea', 'chai'],'🥤': ['soda', 'coke', 'pepsi', 'sprite', 'fanta'],'🧃': ['juice', 'smoothie'],'💧': ['water', 'aqua', 'dasani', 'evian', 'fiji'],'🥛': ['milk'],'🍺': ['beer'],'🍷': ['wine'],'🍾': ['champagne', 'prosecco'],'⚡': ['energy', 'monster', 'red bull', 'rockstar'],'🏃': ['gatorade', 'powerade', 'sport'],'🍔': ['burger'],'🍟': ['fries', 'french fry'],'🍕': ['pizza'],'🥪': ['sandwich', 'sub', 'wrap', 'panini'],'🌮': ['taco', 'burrito', 'quesadilla'],'🍝': ['pasta', 'spaghetti', 'noodle'],'🍜': ['soup', 'ramen', 'pho'],'🥗': ['salad'],'🍗': ['chicken', 'wing'],'🍖': ['meat', 'steak', 'beef', 'pork'],'🐟': ['fish', 'salmon', 'tuna', 'seafood'],'🍞': ['bread', 'toast'],'🥐': ['croissant', 'pastry'],'🥯': ['bagel'],'🧁': ['cupcake', 'muffin'],'🍰': ['cake'],'🍪': ['cookie', 'oreo', 'biscuit'],'🍩': ['donut', 'doughnut'],'🍫': ['chocolate', 'hershey', 'snickers', 'kit kat', 'twix'],'🍬': ['candy', 'sweet', 'lollipop', 'gummy'],'🍭': ['lollipop', 'sucker'],'🍿': ['popcorn', 'pop corn'],'🥨': ['pretzel'],'🥜': ['nut', 'peanut', 'almond', 'cashew'],'🌰': ['chestnut'],'🥔': ['potato', 'chip'],'🧀': ['cheese', 'cheddar', 'mozzarella'],'🥚': ['egg'],'🥓': ['bacon'],'🥞': ['pancake', 'waffle'],'🍦': ['ice cream', 'gelato'],'🧊': ['ice', 'frozen'],'🍎': ['apple'],'🍊': ['orange', 'citrus'],'🍌': ['banana'],'🍓': ['strawberry', 'berry'],'🍇': ['grape'],'🥕': ['carrot'],'🥦': ['broccoli'],'🌽': ['corn'],'🥒': ['cucumber', 'pickle'],'🍅': ['tomato'],'🥑': ['avocado', 'guac'],'🌶️': ['pepper', 'spicy', 'hot'],'🧂': ['salt', 'seasoning'],'🍯': ['honey'],'🥫': ['can', 'soup', 'beans'],'🍱': ['bento', 'meal', 'lunch'],'🥡': ['takeout', 'chinese'],'🧋': ['boba', 'bubble tea'],
+            };
+            
             for (const emoji in keywords) {
-                if (keywords[emoji].some(keyword => lowerName.includes(keyword))) return emoji;
+                if (keywords[emoji].some(keyword => lowerName.includes(keyword))) {
+                    return emoji;
+                }
             }
-            return '🛒';
+            
+            return '📦';
         }
 
         function setupEventListeners() {
@@ -426,10 +559,16 @@ async function main() {
             cartItemsContainer.addEventListener('click', e => {
                 const removeBtn = e.target.closest('.remove-item-btn');
                 const subsBtn = e.target.closest('.add-to-subs-btn');
-                if (removeBtn) removeItemFromCart(Number(removeBtn.dataset.id));
+                const increaseBtn = e.target.closest('.increase-btn');
+                const decreaseBtn = e.target.closest('.decrease-btn');
+
+                if (removeBtn) removeItemFromCart(removeBtn.dataset.name);
+                if (increaseBtn) changeQuantity(increaseBtn.dataset.name, 1);
+                if (decreaseBtn) changeQuantity(decreaseBtn.dataset.name, -1);
+                
                 if (subsBtn) {
-                    const itemId = Number(subsBtn.dataset.id);
-                    const item = cart.find(i => i.id === itemId);
+                    const itemName = subsBtn.dataset.name;
+                    const item = cart.find(i => i.name === itemName);
                     if (item) {
                         itemToSubscribe = item;
                         modalItemName.textContent = item.name;
@@ -444,7 +583,6 @@ async function main() {
                 btn.addEventListener('click', () => {
                     tabBtns.forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
-                    moveTabIndicator(btn);
                     tabContents.forEach(c => c.classList.remove('active'));
                     document.getElementById(`${btn.dataset.tab}-tab`).classList.add('active');
                 });
@@ -472,30 +610,12 @@ async function main() {
                     modal.classList.add('hidden');
                 }
             });
-
-            let resizeTimer;
-            window.addEventListener('resize', () => {
-                clearTimeout(resizeTimer);
-                resizeTimer = setTimeout(() => {
-                    const activeTab = document.querySelector('.tab-btn.active');
-                    if(activeTab) moveTabIndicator(activeTab);
-                }, 100);
-            });
-        }
-
-        function moveTabIndicator(activeBtn) {
-            if (!activeBtn || !tabIndicator) return;
-            const offset = activeBtn.offsetLeft;
-            const width = activeBtn.offsetWidth;
-            tabIndicator.style.width = `${width}px`;
-            tabIndicator.style.transform = `translateX(${offset}px)`;
         }
 
     } catch (error) {
         console.error("Fatal Error initializing log purchase page:", error);
-        // You can add a user-facing error message here if you want
+        document.getElementById('item-list').innerHTML = '<p class="loading-message">Could not connect to services. Please check your connection and try again.</p>';
     }
 }
 
-// Start the application
 main();

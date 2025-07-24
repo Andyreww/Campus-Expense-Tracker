@@ -6,7 +6,6 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstati
 // --- DOM Elements ---
 let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar, avatarButton,
     creditsBalanceEl, diningBalanceEl, swipesBalanceEl, bonusBalanceEl,
-    creditsTitleEl, diningTitleEl, swipesTitleEl, bonusTitleEl, // Added for editable titles
     swipesCard, bonusCard, logoutButton, tabItems,
     mainSections, leaderboardList, publicLeaderboardContainer, publicLeaderboardCheckbox,
     weatherWidget, pfpModalOverlay, pfpPreview, pfpUploadInput, pfpSaveButton,
@@ -22,6 +21,9 @@ let firebaseServices = null;
 // --- Main App Initialization ---
 async function main() {
     try {
+        // --- API Usage: Firebase Configuration ---
+        // In a real production environment, this configuration would be fetched securely.
+        // Fetch config via Netlify function and initialize Firebase.
         const response = await fetch('/.netlify/functions/getFirebaseConfig');
         if (!response.ok) {
             throw new Error('Could not load Firebase configuration.');
@@ -34,6 +36,8 @@ async function main() {
         const storage = getStorage(app);
         firebaseServices = { auth, db, storage };
 
+        // --- API Usage: Authentication State ---
+        // This listener checks if a user is logged in. If not, it redirects to the login page.
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
@@ -55,34 +59,41 @@ async function main() {
 
 // --- App Logic ---
 async function checkProfile() {
+    // --- API Usage: Firestore Get Document ---
+    // This function would fetch the user's profile from the 'users' collection in Firestore.
+    
     const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
         renderDashboard(userDoc.data());
     } else {
+        // If no profile exists, redirect to the questionnaire to set one up.
         window.location.href = "questionnaire.html";
     }
+    
+
+    // Simulate successful profile load with mock data
+    renderDashboard({
+        balances: { credits: 250.00, dining: 180.50, swipes: 14, bonus: 3 },
+        displayName: currentUser.displayName,
+        photoURL: currentUser.photoURL,
+        showOnWallOfFame: true,
+        university: "Aura University" // Using a generic name for weather
+    });
 }
 
 function renderDashboard(userData) {
-    const { balances, displayName, photoURL, showOnWallOfFame, university, balanceTitles } = userData;
+    const { balances, displayName, photoURL, showOnWallOfFame, university } = userData;
     
-    welcomeMessage.textContent = `Welcome back, ${displayName}!`;
+    welcomeMessage.innerHTML = `<span class="wave">👋</span> Welcome back, <span class="user-name">${displayName}</span>!`;
     updateAvatar(photoURL, displayName);
     publicLeaderboardCheckbox.checked = !!showOnWallOfFame;
     
     updateBalancesUI(balances);
-    // NEW: Update titles from saved data, or use defaults
-    if (balanceTitles) {
-        creditsTitleEl.textContent = balanceTitles.credits || 'Aura Bells';
-        diningTitleEl.textContent = balanceTitles.dining || 'Dining Dollars';
-        swipesTitleEl.textContent = balanceTitles.swipes || 'Meal Swipes';
-        bonusTitleEl.textContent = balanceTitles.bonus || 'Bonus Swipes';
-    }
-
     fetchAndRenderWeather(university);
     
+    // Set newspaper date
     const today = new Date();
     if (newspaperDate) {
         newspaperDate.textContent = today.toLocaleDateString('en-US', { 
@@ -93,6 +104,7 @@ function renderDashboard(userData) {
         });
     }
     
+    // Hide loading screen and show dashboard
     loadingIndicator.style.display = 'none';
     dashboardContainer.style.display = 'block';
 }
@@ -108,13 +120,6 @@ function assignDOMElements() {
     diningBalanceEl = document.getElementById('dining-balance');
     swipesBalanceEl = document.getElementById('swipes-balance');
     bonusBalanceEl = document.getElementById('bonus-balance');
-    
-    // NEW: Assigning title elements for editing
-    creditsTitleEl = document.querySelector('#credits-card .item-title');
-    diningTitleEl = document.querySelector('#dining-card .item-title');
-    swipesTitleEl = document.querySelector('#swipes-card .item-title');
-    bonusTitleEl = document.querySelector('#bonus-card .item-title');
-
     swipesCard = document.getElementById('swipes-card');
     bonusCard = document.getElementById('bonus-card');
     logoutButton = document.querySelector('.tab-item[href="login.html"]');
@@ -155,6 +160,7 @@ function setupEventListeners() {
         signOut(auth).then(() => {
             window.location.href = "login.html";
         }).catch((error) => console.error("Logout Error:", error));
+        // window.location.href = "login.html"; // Mock sign out
     });
 
     if (tabItems) tabItems.forEach(tab => {
@@ -169,98 +175,20 @@ function setupEventListeners() {
     if (mapModalOverlay) mapModalOverlay.addEventListener('click', (e) => {
         if(e.target === mapModalOverlay) closeMapModal();
     });
-
-    // Setup listeners for editable titles
-    setupEditableTitles();
-
-    // NEW: Add listener for browser back/forward cache to prevent stale auth state
-    window.addEventListener('pageshow', (event) => {
-        // event.persisted is true if the page was restored from bfcache
-        if (event.persisted) {
-            // If firebase is initialized and there's no current user, they've logged out.
-            if (firebaseServices && firebaseServices.auth && !firebaseServices.auth.currentUser) {
-                // Force a redirect to ensure they can't see stale data
-                window.location.href = "login.html";
-            }
-        }
-    });
 }
-
-// --- NEW FEATURE: EDITABLE TITLES ---
-
-/**
- * Sets up the event listeners for making balance titles editable.
- */
-function setupEditableTitles() {
-    const titles = [
-        { el: creditsTitleEl, key: 'credits' },
-        { el: diningTitleEl, key: 'dining' },
-        { el: swipesTitleEl, key: 'swipes' },
-        { el: bonusTitleEl, key: 'bonus' }
-    ];
-
-    titles.forEach(({ el, key }) => {
-        if (el) {
-            let originalText = el.textContent;
-
-            el.addEventListener('click', () => {
-                originalText = el.textContent; // Store original text on click
-                el.contentEditable = true;
-                el.focus();
-                el.classList.add('editing'); // Optional: for styling
-                document.execCommand('selectAll', false, null); // Select all text
-            });
-
-            el.addEventListener('blur', () => {
-                el.contentEditable = false;
-                el.classList.remove('editing');
-                const newText = el.textContent.trim();
-                if (newText && newText !== originalText) {
-                    updateTitleInFirestore(key, newText);
-                } else {
-                    el.textContent = originalText; // Revert if empty or unchanged
-                }
-            });
-
-            el.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault(); // Prevent new line
-                    el.blur(); // Trigger save
-                } else if (e.key === 'Escape') {
-                    el.textContent = originalText; // Revert on escape
-                    el.blur();
-                }
-            });
-        }
-    });
-}
-
-/**
- * Updates the custom title in the user's Firestore document.
- * @param {string} titleKey - The key for the title (e.g., 'credits', 'dining').
- * @param {string} newTitle - The new text for the title.
- */
-async function updateTitleInFirestore(titleKey, newTitle) {
-    if (!currentUser || !firebaseServices.db) return;
-    const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
-    try {
-        // Use dot notation to update a field within a map
-        await updateDoc(userDocRef, {
-            [`balanceTitles.${titleKey}`]: newTitle
-        });
-    } catch (error) {
-        console.error("Error updating title:", error);
-        // Optional: show an error to the user
-    }
-}
-
-
-// --- EXISTING FUNCTIONS (some may be condensed for brevity) ---
 
 function openMapModal() {
-    if (!map) initializeMap();
+    // Ensure map is initialized before showing modal
+    if (!map) {
+        initializeMap();
+    }
     mapModalOverlay.classList.remove('hidden');
-    setTimeout(() => map && map.invalidateSize(), 300);
+    // Wait for modal to be fully visible before resizing map
+    setTimeout(() => {
+        if (map) {
+            map.invalidateSize();
+        }
+    }, 300); // Increased delay to ensure modal CSS transitions complete
 }
 
 function closeMapModal() {
@@ -306,7 +234,9 @@ function handlePfpUpload(e) {
     selectedPfpFile = file;
 
     const reader = new FileReader();
-    reader.onload = (event) => pfpPreview.src = event.target.result;
+    reader.onload = (event) => {
+        pfpPreview.src = event.target.result;
+    };
     reader.readAsDataURL(file);
 }
 
@@ -318,10 +248,14 @@ async function savePfp(storage, db) {
     pfpError.classList.add('hidden');
 
     try {
+        // --- API Usage: Firebase Storage Upload ---
+        // This uploads the selected file to a specific path in Firebase Storage.
         const storageRef = ref(storage, `profile_pictures/${currentUser.uid}`);
         const snapshot = await uploadBytes(storageRef, selectedPfpFile);
         const downloadURL = await getDownloadURL(snapshot.ref);
 
+        // --- API Usage: Firebase Auth & Firestore Update ---
+        // Updates the user's profile in both Firebase Authentication and their Firestore document.
         await updateProfile(currentUser, { photoURL: downloadURL });
         const userDocRef = doc(db, "users", currentUser.uid);
         await updateDoc(userDocRef, { photoURL: downloadURL });
@@ -365,18 +299,31 @@ async function fetchAndRenderLeaderboard(db) {
     if (!leaderboardList) return;
     leaderboardList.innerHTML = '<div class="spinner" style="margin: 2rem auto;"></div>';
     
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, orderBy("currentStreak", "desc"));
+    // --- API Usage: Firestore Query ---
+    // Fetches users from the 'users' collection, ordered by their current streak.
+    // const usersRef = collection(db, "users");
+    // const q = query(usersRef, orderBy("currentStreak", "desc"));
     
     try {
-        const querySnapshot = await getDocs(q);
-        const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // const querySnapshot = await getDocs(q);
+        // const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Mock leaderboard data
+        const users = [
+            { id: "user1", displayName: "Espresso Eric", photoURL: "", currentStreak: 42 },
+            { id: "mockUID", displayName: "Latte Larry", photoURL: "", currentStreak: 25 },
+            { id: "user3", displayName: "Mocha Molly", photoURL: "", currentStreak: 15 },
+            { id: "user4", displayName: "Cappuccino Carl", photoURL: "", currentStreak: 7 },
+            { id: "user5", displayName: "Americano Amy", photoURL: "", currentStreak: 3 },
+        ];
 
         leaderboardList.innerHTML = '';
         users.forEach((user, index) => {
             const item = document.createElement('div');
             item.className = 'leaderboard-item';
-            if (user.id === currentUser.uid) item.classList.add('current-user');
+            if (user.id === currentUser.uid) {
+                item.classList.add('current-user');
+            }
 
             const initial = user.displayName ? user.displayName.charAt(0).toUpperCase() : '?';
             const svgAvatar = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="20" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
@@ -404,6 +351,8 @@ async function handlePublicToggle(e, db) {
     const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
 
     try {
+        // --- API Usage: Firestore Update/Delete ---
+        // Updates a user's setting and adds/removes them from the public 'wallOfFame' collection (Top of the Grind).
         await updateDoc(userDocRef, { showOnWallOfFame: isChecked });
         if (isChecked) {
             const userDoc = await getDoc(userDocRef);
@@ -431,8 +380,18 @@ async function fetchAndRenderWeather(university) {
     if (!weatherWidget) return;
     weatherWidget.innerHTML = `<div class="spinner"></div>`;
     
+    // --- API Usage: Serverless Function ---
+    // This fetches data from a serverless function to securely use an API key.
+    // const apiUrl = `/.netlify/functions/getWeather?university=${encodeURIComponent(location)}`;
+
     try {
+        // const response = await fetch(apiUrl);
+        // const data = await response.json();
+        // if (!response.ok) throw new Error(data.message || `Error: ${response.status}`);
+        
+        // Mock weather data
         const data = { main: { temp: 72.5 }, weather: [{ description: "partly cloudy", icon: "02d" }], name: "Aura University" };
+
         const temp = Math.round(data.main.temp);
         const description = data.weather[0].description;
         const iconCode = data.weather[0].icon;
@@ -457,28 +416,41 @@ async function fetchAndRenderWeather(university) {
 function initializeMap() {
     if (!mapRenderTarget || map) return;
     
+    // Ensure the map container has valid dimensions
     mapRenderTarget.style.width = '100%';
     mapRenderTarget.style.height = '100%';
     
-    map = L.map('map-render-target', { scrollWheelZoom: false, zoomControl: true }).setView([40.069, -82.52], 14);
+    map = L.map('map-render-target', {
+        scrollWheelZoom: false,
+        zoomControl: true
+    }).setView([40.069, -82.52], 14);
 
+    // Use a more artistic map style
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png', {
-        attribution: '© OpenStreetMap contributors © CARTO',
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
         subdomains: 'abcd',
         maxZoom: 20
     }).addTo(map);
 
+    // Add custom markers for coffee shops, dining halls, etc.
     const coffeeIcon = L.divIcon({
         html: '<div style="background: #4CAF50; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">☕</div>',
         iconSize: [30, 30],
         className: 'custom-div-icon'
     });
 
-    L.marker([40.069, -82.52], { icon: coffeeIcon }).addTo(map).bindPopup('Aura Café - Main Campus');
-    L.marker([40.072, -82.525], { icon: coffeeIcon }).addTo(map).bindPopup('The Daily Grind - Student Union');
-    L.marker([40.065, -82.518], { icon: coffeeIcon }).addTo(map).bindPopup('Bean There - Library');
+    // Add some example markers
+    L.marker([40.069, -82.52], { icon: coffeeIcon }).addTo(map)
+        .bindPopup('Aura Café - Main Campus');
+    L.marker([40.072, -82.525], { icon: coffeeIcon }).addTo(map)
+        .bindPopup('The Daily Grind - Student Union');
+    L.marker([40.065, -82.518], { icon: coffeeIcon }).addTo(map)
+        .bindPopup('Bean There - Library');
 
-    setTimeout(() => map.invalidateSize(), 100);
+    // Force a resize to ensure map renders correctly
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 100);
 }
 
 // --- Run the app ---
