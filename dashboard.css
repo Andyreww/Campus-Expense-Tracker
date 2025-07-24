@@ -396,50 +396,89 @@ body {
     color: var(--text-primary); font-size: 0.9rem;
 }
 .form-group input, .form-group select {
-    width: 100%; padding: 0.75rem 1rem; border: 2px solid var(--border-color);
-    border-radius: 0.5rem; font-size: 1rem; font-family: 'Lato', sans-serif;
-    background-color: var(--bg-secondary); color: var(--text-primary);
-    transition: border-color 0.2s ease;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 600;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
 }
 .form-group input:focus, .form-group select:focus {
-    outline: none; border-color: var(--brand-primary);
+    outline: none;
+    border-color: var(--brand-primary);
+    background-color: #fff;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.06), 0 0 0 3px rgba(76, 175, 80, 0.3);
 }
 .price-input-wrapper {
     position: relative; display: flex; align-items: center;
 }
 .price-prefix {
     position: absolute; left: 1rem; color: var(--text-secondary);
-    font-weight: 700; font-size: 1rem;
+    font-weight: 700; font-size: 1.1rem;
 }
 .price-input-wrapper input {
-    padding-left: 2rem;
+    padding-left: 2.5rem;
 }
 .custom-log-actions {
     display: flex; gap: 1rem; margin-top: 2rem;
 }
 .custom-log-btn {
-    flex: 1; padding: 0.75rem 1rem; border-radius: 50px; font-weight: 700;
-    border: none; cursor: pointer; transition: all 0.2s ease; font-size: 1rem;
-    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    font-weight: 700;
+    font-family: 'Nunito', sans-serif;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease-out;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+    box-shadow: inset 0 1.5px 1px rgba(255, 255, 255, 0.25);
+}
+.custom-log-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: inset 0 1.5px 1px rgba(255, 255, 255, 0.25), 0 4px 8px rgba(0,0,0,0.2);
+}
+.custom-log-btn:active {
+    transform: translateY(1px);
+    transition-duration: 0.05s;
+    box-shadow: inset 0 1.5px 1px rgba(0,0,0,0.2);
 }
 .custom-log-btn.cancel {
-    background-color: var(--bg-secondary); color: var(--text-primary);
-    border: 2px solid var(--border-color);
+    background: linear-gradient(180deg, #A0522D 0%, #8B4513 100%);
+    color: var(--bg-primary);
+    border-bottom: 4px solid var(--wood-dark);
 }
 .custom-log-btn.cancel:hover {
-    background-color: var(--border-color);
+    background: linear-gradient(180deg, #b35f37 0%, #a0522d 100%);
+}
+.custom-log-btn.cancel:active {
+    border-bottom-width: 2px;
 }
 .custom-log-btn.save {
-    background-color: var(--brand-primary); color: white;
-    border: 2px solid var(--brand-primary);
+    background: linear-gradient(180deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
+    color: white;
+    border-bottom: 4px solid #388E3C;
 }
 .custom-log-btn.save:hover {
-    background-color: var(--brand-secondary);
-    border-color: var(--brand-secondary);
+    background: linear-gradient(180deg, #59c05c 0%, #4caf50 100%);
+}
+.custom-log-btn.save:active {
+    border-bottom-width: 2px;
 }
 .custom-log-btn:disabled {
     opacity: 0.6; cursor: not-allowed;
 }
+
 
 /* Tooltip style hints for desktop */
 @media (hover: hover) and (pointer: fine) {
