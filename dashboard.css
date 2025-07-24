@@ -258,21 +258,218 @@ body {
 /* ========================================
    BOTTOM NAV & FAB
    ======================================== */
+.fab-container {
+    position: fixed; bottom: 75px; right: 15px; z-index: 100;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+
 .fab {
-    position: fixed; bottom: 75px; right: 15px; width: 56px; height: 56px;
+    width: 56px; height: 56px;
     background: linear-gradient(180deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
     color: white; font-size: 2rem; border-radius: 50%; display: flex; align-items: center;
     justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 3px solid var(--bg-primary);
-    cursor: pointer; transition: all 0.15s ease-out; z-index: 100; text-decoration: none; border-bottom: 4px solid #388E3C;
+    cursor: pointer; transition: all 0.15s ease-out; text-decoration: none; border-bottom: 4px solid #388E3C;
+    position: relative; z-index: 3;
 }
 .fab:hover {
-    transform: translateY(-2px); /* More subtle lift effect */
+    transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(0,0,0,0.4);
 }
 .fab:active {
-    transform: translateY(1px); /* Press down effect */
+    transform: translateY(1px);
     border-bottom-width: 2px;
     transition-duration: 0.05s;
+}
+
+.fab-secondary {
+    width: 48px; height: 48px;
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--border-color) 100%);
+    color: var(--text-primary); font-size: 1.2rem; border-radius: 50%; 
+    display: flex; align-items: center; justify-content: center; 
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2); border: 2px solid var(--bg-primary);
+    cursor: pointer; text-decoration: none; border-bottom: 3px solid var(--wood-dark);
+    opacity: 0; transform: scale(0.8) translateY(20px); transition: all 0.2s ease-out;
+    pointer-events: none; position: relative; z-index: 2;
+}
+.fab-secondary:hover {
+    transform: scale(1) translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+.fab-secondary:active {
+    transform: scale(1) translateY(1px);
+    border-bottom-width: 1px;
+}
+
+/* Special styling for custom log button */
+.fab-secondary#custom-log-btn {
+    background: linear-gradient(180deg, #FFE4B5 0%, #FFDAB9 100%);
+    border-color: #FFD4A3;
+}
+
+/* Special styling for store button */
+.fab-secondary[href="log_purchase.html"] {
+    background: linear-gradient(180deg, #E8F5E9 0%, #C8E6C9 100%);
+    border-color: #A5D6A7;
+}
+
+/* Button labels */
+.fab-label {
+    position: absolute;
+    right: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-right: 10px;
+    background: var(--wood-dark);
+    color: var(--bg-secondary);
+    padding: 0.5rem 1rem;
+    border-radius: 25px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+/* Desktop hover effect */
+@media (hover: hover) and (pointer: fine) {
+    .fab-container:hover .fab-secondary {
+        opacity: 1; transform: scale(1) translateY(0); pointer-events: auto;
+    }
+    .fab-container:hover .fab-secondary .fab-label {
+        opacity: 1;
+    }
+    .fab-container:hover .fab {
+        transform: translateY(-2px) rotate(45deg);
+    }
+}
+
+/* Mobile tap behavior */
+.fab-container.expanded .fab-secondary {
+    opacity: 1; transform: scale(1) translateY(0); pointer-events: auto;
+}
+.fab-container.expanded .fab-secondary .fab-label {
+    opacity: 1;
+}
+.fab-container.expanded .fab {
+    transform: rotate(45deg);
+}
+
+/* Mobile-specific overlay for better tap detection */
+@media (max-width: 768px) {
+    .fab-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.3);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+        z-index: 98;
+    }
+    .fab-backdrop.active {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+
+/* Custom Log Modal */
+.custom-log-modal {
+    background-color: var(--bg-primary); border-radius: 1.5rem; padding: 2rem;
+    width: 90%; max-width: 400px; position: relative; transform: scale(0.95);
+    transition: transform 0.3s ease; border: 3px solid var(--wood-dark);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+.modal-overlay:not(.hidden) .custom-log-modal { transform: scale(1); }
+.custom-log-modal h2 { 
+    margin-top: 0; font-family: 'Patrick Hand', cursive; font-size: 2rem; 
+    color: var(--text-primary); text-align: center; margin-bottom: 1.5rem;
+}
+.form-group {
+    margin-bottom: 1.5rem;
+}
+.form-group label {
+    display: block; margin-bottom: 0.5rem; font-weight: 700;
+    color: var(--text-primary); font-size: 0.9rem;
+}
+.form-group input, .form-group select {
+    width: 100%; padding: 0.75rem 1rem; border: 2px solid var(--border-color);
+    border-radius: 0.5rem; font-size: 1rem; font-family: 'Lato', sans-serif;
+    background-color: var(--bg-secondary); color: var(--text-primary);
+    transition: border-color 0.2s ease;
+}
+.form-group input:focus, .form-group select:focus {
+    outline: none; border-color: var(--brand-primary);
+}
+.price-input-wrapper {
+    position: relative; display: flex; align-items: center;
+}
+.price-prefix {
+    position: absolute; left: 1rem; color: var(--text-secondary);
+    font-weight: 700; font-size: 1rem;
+}
+.price-input-wrapper input {
+    padding-left: 2rem;
+}
+.custom-log-actions {
+    display: flex; gap: 1rem; margin-top: 2rem;
+}
+.custom-log-btn {
+    flex: 1; padding: 0.75rem 1rem; border-radius: 50px; font-weight: 700;
+    border: none; cursor: pointer; transition: all 0.2s ease; font-size: 1rem;
+    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+}
+.custom-log-btn.cancel {
+    background-color: var(--bg-secondary); color: var(--text-primary);
+    border: 2px solid var(--border-color);
+}
+.custom-log-btn.cancel:hover {
+    background-color: var(--border-color);
+}
+.custom-log-btn.save {
+    background-color: var(--brand-primary); color: white;
+    border: 2px solid var(--brand-primary);
+}
+.custom-log-btn.save:hover {
+    background-color: var(--brand-secondary);
+    border-color: var(--brand-secondary);
+}
+.custom-log-btn:disabled {
+    opacity: 0.6; cursor: not-allowed;
+}
+
+/* Tooltip style hints for desktop */
+@media (hover: hover) and (pointer: fine) {
+    .fab::after {
+        content: 'Log Purchase';
+        position: absolute;
+        bottom: -30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--wood-dark);
+        color: var(--bg-secondary);
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    
+    .fab:hover::after {
+        opacity: 1;
+    }
+    
+    .fab-container.expanded .fab::after,
+    .fab-container:hover .fab::after {
+        opacity: 0;
+    }
 }
 
 .bottom-tab-bar {
@@ -321,9 +518,36 @@ body {
 .tab-item[href="login.html"] { background: linear-gradient(180deg, rgba(211, 47, 47, 0.08) 0%, rgba(211, 47, 47, 0.03) 100%); border-color: rgba(211, 47, 47, 0.2); }
 .tab-item[href="login.html"]:hover { background: linear-gradient(180deg, #d32f2f 0%, #b71c1c 100%); color: white; border-color: transparent; border-bottom: 3px solid #8b0000; box-shadow: 0 3px 10px rgba(211, 47, 47, 0.3); }
 
-/* ========================================
-   MODAL & PUBLIC TOGGLE
-   ======================================== */
+/* Tooltip style hints for desktop */
+@media (hover: hover) and (pointer: fine) {
+    .fab::after {
+        content: 'Log Purchase';
+        position: absolute;
+        bottom: -30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--wood-dark);
+        color: var(--bg-secondary);
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    
+    .fab:hover::after {
+        opacity: 1;
+    }
+    
+    .fab-container.expanded .fab::after,
+    .fab-container:hover .fab::after {
+        opacity: 0;
+    }
+}
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 150; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
 .modal-overlay:not(.hidden) { opacity: 1; pointer-events: auto; }
 .pfp-modal { background-color: var(--bg-primary); border-radius: 1.5rem; padding: 2rem; text-align: center; width: 90%; max-width: 400px; position: relative; transform: scale(0.95); transition: transform 0.3s ease; }
@@ -367,6 +591,7 @@ body {
     .leaderboard-item:nth-child(1) { grid-column: 1; }
 }
 
+/* Mobile-specific styles */
 @media (max-width: 640px) {
     .dashboard-container { padding: 1rem 0.5rem 6rem 0.5rem; max-width: 100%; }
     .dashboard-header { margin-bottom: 1.5rem; padding: 1rem; transform: rotate(-0.5deg); }
@@ -420,10 +645,47 @@ body {
     .tab-item { border-bottom: 2px solid rgba(0,0,0,0.3); }
     .tab-item.active { border-bottom: 3px solid #388E3C; }
     .tab-item span { display: block; }
-    .fab { width: 48px; height: 48px; font-size: 1.5rem; bottom: 70px; right: 10px; }
+    .fab-container { bottom: 70px; right: 10px; }
+    .fab { width: 48px; height: 48px; font-size: 1.5rem; }
+    .fab-secondary { width: 42px; height: 42px; font-size: 1rem; }
     .public-leaderboard-container { bottom: 70px; padding: 0.5rem 1rem; max-width: calc(100% - 40px); }
     .public-leaderboard-container span { font-size: 0.8rem; }
     .public-leaderboard-container small { display: none !important; }
+    
+    /* Mobile pulse animation hint */
+    .fab:not(.expanded) {
+        animation: pulse 2s ease-in-out infinite;
+    }
+    .fab-container.expanded .fab {
+        animation: none;
+    }
+    
+    /* Mobile hint text */
+    .fab-hint {
+        position: absolute;
+        bottom: -25px;
+        right: 0;
+        background: var(--wood-dark);
+        color: var(--bg-secondary);
+        padding: 0.3rem 0.6rem;
+        border-radius: 15px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        white-space: nowrap;
+        opacity: 0.8;
+        pointer-events: none;
+        animation: fadeInOut 3s ease-in-out;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        50% { transform: scale(1.05); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+    }
+    
+    @keyframes fadeInOut {
+        0%, 100% { opacity: 0; }
+        20%, 80% { opacity: 0.8; }
+    }
 }
 
 @media (max-width: 380px) {

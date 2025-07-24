@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc, addDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
 // --- DOM Elements ---
@@ -10,7 +10,8 @@ let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar,
     mainSections, leaderboardList, publicLeaderboardContainer, publicLeaderboardCheckbox,
     weatherWidget, pfpModalOverlay, pfpPreview, pfpUploadInput, pfpSaveButton,
     pfpCloseButton, pfpError, mapOpener, mapModalOverlay, mapModal, mapCloseButton, mapRenderTarget,
-    newspaperDate;
+    newspaperDate, fabContainer, mainFab, customLogBtn, customLogModal, customLogForm,
+    customItemName, customItemPrice, customItemStore, customLogCancel, customLogClose;
 
 // --- App State ---
 let map = null;
@@ -97,6 +98,28 @@ function renderDashboard(userData) {
     
     // Setup event listeners after elements are visible
     setupEventListeners();
+    
+    // Show mobile hint
+    const isTouchDevice = ('ontouchstart' in window) || 
+                         (navigator.maxTouchPoints > 0) || 
+                         (navigator.msMaxTouchPoints > 0);
+    
+    if (isTouchDevice && fabContainer) {
+        // Check if user has seen the hint before
+        const hasSeenHint = localStorage.getItem('fabHintShown');
+        if (!hasSeenHint) {
+            const hint = document.createElement('div');
+            hint.className = 'fab-hint';
+            hint.textContent = 'Tap to log';
+            fabContainer.appendChild(hint);
+            
+            // Remove hint after animation and mark as seen
+            setTimeout(() => {
+                hint.remove();
+                localStorage.setItem('fabHintShown', 'true');
+            }, 3000);
+        }
+    }
 }
 
 function assignDOMElements() {
@@ -131,6 +154,16 @@ function assignDOMElements() {
     mapCloseButton = document.getElementById('map-close-button');
     mapRenderTarget = document.getElementById('map-render-target');
     newspaperDate = document.getElementById('newspaper-date');
+    fabContainer = document.getElementById('fab-container');
+    mainFab = document.getElementById('main-fab');
+    customLogBtn = document.getElementById('custom-log-btn');
+    customLogModal = document.getElementById('custom-log-modal');
+    customLogForm = document.getElementById('custom-log-form');
+    customItemName = document.getElementById('custom-item-name');
+    customItemPrice = document.getElementById('custom-item-price');
+    customItemStore = document.getElementById('custom-item-store');
+    customLogCancel = document.getElementById('custom-log-cancel');
+    customLogClose = document.getElementById('custom-log-close');
 }
 
 function setupEventListeners() {
@@ -163,6 +196,80 @@ function setupEventListeners() {
     if (mapCloseButton) mapCloseButton.addEventListener('click', closeMapModal);
     if (mapModalOverlay) mapModalOverlay.addEventListener('click', (e) => {
         if(e.target === mapModalOverlay) closeMapModal();
+    });
+
+    // FAB Container Listeners - Fixed for mobile
+    if (mainFab && fabContainer) {
+        const fabBackdrop = document.getElementById('fab-backdrop');
+        
+        // Check if device is touch-enabled
+        const isTouchDevice = ('ontouchstart' in window) || 
+                             (navigator.maxTouchPoints > 0) || 
+                             (navigator.msMaxTouchPoints > 0);
+
+        if (isTouchDevice) {
+            // Mobile behavior - use click for better touch support
+            mainFab.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const isExpanded = fabContainer.classList.contains('expanded');
+                
+                if (!isExpanded) {
+                    fabContainer.classList.add('expanded');
+                    if (fabBackdrop) fabBackdrop.classList.add('active');
+                } else {
+                    fabContainer.classList.remove('expanded');
+                    if (fabBackdrop) fabBackdrop.classList.remove('active');
+                }
+            });
+
+            // Close FAB menu when tapping backdrop
+            if (fabBackdrop) {
+                fabBackdrop.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    fabContainer.classList.remove('expanded');
+                    fabBackdrop.classList.remove('active');
+                });
+            }
+
+            // Prevent closing when clicking on secondary buttons
+            const secondaryButtons = fabContainer.querySelectorAll('.fab-secondary');
+            secondaryButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+            });
+        } else {
+            // Desktop behavior - no click handler needed, CSS hover handles it
+            // But add click to go to store page as fallback
+            mainFab.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.location.href = 'log_purchase.html';
+            });
+        }
+    }
+
+    // Custom Log Modal Listeners
+    if (customLogBtn) customLogBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        customLogModal.classList.remove('hidden');
+        customItemName.focus();
+        // Close FAB menu on mobile
+        fabContainer.classList.remove('expanded');
+        const fabBackdrop = document.getElementById('fab-backdrop');
+        if (fabBackdrop) fabBackdrop.classList.remove('active');
+    });
+
+    if (customLogCancel) customLogCancel.addEventListener('click', closeCustomLogModal);
+    if (customLogClose) customLogClose.addEventListener('click', closeCustomLogModal);
+    if (customLogModal) customLogModal.addEventListener('click', (e) => {
+        if (e.target === customLogModal) closeCustomLogModal();
+    });
+
+    if (customLogForm) customLogForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        logCustomPurchase(db);
     });
 }
 
@@ -200,6 +307,11 @@ function closeModal() {
     pfpUploadInput.value = '';
     selectedPfpFile = null;
     pfpError.classList.add('hidden');
+}
+
+function closeCustomLogModal() {
+    customLogModal.classList.add('hidden');
+    customLogForm.reset();
 }
 
 function handlePfpUpload(e) {
@@ -253,6 +365,130 @@ async function savePfp(storage, db) {
     } finally {
         pfpSaveButton.disabled = false;
         pfpSaveButton.textContent = 'Save Changes';
+    }
+}
+
+async function logCustomPurchase(db) {
+    if (!currentUser) return;
+
+    const itemName = customItemName.value.trim();
+    const itemPrice = parseFloat(customItemPrice.value);
+    const storeName = customItemStore.value;
+
+    if (!itemName || isNaN(itemPrice) || itemPrice <= 0) {
+        alert('Please fill in all fields correctly');
+        return;
+    }
+
+    // Check balance
+    const userDocRef = doc(db, "users", currentUser.uid);
+    const userDoc = await getDoc(userDocRef);
+    const userData = userDoc.data();
+    const currentBalance = userData.balances.credits;
+
+    if (itemPrice > currentBalance) {
+        alert("Not enough credits!");
+        return;
+    }
+
+    // Disable submit button
+    const submitBtn = customLogForm.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="loading-spinner" style="display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite;"></span> Logging...';
+
+    try {
+        // Calculate streak
+        let { currentStreak = 0, longestStreak = 0, lastLogDate = null } = userData;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (lastLogDate) {
+            const lastDate = lastLogDate.toDate();
+            lastDate.setHours(0, 0, 0, 0);
+            const diffTime = today - lastDate;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 1) {
+                currentStreak++;
+            } else if (diffDays > 1) {
+                currentStreak = 1;
+            }
+        } else {
+            currentStreak = 1;
+        }
+
+        if (currentStreak > longestStreak) {
+            longestStreak = currentStreak;
+        }
+
+        // Log the purchase
+        const purchaseRef = collection(db, "users", currentUser.uid, "purchases");
+        await addDoc(purchaseRef, {
+            items: [{
+                name: itemName,
+                price: itemPrice,
+                quantity: 1
+            }],
+            total: itemPrice,
+            store: storeName,
+            purchaseDate: Timestamp.now(),
+            isCustom: true
+        });
+
+        // Update balance and streak
+        const newBalance = currentBalance - itemPrice;
+        await updateDoc(userDocRef, {
+            "balances.credits": newBalance,
+            currentStreak: currentStreak,
+            longestStreak: longestStreak,
+            lastLogDate: Timestamp.now()
+        });
+
+        // Update wall of fame if enabled
+        if (userData.showOnWallOfFame && currentUser?.uid) {
+            try {
+                const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
+                await setDoc(wallOfFameDocRef, {
+                    displayName: currentUser.displayName || "Anonymous",
+                    photoURL: currentUser.photoURL || "",
+                    currentStreak: currentStreak
+                }, { merge: true });
+            } catch (wallError) {
+                console.warn("Could not update wall of fame:", wallError);
+            }
+        }
+
+        // Update UI
+        creditsBalanceEl.textContent = `$${newBalance.toFixed(2)}`;
+        const walletContainer = document.querySelector('.wallet-container, .table-item.item-credits');
+        if (walletContainer) {
+            walletContainer.classList.add('hit');
+            setTimeout(() => walletContainer.classList.remove('hit'), 600);
+        }
+
+        // Success! Close modal
+        closeCustomLogModal();
+        
+        // Show success message
+        const successMsg = document.createElement('div');
+        successMsg.className = 'custom-log-success';
+        successMsg.textContent = `✓ Logged: ${itemName}`;
+        successMsg.style.cssText = `
+            position: fixed; bottom: 140px; left: 50%; transform: translateX(-50%);
+            background: var(--brand-primary); color: white; padding: 1rem 2rem;
+            border-radius: 50px; font-weight: 700; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            animation: slideUp 0.3s ease-out, fadeOut 0.3s ease-out 2.7s forwards;
+            z-index: 200;
+        `;
+        document.body.appendChild(successMsg);
+        setTimeout(() => successMsg.remove(), 3000);
+
+    } catch (error) {
+        console.error("Error logging custom purchase:", error);
+        alert("Failed to log purchase. Please try again.");
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>Log Purchase</span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
     }
 }
 
@@ -412,6 +648,25 @@ function initializeMap() {
         map.invalidateSize();
     }, 100);
 }
+
+// Add keyframe animations to the page
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideUp {
+        from { transform: translate(-50%, 20px); opacity: 0; }
+        to { transform: translate(-50%, 0); opacity: 1; }
+    }
+    @keyframes fadeOut {
+        to { opacity: 0; transform: translate(-50%, -10px); }
+    }
+    .table-item.hit { animation: shake 0.5s ease-out; }
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px) rotate(-1deg); }
+        75% { transform: translateX(5px) rotate(1deg); }
+    }
+`;
+document.head.appendChild(style);
 
 // --- Run the app ---
 document.addEventListener('DOMContentLoaded', () => {
