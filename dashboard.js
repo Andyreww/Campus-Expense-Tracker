@@ -75,7 +75,7 @@ function renderDashboard(userData) {
     updateBalancesUI(balances);
     // NEW: Update titles from saved data, or use defaults
     if (balanceTitles) {
-        creditsTitleEl.textContent = balanceTitles.credits || 'Campus Credits';
+        creditsTitleEl.textContent = balanceTitles.credits || 'Aura Bells';
         diningTitleEl.textContent = balanceTitles.dining || 'Dining Dollars';
         swipesTitleEl.textContent = balanceTitles.swipes || 'Meal Swipes';
         bonusTitleEl.textContent = balanceTitles.bonus || 'Bonus Swipes';
@@ -139,33 +139,38 @@ function assignDOMElements() {
 }
 
 function setupEventListeners() {
-    // ... (existing listeners)
+    const { auth, db, storage } = firebaseServices;
+
     if (avatarButton) avatarButton.addEventListener('click', () => pfpModalOverlay.classList.remove('hidden'));
     if (pfpCloseButton) pfpCloseButton.addEventListener('click', closeModal);
     if (pfpModalOverlay) pfpModalOverlay.addEventListener('click', (e) => {
         if (e.target === pfpModalOverlay) closeModal();
     });
     if (pfpUploadInput) pfpUploadInput.addEventListener('change', handlePfpUpload);
-    if (pfpSaveButton) pfpSaveButton.addEventListener('click', () => savePfp(firebaseServices.storage, firebaseServices.db));
+    if (pfpSaveButton) pfpSaveButton.addEventListener('click', () => savePfp(storage, db));
 
     if (logoutButton) logoutButton.addEventListener('click', (e) => {
         e.preventDefault();
-        window.location.href = "login.html";
+        // --- API Usage: Firebase Sign Out ---
+        signOut(auth).then(() => {
+            window.location.href = "login.html";
+        }).catch((error) => console.error("Logout Error:", error));
     });
 
     if (tabItems) tabItems.forEach(tab => {
-        tab.addEventListener('click', (e) => handleTabClick(e, firebaseServices.db));
+        tab.addEventListener('click', (e) => handleTabClick(e, db));
     });
     
-    if (publicLeaderboardCheckbox) publicLeaderboardCheckbox.addEventListener('change', (e) => handlePublicToggle(e, firebaseServices.db));
+    if (publicLeaderboardCheckbox) publicLeaderboardCheckbox.addEventListener('change', (e) => handlePublicToggle(e, db));
 
+    // Map Modal Listeners
     if (mapOpener) mapOpener.addEventListener('click', openMapModal);
     if (mapCloseButton) mapCloseButton.addEventListener('click', closeMapModal);
     if (mapModalOverlay) mapModalOverlay.addEventListener('click', (e) => {
         if(e.target === mapModalOverlay) closeMapModal();
     });
 
-    // NEW: Setup listeners for editable titles
+    // Setup listeners for editable titles
     setupEditableTitles();
 }
 
