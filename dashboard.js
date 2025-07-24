@@ -47,8 +47,6 @@ async function main() {
             }
         });
 
-        setupEventListeners();
-
     } catch (error) {
         console.error("Fatal Error:", error);
         if (loadingIndicator) {
@@ -60,8 +58,7 @@ async function main() {
 // --- App Logic ---
 async function checkProfile() {
     // --- API Usage: Firestore Get Document ---
-    // This function would fetch the user's profile from the 'users' collection in Firestore.
-    
+    // This function fetches the user's profile from the 'users' collection in Firestore.
     const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
     const userDoc = await getDoc(userDocRef);
 
@@ -71,16 +68,6 @@ async function checkProfile() {
         // If no profile exists, redirect to the questionnaire to set one up.
         window.location.href = "questionnaire.html";
     }
-    
-
-    // Simulate successful profile load with mock data
-    renderDashboard({
-        balances: { credits: 250.00, dining: 180.50, swipes: 14, bonus: 3 },
-        displayName: currentUser.displayName,
-        photoURL: currentUser.photoURL,
-        showOnWallOfFame: true,
-        university: "Aura University" // Using a generic name for weather
-    });
 }
 
 function renderDashboard(userData) {
@@ -107,6 +94,9 @@ function renderDashboard(userData) {
     // Hide loading screen and show dashboard
     loadingIndicator.style.display = 'none';
     dashboardContainer.style.display = 'block';
+    
+    // Setup event listeners after elements are visible
+    setupEventListeners();
 }
 
 function assignDOMElements() {
@@ -160,7 +150,6 @@ function setupEventListeners() {
         signOut(auth).then(() => {
             window.location.href = "login.html";
         }).catch((error) => console.error("Logout Error:", error));
-        // window.location.href = "login.html"; // Mock sign out
     });
 
     if (tabItems) tabItems.forEach(tab => {
@@ -178,17 +167,15 @@ function setupEventListeners() {
 }
 
 function openMapModal() {
-    // Ensure map is initialized before showing modal
     if (!map) {
         initializeMap();
     }
     mapModalOverlay.classList.remove('hidden');
-    // Wait for modal to be fully visible before resizing map
     setTimeout(() => {
         if (map) {
             map.invalidateSize();
         }
-    }, 300); // Increased delay to ensure modal CSS transitions complete
+    }, 300);
 }
 
 function closeMapModal() {
@@ -248,14 +235,10 @@ async function savePfp(storage, db) {
     pfpError.classList.add('hidden');
 
     try {
-        // --- API Usage: Firebase Storage Upload ---
-        // This uploads the selected file to a specific path in Firebase Storage.
         const storageRef = ref(storage, `profile_pictures/${currentUser.uid}`);
         const snapshot = await uploadBytes(storageRef, selectedPfpFile);
         const downloadURL = await getDownloadURL(snapshot.ref);
 
-        // --- API Usage: Firebase Auth & Firestore Update ---
-        // Updates the user's profile in both Firebase Authentication and their Firestore document.
         await updateProfile(currentUser, { photoURL: downloadURL });
         const userDocRef = doc(db, "users", currentUser.uid);
         await updateDoc(userDocRef, { photoURL: downloadURL });
@@ -299,23 +282,12 @@ async function fetchAndRenderLeaderboard(db) {
     if (!leaderboardList) return;
     leaderboardList.innerHTML = '<div class="spinner" style="margin: 2rem auto;"></div>';
     
-    // --- API Usage: Firestore Query ---
-    // Fetches users from the 'users' collection, ordered by their current streak.
-    // const usersRef = collection(db, "users");
-    // const q = query(usersRef, orderBy("currentStreak", "desc"));
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, orderBy("currentStreak", "desc"));
     
     try {
-        // const querySnapshot = await getDocs(q);
-        // const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        // Mock leaderboard data
-        const users = [
-            { id: "user1", displayName: "Espresso Eric", photoURL: "", currentStreak: 42 },
-            { id: "mockUID", displayName: "Latte Larry", photoURL: "", currentStreak: 25 },
-            { id: "user3", displayName: "Mocha Molly", photoURL: "", currentStreak: 15 },
-            { id: "user4", displayName: "Cappuccino Carl", photoURL: "", currentStreak: 7 },
-            { id: "user5", displayName: "Americano Amy", photoURL: "", currentStreak: 3 },
-        ];
+        const querySnapshot = await getDocs(q);
+        const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         leaderboardList.innerHTML = '';
         users.forEach((user, index) => {
@@ -351,8 +323,6 @@ async function handlePublicToggle(e, db) {
     const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
 
     try {
-        // --- API Usage: Firestore Update/Delete ---
-        // Updates a user's setting and adds/removes them from the public 'wallOfFame' collection (Top of the Grind).
         await updateDoc(userDocRef, { showOnWallOfFame: isChecked });
         if (isChecked) {
             const userDoc = await getDoc(userDocRef);
@@ -380,18 +350,13 @@ async function fetchAndRenderWeather(university) {
     if (!weatherWidget) return;
     weatherWidget.innerHTML = `<div class="spinner"></div>`;
     
-    // --- API Usage: Serverless Function ---
-    // This fetches data from a serverless function to securely use an API key.
-    // const apiUrl = `/.netlify/functions/getWeather?university=${encodeURIComponent(location)}`;
+    const apiUrl = `/.netlify/functions/getWeather?university=${encodeURIComponent(location)}`;
 
     try {
-        // const response = await fetch(apiUrl);
-        // const data = await response.json();
-        // if (!response.ok) throw new Error(data.message || `Error: ${response.status}`);
+        const response = await fetch(apiUrl);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || `Error: ${response.status}`);
         
-        // Mock weather data
-        const data = { main: { temp: 72.5 }, weather: [{ description: "partly cloudy", icon: "02d" }], name: "Aura University" };
-
         const temp = Math.round(data.main.temp);
         const description = data.weather[0].description;
         const iconCode = data.weather[0].icon;
@@ -416,7 +381,6 @@ async function fetchAndRenderWeather(university) {
 function initializeMap() {
     if (!mapRenderTarget || map) return;
     
-    // Ensure the map container has valid dimensions
     mapRenderTarget.style.width = '100%';
     mapRenderTarget.style.height = '100%';
     
@@ -425,21 +389,18 @@ function initializeMap() {
         zoomControl: true
     }).setView([40.069, -82.52], 14);
 
-    // Use a more artistic map style
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png', {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
         subdomains: 'abcd',
         maxZoom: 20
     }).addTo(map);
 
-    // Add custom markers for coffee shops, dining halls, etc.
     const coffeeIcon = L.divIcon({
         html: '<div style="background: #4CAF50; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">☕</div>',
         iconSize: [30, 30],
         className: 'custom-div-icon'
     });
 
-    // Add some example markers
     L.marker([40.069, -82.52], { icon: coffeeIcon }).addTo(map)
         .bindPopup('Aura Café - Main Campus');
     L.marker([40.072, -82.525], { icon: coffeeIcon }).addTo(map)
@@ -447,7 +408,6 @@ function initializeMap() {
     L.marker([40.065, -82.518], { icon: coffeeIcon }).addTo(map)
         .bindPopup('Bean There - Library');
 
-    // Force a resize to ensure map renders correctly
     setTimeout(() => {
         map.invalidateSize();
     }, 100);
