@@ -15,6 +15,10 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+html {
+    background-color: var(--wood-light); /* QUICK FIX: Prevents white flash on load */
+}
+
 html, body {
     overflow-x: hidden;
     width: 100%;
@@ -37,7 +41,8 @@ body {
 .loading-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     display: flex; align-items: center; justify-content: center;
-    background-color: var(--bg-primary); z-index: 200;
+    background-color: var(--wood-light); /* Match body background */
+    z-index: 200;
 }
 .spinner {
     width: 48px; height: 48px; border: 4px solid var(--border-color);

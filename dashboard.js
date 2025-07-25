@@ -21,10 +21,9 @@ let firebaseServices = null;
 
 // --- Main App Initialization ---
 async function main() {
+    assignDOMElements();
     try {
         // --- API Usage: Firebase Configuration ---
-        // In a real production environment, this configuration would be fetched securely.
-        // Fetch config via Netlify function and initialize Firebase.
         const response = await fetch('/.netlify/functions/getFirebaseConfig');
         if (!response.ok) {
             throw new Error('Could not load Firebase configuration.');
@@ -38,7 +37,6 @@ async function main() {
         firebaseServices = { auth, db, storage };
 
         // --- API Usage: Authentication State ---
-        // This listener checks if a user is logged in. If not, it redirects to the login page.
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
@@ -51,7 +49,7 @@ async function main() {
     } catch (error) {
         console.error("Fatal Error:", error);
         if (loadingIndicator) {
-            loadingIndicator.textContent = "Failed to load application. Please try again later.";
+            loadingIndicator.innerHTML = "Failed to load application. Please try again later.";
         }
     }
 }
@@ -59,7 +57,6 @@ async function main() {
 // --- App Logic ---
 async function checkProfile() {
     // --- API Usage: Firestore Get Document ---
-    // This function fetches the user's profile from the 'users' collection in Firestore.
     const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
     const userDoc = await getDoc(userDocRef);
 
@@ -98,28 +95,8 @@ function renderDashboard(userData) {
     
     // Setup event listeners after elements are visible
     setupEventListeners();
-    
-    // Show mobile hint
-    const isTouchDevice = ('ontouchstart' in window) || 
-                         (navigator.maxTouchPoints > 0) || 
-                         (navigator.msMaxTouchPoints > 0);
-    
-    if (isTouchDevice && fabContainer) {
-        // Check if user has seen the hint before
-        const hasSeenHint = localStorage.getItem('fabHintShown');
-        if (!hasSeenHint) {
-            const hint = document.createElement('div');
-            hint.className = 'fab-hint';
-            hint.textContent = 'Tap to log';
-            fabContainer.appendChild(hint);
-            
-            // Remove hint after animation and mark as seen
-            setTimeout(() => {
-                hint.remove();
-                localStorage.setItem('fabHintShown', 'true');
-            }, 3000);
-        }
-    }
+    // Handle initial tab state from URL hash
+    handleInitialTab();
 }
 
 function assignDOMElements() {
@@ -198,67 +175,29 @@ function setupEventListeners() {
         if(e.target === mapModalOverlay) closeMapModal();
     });
 
-    // FAB Container Listeners - Fixed for mobile
+    // FAB Container Listeners
     if (mainFab && fabContainer) {
-        const fabBackdrop = document.getElementById('fab-backdrop');
-        
-        // Check if device is touch-enabled
-        const isTouchDevice = ('ontouchstart' in window) || 
-                             (navigator.maxTouchPoints > 0) || 
-                             (navigator.msMaxTouchPoints > 0);
-
-        if (isTouchDevice) {
-            // Mobile behavior - use click for better touch support
+        // Mobile: tap to expand/collapse
+        const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if (isMobile) {
             mainFab.addEventListener('click', (e) => {
                 e.preventDefault();
-                e.stopPropagation();
-                
-                const isExpanded = fabContainer.classList.contains('expanded');
-                
-                if (!isExpanded) {
-                    fabContainer.classList.add('expanded');
-                    if (fabBackdrop) fabBackdrop.classList.add('active');
-                } else {
+                fabContainer.classList.toggle('expanded');
+            });
+
+            // Close FAB menu when tapping elsewhere
+            document.addEventListener('click', (e) => {
+                if (!fabContainer.contains(e.target)) {
                     fabContainer.classList.remove('expanded');
-                    if (fabBackdrop) fabBackdrop.classList.remove('active');
                 }
-            });
-
-            // Close FAB menu when tapping backdrop
-            if (fabBackdrop) {
-                fabBackdrop.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    fabContainer.classList.remove('expanded');
-                    fabBackdrop.classList.remove('active');
-                });
-            }
-
-            // Prevent closing when clicking on secondary buttons
-            const secondaryButtons = fabContainer.querySelectorAll('.fab-secondary');
-            secondaryButtons.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                });
-            });
-        } else {
-            // Desktop behavior - no click handler needed, CSS hover handles it
-            // But add click to go to store page as fallback
-            mainFab.addEventListener('click', (e) => {
-                e.preventDefault();
-                window.location.href = 'log_purchase.html';
             });
         }
     }
 
     // Custom Log Modal Listeners
-    if (customLogBtn) customLogBtn.addEventListener('click', (e) => {
-        e.preventDefault();
+    if (customLogBtn) customLogBtn.addEventListener('click', () => {
         customLogModal.classList.remove('hidden');
         customItemName.focus();
-        // Close FAB menu on mobile
-        fabContainer.classList.remove('expanded');
-        const fabBackdrop = document.getElementById('fab-backdrop');
-        if (fabBackdrop) fabBackdrop.classList.remove('active');
     });
 
     if (customLogCancel) customLogCancel.addEventListener('click', closeCustomLogModal);
@@ -272,6 +211,48 @@ function setupEventListeners() {
         logCustomPurchase(db);
     });
 }
+
+function handleTabClick(e, db) {
+    const tab = e.currentTarget;
+    if (tab.dataset.section) {
+        e.preventDefault();
+        const targetSectionId = tab.dataset.section;
+        switchTab(targetSectionId, db);
+    }
+}
+
+// NEW: Function to handle switching tabs, can be called from multiple places
+function switchTab(sectionId, db) {
+    const targetTab = document.querySelector(`.tab-item[data-section="${sectionId}"]`);
+    const targetSection = document.getElementById(sectionId);
+
+    if (targetTab && targetSection) {
+        tabItems.forEach(t => t.classList.remove('active'));
+        mainSections.forEach(s => s.classList.remove('active'));
+
+        targetTab.classList.add('active');
+        targetSection.classList.add('active');
+
+        if (sectionId === 'leaderboard-section') {
+            publicLeaderboardContainer.classList.remove('hidden');
+            if (db) { // Only fetch if db is available
+                fetchAndRenderLeaderboard(db);
+            }
+        } else {
+            publicLeaderboardContainer.classList.add('hidden');
+        }
+    }
+}
+
+// NEW: Function to check URL hash on page load
+function handleInitialTab() {
+    const hash = window.location.hash;
+    if (hash) {
+        const sectionId = hash.substring(1); // Remove '#'
+        switchTab(sectionId, firebaseServices?.db);
+    }
+}
+
 
 function openMapModal() {
     if (!map) {
@@ -492,28 +473,6 @@ async function logCustomPurchase(db) {
     }
 }
 
-function handleTabClick(e, db) {
-    const tab = e.currentTarget;
-    if (tab.href.endsWith('#')) {
-        e.preventDefault();
-        const targetSectionId = tab.dataset.section;
-        if (!targetSectionId) return;
-
-        tabItems.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-
-        mainSections.forEach(s => s.classList.remove('active'));
-        document.getElementById(targetSectionId).classList.add('active');
-
-        if (targetSectionId === 'leaderboard-section') {
-            publicLeaderboardContainer.classList.remove('hidden');
-            fetchAndRenderLeaderboard(db);
-        } else {
-            publicLeaderboardContainer.classList.add('hidden');
-        }
-    }
-}
-
 async function fetchAndRenderLeaderboard(db) {
     if (!leaderboardList) return;
     leaderboardList.innerHTML = '<div class="spinner" style="margin: 2rem auto;"></div>';
@@ -669,7 +628,4 @@ style.textContent = `
 document.head.appendChild(style);
 
 // --- Run the app ---
-document.addEventListener('DOMContentLoaded', () => {
-    assignDOMElements();
-    main();
-});
+document.addEventListener('DOMContentLoaded', main);
