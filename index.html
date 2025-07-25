@@ -321,156 +321,165 @@ This website is built by a student for students. You’re safe here.</p>
     
     <!-- 3D Hero Scene -->
     <script type="module">
-        // Ensure Three.js is loaded
-        if (typeof THREE === 'undefined') {
-            console.error('Three.js has not been loaded.');
-            return;
-        }
-
-        const container = document.getElementById('hero-canvas-container');
-        if (!container) return;
-
-        // Scene, Camera, Renderer
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-        
-        renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        container.appendChild(renderer.domElement);
-
-        // Lighting (warmer for a cozier vibe)
-        const ambientLight = new THREE.AmbientLight(0xfff0e0, 0.7);
-        scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffeadd, 0.8);
-        directionalLight.position.set(5, 10, 7.5);
-        scene.add(directionalLight);
-
-        // Materials (more matte and ceramic-like)
-        const mugMaterial = new THREE.MeshStandardMaterial({ color: 0xfff8e7, roughness: 0.7, metalness: 0.1 });
-        const steamMaterial = new THREE.MeshStandardMaterial({ color: 0xF0EAD6, transparent: true, opacity: 0.3 });
-
-        // Coffee Mug Group
-        const mugGroup = new THREE.Group();
-        
-        // Mug Body (using a Torus)
-        const bodyGeometry = new THREE.TorusGeometry(1, 0.4, 16, 100);
-        const mugBody = new THREE.Mesh(bodyGeometry, mugMaterial);
-        mugBody.rotation.x = Math.PI / 2;
-        mugGroup.add(mugBody);
-
-        // Mug Base
-        const baseGeometry = new THREE.CylinderGeometry(0.9, 1, 0.2, 32);
-        const mugBase = new THREE.Mesh(baseGeometry, mugMaterial);
-        mugBase.position.y = -0.7;
-        mugGroup.add(mugBase);
-
-        // Mug Handle
-        const handleGeometry = new THREE.TorusGeometry(0.6, 0.15, 16, 100, Math.PI * 1.5);
-        const mugHandle = new THREE.Mesh(handleGeometry, mugMaterial);
-        mugHandle.position.x = 1.3;
-        mugHandle.rotation.y = Math.PI / 2;
-        mugGroup.add(mugHandle);
-
-        scene.add(mugGroup);
-        
-        // Steam Particles
-        const steamParticles = [];
-        for (let i = 0; i < 30; i++) {
-            const particleGeometry = new THREE.SphereGeometry(Math.random() * 0.1 + 0.05, 8, 8);
-            const particle = new THREE.Mesh(particleGeometry, steamMaterial);
-            
-            particle.position.set(
-                (Math.random() - 0.5) * 1.5,
-                (Math.random() * 1) + 0.5,
-                (Math.random() - 0.5) * 1.5
-            );
-            particle.userData.initialY = particle.position.y;
-            scene.add(particle);
-            steamParticles.push(particle);
-        }
-
-        // Floating Sparkle Particles for that Animal Crossing magic
-        const sparkles = [];
-        const sparkleGeometry = new THREE.SphereGeometry(0.03, 8, 8);
-        const sparkleMaterial = new THREE.MeshBasicMaterial({ color: 0xffe45c, transparent: true, opacity: 0.8 });
-
-        for (let i = 0; i < 50; i++) {
-            const sparkle = new THREE.Mesh(sparkleGeometry, sparkleMaterial);
-            sparkle.position.set(
-                (Math.random() - 0.5) * 8,
-                (Math.random() - 0.5) * 6,
-                (Math.random() - 0.5) * 4
-            );
-            sparkle.userData.velocity = new THREE.Vector3(
-                (Math.random() - 0.5) * 0.005,
-                (Math.random() - 0.5) * 0.005,
-                0
-            );
-            scene.add(sparkle);
-            sparkles.push(sparkle);
-        }
-
-        camera.position.z = 5;
-
-        // Mouse interaction
-        let mouseX = 0, mouseY = 0;
-        document.addEventListener('mousemove', (event) => {
-            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
-            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
-        });
-
-        // Animation Loop
-        function animate() {
-            requestAnimationFrame(animate);
-
-            // Mug rotation
-            mugGroup.rotation.y += 0.005;
-            
-            // Steam animation
-            steamParticles.forEach(p => {
-                p.position.y += 0.01;
-                p.material.opacity = Math.max(0, p.material.opacity - 0.005);
-                if (p.position.y > 3) {
-                    p.position.y = p.userData.initialY;
-                    p.material.opacity = 0.3;
-                }
-            });
-
-            // Animate sparkles
-            sparkles.forEach(sparkle => {
-                sparkle.position.add(sparkle.userData.velocity);
-                // Twinkle effect
-                sparkle.material.opacity = Math.sin(Date.now() * 0.001 + sparkle.position.x) * 0.4 + 0.6; 
-
-                // Reset if they go too far
-                if (Math.abs(sparkle.position.x) > 4 || Math.abs(sparkle.position.y) > 3) {
-                    sparkle.position.set(
-                        (Math.random() - 0.5) * 8,
-                        (Math.random() - 0.5) * 6,
-                        (Math.random() - 0.5) * 4
-                    );
-                }
-            });
-
-            // Camera parallax effect
-            camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.05;
-            camera.position.y += (mouseY * 0.5 - camera.position.y) * 0.05;
-            camera.lookAt(scene.position);
-
-            renderer.render(scene, camera);
-        }
-
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            if (container.clientWidth > 0 && container.clientHeight > 0) {
-                camera.aspect = container.clientWidth / container.clientHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(container.clientWidth, container.clientHeight);
+        // --- FIX: Wrap the entire 3D scene logic in a function ---
+        function setupHeroScene() {
+            // Ensure Three.js is loaded
+            if (typeof THREE === 'undefined') {
+                console.error('Three.js has not been loaded.');
+                return; // This is now a valid return statement inside a function
             }
-        });
 
-        animate();
+            const container = document.getElementById('hero-canvas-container');
+            if (!container) {
+                console.error('Hero canvas container not found.');
+                return; // This is also a valid return
+            }
+
+            // Scene, Camera, Renderer
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // Lighting (warmer for a cozier vibe)
+            const ambientLight = new THREE.AmbientLight(0xfff0e0, 0.7);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffeadd, 0.8);
+            directionalLight.position.set(5, 10, 7.5);
+            scene.add(directionalLight);
+
+            // Materials (more matte and ceramic-like)
+            const mugMaterial = new THREE.MeshStandardMaterial({ color: 0xfff8e7, roughness: 0.7, metalness: 0.1 });
+            const steamMaterial = new THREE.MeshStandardMaterial({ color: 0xF0EAD6, transparent: true, opacity: 0.3 });
+
+            // Coffee Mug Group
+            const mugGroup = new THREE.Group();
+            
+            // Mug Body (using a Torus)
+            const bodyGeometry = new THREE.TorusGeometry(1, 0.4, 16, 100);
+            const mugBody = new THREE.Mesh(bodyGeometry, mugMaterial);
+            mugBody.rotation.x = Math.PI / 2;
+            mugGroup.add(mugBody);
+
+            // Mug Base
+            const baseGeometry = new THREE.CylinderGeometry(0.9, 1, 0.2, 32);
+            const mugBase = new THREE.Mesh(baseGeometry, mugMaterial);
+            mugBase.position.y = -0.7;
+            mugGroup.add(mugBase);
+
+            // Mug Handle
+            const handleGeometry = new THREE.TorusGeometry(0.6, 0.15, 16, 100, Math.PI * 1.5);
+            const mugHandle = new THREE.Mesh(handleGeometry, mugMaterial);
+            mugHandle.position.x = 1.3;
+            mugHandle.rotation.y = Math.PI / 2;
+            mugGroup.add(mugHandle);
+
+            scene.add(mugGroup);
+            
+            // Steam Particles
+            const steamParticles = [];
+            for (let i = 0; i < 30; i++) {
+                const particleGeometry = new THREE.SphereGeometry(Math.random() * 0.1 + 0.05, 8, 8);
+                const particle = new THREE.Mesh(particleGeometry, steamMaterial);
+                
+                particle.position.set(
+                    (Math.random() - 0.5) * 1.5,
+                    (Math.random() * 1) + 0.5,
+                    (Math.random() - 0.5) * 1.5
+                );
+                particle.userData.initialY = particle.position.y;
+                scene.add(particle);
+                steamParticles.push(particle);
+            }
+
+            // Floating Sparkle Particles for that Animal Crossing magic
+            const sparkles = [];
+            const sparkleGeometry = new THREE.SphereGeometry(0.03, 8, 8);
+            const sparkleMaterial = new THREE.MeshBasicMaterial({ color: 0xffe45c, transparent: true, opacity: 0.8 });
+
+            for (let i = 0; i < 50; i++) {
+                const sparkle = new THREE.Mesh(sparkleGeometry, sparkleMaterial);
+                sparkle.position.set(
+                    (Math.random() - 0.5) * 8,
+                    (Math.random() - 0.5) * 6,
+                    (Math.random() - 0.5) * 4
+                );
+                sparkle.userData.velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.005,
+                    (Math.random() - 0.5) * 0.005,
+                    0
+                );
+                scene.add(sparkle);
+                sparkles.push(sparkle);
+            }
+
+            camera.position.z = 5;
+
+            // Mouse interaction
+            let mouseX = 0, mouseY = 0;
+            document.addEventListener('mousemove', (event) => {
+                mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+                mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+            });
+
+            // Animation Loop
+            function animate() {
+                requestAnimationFrame(animate);
+
+                // Mug rotation
+                mugGroup.rotation.y += 0.005;
+                
+                // Steam animation
+                steamParticles.forEach(p => {
+                    p.position.y += 0.01;
+                    p.material.opacity = Math.max(0, p.material.opacity - 0.005);
+                    if (p.position.y > 3) {
+                        p.position.y = p.userData.initialY;
+                        p.material.opacity = 0.3;
+                    }
+                });
+
+                // Animate sparkles
+                sparkles.forEach(sparkle => {
+                    sparkle.position.add(sparkle.userData.velocity);
+                    // Twinkle effect
+                    sparkle.material.opacity = Math.sin(Date.now() * 0.001 + sparkle.position.x) * 0.4 + 0.6; 
+
+                    // Reset if they go too far
+                    if (Math.abs(sparkle.position.x) > 4 || Math.abs(sparkle.position.y) > 3) {
+                        sparkle.position.set(
+                            (Math.random() - 0.5) * 8,
+                            (Math.random() - 0.5) * 6,
+                            (Math.random() - 0.5) * 4
+                        );
+                    }
+                });
+
+                // Camera parallax effect
+                camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.05;
+                camera.position.y += (mouseY * 0.5 - camera.position.y) * 0.05;
+                camera.lookAt(scene.position);
+
+                renderer.render(scene, camera);
+            }
+
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                if (container.clientWidth > 0 && container.clientHeight > 0) {
+                    camera.aspect = container.clientWidth / container.clientHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(container.clientWidth, container.clientHeight);
+                }
+            });
+
+            animate();
+        }
+
+        // --- FIX: Call the function to run the script ---
+        setupHeroScene();
     </script>
     
     <!-- Page-specific Scripts -->
