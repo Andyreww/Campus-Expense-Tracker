@@ -74,8 +74,8 @@ body {
     justify-content: center;
 }
 
-/* NEW: Forecast Gate Styles */
-.forecast-gate {
+/* Reusable Data Gate Styles */
+.data-gate {
     background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--border-color) 100%);
     color: var(--text-primary);
     padding: 2rem;
@@ -85,9 +85,10 @@ body {
     border-bottom: 5px solid var(--wood-dark);
     max-width: 350px;
     margin: 0 auto;
+    transform: rotate(0.5deg); /* Counter-rotate the card's tilt */
 }
 
-.forecast-gate-icon {
+.data-gate-icon {
     background: var(--paper-white, #fdfaf2);
     width: 60px;
     height: 60px;
@@ -98,21 +99,22 @@ body {
     margin: 0 auto 1rem;
     border: 2px solid var(--wood-dark);
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    font-size: 1.8rem;
 }
 
-.forecast-gate-icon svg {
+.data-gate-icon svg {
     width: 32px;
     height: 32px;
     stroke: var(--brand-primary);
 }
 
-.forecast-gate-title {
+.data-gate-title {
     font-family: 'Patrick Hand', cursive;
     font-size: 1.8rem;
     margin-bottom: 0.5rem;
 }
 
-.forecast-gate-text {
+.data-gate-text {
     font-family: 'Nunito', sans-serif;
     font-size: 1rem;
     color: var(--text-secondary);
@@ -133,51 +135,28 @@ body {
     background: var(--bg-secondary);
     border: 2px solid var(--border-color);
     border-radius: 12px;
-    padding: 1rem 1.25rem 1rem 4.5rem; /* Increased left padding for new icon */
-    font-family: 'Special Elite', monospace; /* Changed font for style */
+    padding: 1rem;
+    font-family: 'Special Elite', monospace;
     color: var(--text-primary);
-    font-weight: 500; /* Adjusted weight for new font */
-    font-size: 1.1rem; /* Slightly larger font */
-    line-height: 1.6; /* Increased line height for readability */
+    font-weight: 500;
+    font-size: 1.1rem;
+    line-height: 1.6;
     position: relative;
     border-bottom-width: 5px;
-    transform: none;
-    width: 100%;
-    align-self: auto;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
-/* Removing all transform effects from previous versions */
-.insight-item:hover,
-.insight-item:nth-child(even),
-.insight-item:nth-child(odd) {
-    transform: none;
-    z-index: auto;
-    width: 100%;
-    align-self: auto;
+.insight-icon {
+   font-size: 2rem; /* Made emoji slightly larger */
+   flex-shrink: 0;
+   /* Removed background, border, etc. */
 }
 
-/* Re-purposing the pseudo-element for a styled icon */
-.insight-item::before {
-   content: '💡';
-   position: absolute;
-   left: 0.75rem;
-   top: 50%;
-   transform: translateY(-50%);
-   font-size: 1.5rem;
-   /* New styles for the icon background */
-   background: var(--paper-white, #fdfaf2);
-   width: 45px;
-   height: 45px;
-   border-radius: 50%;
-   display: flex;
-   align-items: center;
-   justify-content: center;
-   border: 2px solid var(--border-color);
-   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-   color: var(--text-primary);
-   opacity: 1; /* Reset opacity */
+.insight-text {
+    flex-grow: 1;
 }
-
 
 /* Purchase History Styles */
 .purchase-history-list {

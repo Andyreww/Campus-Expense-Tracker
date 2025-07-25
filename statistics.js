@@ -96,11 +96,7 @@ function initializeWithMockData() {
         }
     };
     const mockHistory = [
-        { items: [{ name: 'Iced Coffee', quantity: 1, category: 'Coffee', price: 4.50 }], total: 4.50, purchaseDate: new Date('2025-07-24 08:30:00'), store: 'Ross Market' },
-        { items: [{ name: 'Avocado Toast', quantity: 1, category: 'Food', price: 8.75 }], total: 8.75, purchaseDate: new Date('2025-07-23 13:00:00'), store: 'The Nest' },
-        { items: [{ name: 'Energy Drink', quantity: 1, category: 'Drinks', price: 3.25 }], total: 3.25, purchaseDate: new Date('2025-07-22 21:00:00'), store: 'Ross Market' },
-        { items: [{ name: 'Bagel & Cream Cheese', quantity: 1, category: 'Food', price: 3.50 }], total: 3.50, purchaseDate: new Date('2025-07-21 09:00:00'), store: 'Curtis Dining' },
-        { items: [{ name: 'Iced Coffee', quantity: 1, category: 'Coffee', price: 4.50 }], total: 4.50, purchaseDate: new Date('2025-07-20 10:00:00'), store: 'Ross Market' },
+        // Empty history to test the data gates
     ];
     renderAllComponents(mockUser, mockHistory);
 }
@@ -137,7 +133,15 @@ function renderHistory(purchases) {
     historyList.innerHTML = '';
 
     if (purchases.length === 0) {
-        historyList.innerHTML = '<p style="text-align: center; padding: 1rem;">No purchase history yet. Go buy something!</p>';
+        historyList.innerHTML = `
+            <div class="data-gate">
+                <div class="data-gate-icon">🛒</div>
+                <div class="data-gate-title">No History Yet</div>
+                <div class="data-gate-text">
+                    Log your first purchase to see your history build up here!
+                </div>
+            </div>
+        `;
         return;
     }
     
@@ -167,7 +171,18 @@ function renderInsights(purchases) {
     if (!insightsList) return;
     insightsList.innerHTML = '';
 
-    if (purchases.length === 0) return;
+    if (purchases.length === 0) {
+        insightsList.innerHTML = `
+            <div class="data-gate">
+                <div class="data-gate-icon">💡</div>
+                <div class="data-gate-title">Unlock Insights</div>
+                <div class="data-gate-text">
+                    Start logging purchases to discover your spending habits.
+                </div>
+            </div>
+        `;
+        return;
+    }
 
     const allItems = purchases.flatMap(p => p.items);
 
@@ -186,7 +201,7 @@ function renderInsights(purchases) {
         
         const insight1 = document.createElement('li');
         insight1.className = 'insight-item';
-        insight1.textContent = `Your usual seems to be the ${mostFrequentItem}.`;
+        insight1.innerHTML = `<span class="insight-icon">🏆</span><span class="insight-text">Your usual seems to be the ${mostFrequentItem}.</span>`;
         insightsList.appendChild(insight1);
     }
 
@@ -199,7 +214,7 @@ function renderInsights(purchases) {
 
     const insight2 = document.createElement('li');
     insight2.className = 'insight-item';
-    insight2.textContent = `You've spent $${weeklySpending.toFixed(2)} in the last 7 days.`;
+    insight2.innerHTML = `<span class="insight-icon">💸</span><span class="insight-text">You've spent $${weeklySpending.toFixed(2)} in the last 7 days.</span>`;
     insightsList.appendChild(insight2);
 
     // Insight 3: Most expensive time of day
@@ -228,10 +243,13 @@ function renderInsights(purchases) {
         const [topTime] = timeSpendingArray.reduce((max, current) =>
             current[1] > max[1] ? current : max
         );
+        
+        const timeEmojis = { "Morning": "☀️", "Afternoon": "😎", "Evening": "🌆", "Late Night": "🌙" };
+        const timeEmoji = timeEmojis[topTime] || '⏰';
 
         const insight3 = document.createElement('li');
         insight3.className = 'insight-item';
-        insight3.textContent = `${topTime} seems to be your prime spending time.`;
+        insight3.innerHTML = `<span class="insight-icon">${timeEmoji}</span><span class="insight-text">${topTime} seems to be your prime spending time.</span>`;
         insightsList.appendChild(insight3);
     }
 }
@@ -256,12 +274,12 @@ function renderChart(userData, purchases) {
     if (uniqueSpendingDays.length < 3) {
         const daysNeeded = 3 - uniqueSpendingDays.length;
         chartContainer.innerHTML = `
-            <div class="forecast-gate">
-                <div class="forecast-gate-icon">
+            <div class="data-gate">
+                <div class="data-gate-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>
                 </div>
-                <div class="forecast-gate-title">Unlock Your Forecast</div>
-                <div class="forecast-gate-text">
+                <div class="data-gate-title">Unlock Your Forecast</div>
+                <div class="data-gate-text">
                     Log your spending for <strong>${daysNeeded} more day${daysNeeded > 1 ? 's' : ''}</strong> to see your projection. The more you log, the smarter it gets!
                 </div>
             </div>
