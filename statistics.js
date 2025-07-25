@@ -169,27 +169,27 @@ function renderInsights(purchases) {
 
     if (purchases.length === 0) return;
 
-    // Insight 1: Most frequent purchase
+    // Insight 1: Most frequent purchase (Corrected Logic)
     const allItems = purchases.flatMap(p => p.items);
     const purchaseCounts = allItems.reduce((acc, item) => {
         acc[item.name] = (acc[item.name] || 0) + item.quantity;
         return acc;
     }, {});
 
-    let mostFrequentItem = '';
-    let maxCount = 0;
-    for (const item in purchaseCounts) {
-        if (purchaseCounts[item] > maxCount) {
-            maxCount = purchaseCounts[item];
-            mostFrequentItem = item;
-        }
-    }
-    if (mostFrequentItem) {
+    const countsArray = Object.entries(purchaseCounts);
+    if (countsArray.length > 0) {
+        // Find the item with the highest count
+        const [mostFrequentItem] = countsArray.reduce((max, current) => 
+            current[1] > max[1] ? current : max, 
+            countsArray[0]
+        );
+        
         const insight1 = document.createElement('li');
         insight1.className = 'insight-item';
         insight1.textContent = `Your usual seems to be the ${mostFrequentItem}.`;
         insightsList.appendChild(insight1);
     }
+
 
     // Insight 2: Total spending this week
     const oneWeekAgo = new Date();
