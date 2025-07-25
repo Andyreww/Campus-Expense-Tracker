@@ -1,7 +1,5 @@
 // --- IMPORTS ---
-// We ONLY import what we need: the central Firebase promise and the logout function.
 import { firebaseReady, logout } from './auth.js';
-// We still need these for Firestore/Storage operations within this file.
 import { doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc, addDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 import { updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -22,31 +20,24 @@ let map = null;
 let currentUser = null;
 let selectedPfpFile = null;
 let firebaseServices = null;
-// We no longer need authUnsubscribe as it's handled globally in auth.js
 
 // --- Main App Initialization ---
 async function main() {
     assignDOMElements();
     try {
-        // --- REFACTORED FIREBASE INITIALIZATION ---
-        // Wait for the central auth module to give us the Firebase services.
         const services = await firebaseReady;
         if (!services.auth || !services.db || !services.storage) {
             throw new Error('Firebase services could not be initialized.');
         }
         firebaseServices = services;
         
-        // The auth guard in auth.js will redirect if the user is not logged in.
-        // If the script reaches this point, we can assume we have a user.
         currentUser = firebaseServices.auth.currentUser;
         if (!currentUser) {
             // This is a fallback safety net. The guard in auth.js should have already redirected.
-            console.error("Dashboard loaded without a user. This should not happen. Redirecting...");
             window.location.replace('/login.html');
             return;
         }
 
-        // --- Profile check remains the same ---
         checkProfile();
 
     } catch (error) {
@@ -65,8 +56,6 @@ async function checkProfile() {
     if (userDoc.exists()) {
         renderDashboard(userDoc.data());
     } else {
-        // If no profile exists, the guard in auth.js should have already redirected.
-        // This is a fallback.
         window.location.href = "questionnaire.html";
     }
 }
@@ -111,7 +100,8 @@ function assignDOMElements() {
     bonusBalanceEl = document.getElementById('bonus-balance');
     swipesCard = document.getElementById('swipes-card');
     bonusCard = document.getElementById('bonus-card');
-    logoutButton = document.querySelector('.tab-item[href="login.html"]');
+    // THE FIX: Selecting by the new ID.
+    logoutButton = document.getElementById('logout-button');
     tabItems = document.querySelectorAll('.tab-item');
     mainSections = document.querySelectorAll('.main-section');
     leaderboardList = document.getElementById('leaderboard-list');
@@ -153,18 +143,17 @@ function setupEventListeners() {
     if (pfpUploadInput) pfpUploadInput.addEventListener('change', handlePfpUpload);
     if (pfpSaveButton) pfpSaveButton.addEventListener('click', () => savePfp(storage, db));
 
-    // --- REFACTORED LOGOUT HANDLER ---
-    // This is now incredibly simple. We just call the imported `logout` function.
+    // THE FIX: This listener now reliably targets the button.
     if (logoutButton) {
-        logoutButton.addEventListener('click', (e) => {
-            e.preventDefault(); // Prevent the link from navigating
+        logoutButton.addEventListener('click', () => {
+            // No need for e.preventDefault() on a button, but it doesn't hurt.
             logout(); // Call the central, reliable logout function
         });
     }
 
     if (tabItems) tabItems.forEach(tab => {
         // Make sure not to override the logout button's new listener
-        if (tab !== logoutButton) {
+        if (tab.id !== 'logout-button') {
            tab.addEventListener('click', (e) => handleTabClick(e, db));
         }
     });
@@ -579,7 +568,6 @@ function initializeMap() {
     }, 100);
 }
 
-// Add keyframe animations to the page
 const style = document.createElement('style');
 style.textContent = `
     .custom-log-success {
@@ -612,6 +600,4 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-
-// --- Run the app ---
 document.addEventListener('DOMContentLoaded', main);
