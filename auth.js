@@ -2,14 +2,14 @@
 
 // --- IMPORTS ---
 // Import all necessary functions from the Firebase SDKs.
-// This file will provide these services to the rest of the app.
+// We are now using browserLocalPersistence to keep the user logged in across sessions.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { 
     getAuth, 
     onAuthStateChanged, 
     signOut as firebaseSignOut,
     setPersistence,
-    browserSessionPersistence,
+    browserLocalPersistence, // CHANGED: This keeps the user signed in across browser sessions.
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
     GoogleAuthProvider,
@@ -32,13 +32,15 @@ export const firebaseReady = new Promise(async (resolve) => {
         const db = getFirestore(app);
         const storage = getStorage(app);
 
-        // Set persistence to SESSION - user is logged out when browser closes.
-        await setPersistence(auth, browserSessionPersistence);
+        // --- PERSISTENCE CHANGE ---
+        // Set persistence to LOCAL. This keeps the user logged in even if they
+        // close the tab or browser, fulfilling the user's request.
+        await setPersistence(auth, browserLocalPersistence);
         
         // Enable offline data persistence for Firestore
         await enableIndexedDbPersistence(db).catch(err => console.warn("Firestore persistence error:", err.message));
 
-        console.log("Firebase services initialized successfully.");
+        console.log("Firebase services initialized successfully with LOCAL persistence.");
         resolve({ auth, db, storage });
 
     } catch (error) {
@@ -48,39 +50,28 @@ export const firebaseReady = new Promise(async (resolve) => {
     }
 });
 
-// --- FINAL LOGOUT FUNCTION ---
-// This function now handles the entire logout process to ensure proper order of operations.
+// --- REVISED LOGOUT FUNCTION ---
+// The logout function's ONLY responsibility is to tell Firebase to sign out.
+// The onAuthStateChanged listener will handle all the consequences (clearing data, redirecting).
+// This is the most robust pattern and avoids race conditions.
 export const logout = async () => {
-    console.log("Logout function called. Beginning sign out process.");
+    console.log("Logout function called. Triggering Firebase sign out.");
     const { auth } = await firebaseReady;
     if (!auth) {
         console.error("Auth service not ready, cannot log out.");
         return;
     }
     try {
-        // Step 1: Tell Firebase to sign the user out. Wait for this to complete.
         await firebaseSignOut(auth);
-        console.log("Firebase sign out successful.");
-
-        // Step 2: Manually clear all client-side storage to prevent UI flicker.
-        localStorage.clear();
-        sessionStorage.clear();
-        console.log("Cleared client-side storage.");
-
-        // Step 3: Redirect to the login page. This only happens AFTER sign-out and clearing is done.
-        window.location.replace('/login.html');
-
+        console.log("Firebase sign out successful. The auth state listener will now handle cleanup and redirection.");
+        // We no longer redirect here. The listener will do it.
     } catch (error) {
         console.error("Error during sign out:", error);
-        // As a last resort, if signout fails, still clear everything and force a redirect.
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.replace('/login.html');
     }
 };
 
 
-// --- AUTH STATE GUARD & ROUTER ---
+// --- REVISED AUTH STATE GUARD & ROUTER ---
 // This is the core of the auth system. It's the single source of truth for what happens
 // when a user's login state changes.
 firebaseReady.then(({ auth, db }) => {
@@ -114,7 +105,12 @@ firebaseReady.then(({ auth, db }) => {
             // --- USER IS LOGGED OUT ---
             console.log(`Auth Guard: User is logged out. Path: ${path}`);
             
-            // The logout() function now handles clearing storage and the initial redirect.
+            // When Firebase confirms the user is logged out, this block runs.
+            // This is the correct place to clear any app-specific storage.
+            localStorage.clear();
+            sessionStorage.clear();
+            console.log("Auth state is null. Cleared client-side storage.");
+
             // This block's only job is to protect pages if a logged-out user tries to access them directly.
             if (onProtectedPage) {
                 console.log("User on protected page, redirecting to login...");
