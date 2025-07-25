@@ -48,8 +48,30 @@ export const firebaseReady = new Promise(async (resolve) => {
     }
 });
 
-// --- AUTH STATE GUARD & ROUTER ---
-// This is the core of the auth system. It runs on page load and whenever auth state changes.
+// --- REVISED LOGOUT FUNCTION ---
+// The logout function's ONLY responsibility is to tell Firebase to sign out.
+// The onAuthStateChanged listener will handle all the consequences (clearing data, redirecting).
+export const logout = async () => {
+    console.log("Logout function called. Triggering Firebase sign out.");
+    const { auth } = await firebaseReady;
+    if (!auth) {
+        console.error("Auth service not ready, cannot log out.");
+        return;
+    }
+    try {
+        await firebaseSignOut(auth);
+        console.log("Firebase sign out successful. The auth state listener will now take over.");
+    } catch (error) {
+        console.error("Error during sign out:", error);
+        // As a last resort, if signout fails, force a redirect.
+        window.location.replace('/login.html');
+    }
+};
+
+
+// --- REVISED AUTH STATE GUARD & ROUTER ---
+// This is the core of the auth system. It's the single source of truth for what happens
+// when a user's login state changes.
 firebaseReady.then(({ auth, db }) => {
     if (!auth) return;
 
@@ -62,10 +84,10 @@ firebaseReady.then(({ auth, db }) => {
         const onProtectedPage = !onLoginPage && !onIndexPage && !onQuestionnairePage;
 
         if (user) {
-            // USER IS LOGGED IN
+            // --- USER IS LOGGED IN ---
             console.log(`Auth Guard: User logged in (${user.uid}). Path: ${path}`);
             if (onLoginPage || onIndexPage) {
-                // If a logged-in user is on the login/index page, check if they have a profile.
+                // If a logged-in user is on the login/index page, send them where they belong.
                 const userDocRef = doc(db, "users", user.uid);
                 getDoc(userDocRef).then(userDocSnap => {
                     if (userDocSnap.exists()) {
@@ -78,10 +100,17 @@ firebaseReady.then(({ auth, db }) => {
                 });
             }
         } else {
-            // USER IS LOGGED OUT
-            console.log(`Auth Guard: User logged out. Path: ${path}`);
+            // --- USER IS LOGGED OUT ---
+            console.log(`Auth Guard: User is logged out. Path: ${path}`);
+            
+            // When the user is logged out, clear all session data.
+            // This is the key to preventing the UI flicker.
+            localStorage.clear();
+            sessionStorage.clear();
+            console.log("Auth state is null. Cleared client-side storage.");
+
             if (onProtectedPage) {
-                // If a logged-out user tries to access a protected page, send them to login.
+                // If the user is on a page they shouldn't be on, redirect them to login.
                 console.log("User on protected page, redirecting to login...");
                 window.location.replace('/login.html');
             }
@@ -89,37 +118,12 @@ firebaseReady.then(({ auth, db }) => {
     });
 });
 
-// --- GLOBAL LOGOUT FUNCTION ---
-export const logout = async () => {
-    console.log("Logout function called.");
-    const { auth } = await firebaseReady;
-    if (!auth) {
-        console.error("Auth service not ready, cannot log out.");
-        return;
-    }
-    try {
-        await firebaseSignOut(auth);
-        console.log("Firebase sign out successful.");
-        localStorage.clear();
-        sessionStorage.clear();
-        console.log("Cleared localStorage and sessionStorage.");
-        window.location.replace('/login.html');
-    } catch (error) {
-        console.error("Error during sign out:", error);
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.replace('/login.html');
-    }
-};
 
-// --- LOGIN PAGE SPECIFIC LOGIC ---
-// This block only runs if we are on a page that could have the login form.
+// --- LOGIN PAGE SPECIFIC LOGIC (No changes needed here) ---
 if (window.location.pathname.endsWith('/') || window.location.pathname.endsWith('/login.html') || window.location.pathname.endsWith('/index.html')) {
     
-    // This function finds the login form elements and attaches event listeners.
     const setupLoginEventListeners = (auth) => {
         const authForm = document.getElementById('auth-form');
-        // If there's no auth form on this page (like index.html), we don't need to do anything.
         if (!authForm) {
             console.log("No auth form found on this page. Skipping login event listeners.");
             return;
@@ -169,7 +173,6 @@ if (window.location.pathname.endsWith('/') || window.location.pathname.endsWith(
             });
         };
         
-        // The onAuthStateChanged listener handles redirects. This just performs the action.
         const handleAuthAction = (authPromise, button) => {
             if(authError) authError.classList.add('hidden');
             setLoadingState(true, button);
@@ -192,16 +195,11 @@ if (window.location.pathname.endsWith('/') || window.location.pathname.endsWith(
         });
     };
 
-    // First, wait for Firebase to be ready.
     firebaseReady.then(({ auth }) => {
         if (!auth) {
             console.error("Firebase not available for login page.");
             return;
         }
-
-        // --- ROBUST DOM READY CHECK ---
-        // This handles the race condition. If the DOM is already loaded, it runs our setup function.
-        // If not, it waits for the DOM to load before running it.
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => setupLoginEventListeners(auth));
         } else {
