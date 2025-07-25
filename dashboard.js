@@ -256,8 +256,17 @@ function handleBioInput() {
         if (!document.getElementById('bio-profanity-warning')) {
             const warning = document.createElement('div');
             warning.id = 'bio-profanity-warning';
-            warning.style.cssText = 'color: var(--brand-danger); font-size: 0.85rem; margin-top: 0.25rem; font-weight: 600;';
-            warning.textContent = 'Please keep your status appropriate!';
+            warning.className = 'profanity-warning-note';
+            warning.innerHTML = `
+                <div class="warning-paper">
+                    <div class="warning-tape"></div>
+                    <div class="warning-content">
+                        <span class="warning-emoji">🙊</span>
+                        <span class="warning-text">Whoa there, friend!</span>
+                        <span class="warning-subtext">Let's keep it family-friendly</span>
+                    </div>
+                </div>
+            `;
             userBioInput.parentElement.appendChild(warning);
         }
         return;
@@ -761,8 +770,100 @@ style.textContent = `
     .leaflet-popup-content-wrapper {
         border-radius: 8px !important;
     }
-    #bio-profanity-warning {
-        animation: shake 0.3s ease-in-out;
+    
+    /* Profanity Warning Styles */
+    .profanity-warning-note {
+        position: relative;
+        margin-top: 0.75rem;
+        animation: wobbleIn 0.5s ease-out;
+    }
+    
+    .warning-paper {
+        background: #FFE4B5;
+        background-image: 
+            repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 20px,
+                rgba(139, 69, 19, 0.03) 20px,
+                rgba(139, 69, 19, 0.03) 21px
+            );
+        border: 2px solid #D2691E;
+        border-radius: 4px;
+        padding: 0.75rem 1rem;
+        position: relative;
+        transform: rotate(-2deg);
+        box-shadow: 
+            2px 2px 8px rgba(0,0,0,0.1),
+            inset 0 0 20px rgba(139, 69, 19, 0.05);
+        font-family: 'Patrick Hand', cursive;
+    }
+    
+    .warning-tape {
+        position: absolute;
+        top: -12px;
+        left: 50%;
+        transform: translateX(-50%) rotate(3deg);
+        width: 60px;
+        height: 24px;
+        background: rgba(255, 255, 255, 0.6);
+        border: 1px dashed rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .warning-tape::before {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        right: 3px;
+        bottom: 3px;
+        background: repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 4px,
+            rgba(0,0,0,0.03) 4px,
+            rgba(0,0,0,0.03) 8px
+        );
+    }
+    
+    .warning-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .warning-emoji {
+        font-size: 1.8rem;
+        filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.2));
+    }
+    
+    .warning-text {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #8B4513;
+        text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
+    }
+    
+    .warning-subtext {
+        font-size: 0.9rem;
+        color: #A0522D;
+        font-style: italic;
+    }
+    
+    @keyframes wobbleIn {
+        0% {
+            opacity: 0;
+            transform: scale(0.8) rotate(-8deg);
+        }
+        50% {
+            transform: scale(1.05) rotate(3deg);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1) rotate(-2deg);
+        }
     }
 `;
 document.head.appendChild(style);
