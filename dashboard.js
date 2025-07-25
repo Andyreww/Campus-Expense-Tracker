@@ -13,7 +13,7 @@ let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar,
     weatherWidget, pfpModalOverlay, pfpPreview, pfpUploadInput, pfpSaveButton,
     pfpCloseButton, pfpError, mapOpener, mapModalOverlay, mapModal, mapCloseButton, mapRenderTarget,
     newspaperDate, fabContainer, mainFab, customLogBtn, customLogModal, customLogForm,
-    customItemName, customItemPrice, customItemStore, customLogCancel, customLogClose;
+    customItemName, customItemPrice, customItemStore, customLogCancel, customLogClose, userBioInput;
 
 // --- App State ---
 let map = null;
@@ -53,18 +53,24 @@ async function checkProfile() {
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
-        renderDashboard(userDoc.data());
+        const userData = userDoc.data();
+        currentUser.bio = userData.bio || '';
+        renderDashboard(userData);
     } else {
         window.location.href = "questionnaire.html";
     }
 }
 
 function renderDashboard(userData) {
-    const { balances, displayName, photoURL, showOnWallOfFame, university } = userData;
+    const { balances, displayName, photoURL, showOnWallOfFame, bio } = userData;
     
     welcomeMessage.innerHTML = `<span class="wave">👋</span> Welcome back, <span class="user-name">${displayName}</span>!`;
     updateAvatar(photoURL, displayName);
     publicLeaderboardCheckbox.checked = !!showOnWallOfFame;
+    
+    if (userBioInput) {
+        userBioInput.value = bio || '';
+    }
     
     updateBalancesUI(balances);
     fetchAndRenderWeather();
@@ -112,6 +118,7 @@ function assignDOMElements() {
     pfpSaveButton = document.getElementById('pfp-save-button');
     pfpCloseButton = document.getElementById('pfp-close-button');
     pfpError = document.getElementById('pfp-error');
+    userBioInput = document.getElementById('user-bio-input');
     mapOpener = document.getElementById('map-opener');
     mapModalOverlay = document.getElementById('map-modal-overlay');
     mapModal = document.getElementById('map-modal');
@@ -139,7 +146,7 @@ function setupEventListeners() {
         if (e.target === pfpModalOverlay) closeModal();
     });
     if (pfpUploadInput) pfpUploadInput.addEventListener('change', handlePfpUpload);
-    if (pfpSaveButton) pfpSaveButton.addEventListener('click', () => savePfp(storage, db));
+    if (pfpSaveButton) pfpSaveButton.addEventListener('click', () => saveProfile(storage, db));
 
     if (logoutButton) {
         logoutButton.addEventListener('click', () => {
@@ -153,14 +160,12 @@ function setupEventListeners() {
     
     if (publicLeaderboardCheckbox) publicLeaderboardCheckbox.addEventListener('change', (e) => handlePublicToggle(e, db));
 
-    // Map Modal Listeners
     if (mapOpener) mapOpener.addEventListener('click', openMapModal);
     if (mapCloseButton) mapCloseButton.addEventListener('click', closeMapModal);
     if (mapModalOverlay) mapModalOverlay.addEventListener('click', (e) => {
         if(e.target === mapModalOverlay) closeMapModal();
     });
 
-    // FAB Container Listeners
     if (mainFab && fabContainer) {
         const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         if (isMobile) {
@@ -176,7 +181,6 @@ function setupEventListeners() {
         }
     }
 
-    // Custom Log Modal Listeners
     if (customLogBtn) customLogBtn.addEventListener('click', () => {
         customLogModal.classList.remove('hidden');
         customItemName.focus();
@@ -263,6 +267,9 @@ function closeModal() {
     pfpUploadInput.value = '';
     selectedPfpFile = null;
     pfpError.classList.add('hidden');
+    if (userBioInput) {
+        userBioInput.value = currentUser.bio || '';
+    }
 }
 
 function closeCustomLogModal() {
@@ -295,34 +302,55 @@ function handlePfpUpload(e) {
     reader.readAsDataURL(file);
 }
 
-async function savePfp(storage, db) {
-    if (!selectedPfpFile || !currentUser) return;
+async function saveProfile(storage, db) {
+    if (!currentUser) return;
 
     pfpSaveButton.disabled = true;
-    pfpSaveButton.textContent = 'Uploading...';
+    pfpSaveButton.textContent = 'Saving...';
     pfpError.classList.add('hidden');
 
+    const newBio = userBioInput.value.trim();
+    const updateData = { bio: newBio };
+
     try {
-        const storageRef = ref(storage, `profile_pictures/${currentUser.uid}`);
-        const snapshot = await uploadBytes(storageRef, selectedPfpFile);
-        const downloadURL = await getDownloadURL(snapshot.ref);
+        if (selectedPfpFile) {
+            const storageRef = ref(storage, `profile_pictures/${currentUser.uid}`);
+            const snapshot = await uploadBytes(storageRef, selectedPfpFile);
+            const downloadURL = await getDownloadURL(snapshot.ref);
+            
+            updateData.photoURL = downloadURL;
+            await updateProfile(currentUser, { photoURL: downloadURL });
+            updateAvatar(downloadURL, currentUser.displayName);
+        }
 
-        await updateProfile(currentUser, { photoURL: downloadURL });
         const userDocRef = doc(db, "users", currentUser.uid);
-        await updateDoc(userDocRef, { photoURL: downloadURL });
+        await updateDoc(userDocRef, updateData);
+        currentUser.bio = newBio;
 
-        updateAvatar(downloadURL, currentUser.displayName);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists() && userDocSnap.data().showOnWallOfFame) {
+            const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
+            const { displayName, photoURL, currentStreak } = userDocSnap.data();
+            await setDoc(wallOfFameDocRef, {
+                displayName,
+                photoURL,
+                currentStreak: currentStreak || 0,
+                bio: newBio
+            }, { merge: true });
+        }
+
         closeModal();
 
     } catch (error) {
-        console.error("PFP Upload Error:", error);
-        pfpError.textContent = 'Upload failed. Please try again.';
+        console.error("Profile Save Error:", error);
+        pfpError.textContent = 'Save failed. Please try again.';
         pfpError.classList.remove('hidden');
     } finally {
         pfpSaveButton.disabled = false;
         pfpSaveButton.textContent = 'Save Changes';
     }
 }
+
 
 async function logCustomPurchase(db) {
     if (!currentUser) return;
@@ -396,7 +424,8 @@ async function logCustomPurchase(db) {
             await setDoc(wallOfFameDocRef, {
                 displayName: currentUser.displayName || "Anonymous",
                 photoURL: currentUser.photoURL || "",
-                currentStreak: currentStreak
+                currentStreak: currentStreak,
+                bio: userData.bio || ""
             }, { merge: true });
         }
 
@@ -437,6 +466,8 @@ async function fetchAndRenderLeaderboard(db) {
 
         leaderboardList.innerHTML = '';
         users.forEach((user, index) => {
+            if (!user.showOnWallOfFame) return;
+            
             const item = document.createElement('div');
             item.className = 'leaderboard-item';
             if (user.id === currentUser.uid) {
@@ -447,10 +478,15 @@ async function fetchAndRenderLeaderboard(db) {
             const svgAvatar = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="20" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
             const avatarSrc = user.photoURL || `data:image/svg+xml;base64,${btoa(svgAvatar)}`;
             
+            const bioHtml = user.bio ? `<div class="leaderboard-bio">"${user.bio}"</div>` : '';
+
             item.innerHTML = `
                 <span class="leaderboard-rank">#${index + 1}</span>
                 <img src="${avatarSrc}" alt="${user.displayName}" class="leaderboard-avatar">
-                <span class="leaderboard-name">${user.displayName}</span>
+                <div class="leaderboard-details">
+                    <span class="leaderboard-name">${user.displayName}</span>
+                    ${bioHtml}
+                </div>
                 <span class="leaderboard-streak">🔥 ${user.currentStreak || 0}</span>
             `;
             leaderboardList.appendChild(item);
@@ -461,6 +497,7 @@ async function fetchAndRenderLeaderboard(db) {
         leaderboardList.innerHTML = '<p>Could not load leaderboard.</p>';
     }
 }
+
 
 async function handlePublicToggle(e, db) {
     if (!currentUser) return;
@@ -473,16 +510,23 @@ async function handlePublicToggle(e, db) {
         if (isChecked) {
             const userDoc = await getDoc(userDocRef);
             if (userDoc.exists()) {
-                const { displayName, photoURL, currentStreak } = userDoc.data();
-                await setDoc(wallOfFameDocRef, { displayName, photoURL, currentStreak: currentStreak || 0 });
+                const { displayName, photoURL, currentStreak, bio } = userDoc.data();
+                await setDoc(wallOfFameDocRef, { 
+                    displayName, 
+                    photoURL, 
+                    currentStreak: currentStreak || 0,
+                    bio: bio || ""
+                });
             }
         } else {
             await deleteDoc(wallOfFameDocRef);
         }
+        fetchAndRenderLeaderboard(db);
     } catch (error) {
         console.error("Error updating Top of the Grind status:", error);
     }
 }
+
 
 function updateBalancesUI(balances) {
     creditsBalanceEl.textContent = `$${balances.credits.toFixed(2)}`;
@@ -495,7 +539,6 @@ async function fetchAndRenderWeather() {
     if (!weatherWidget) return;
     weatherWidget.innerHTML = `<div class="spinner"></div>`;
 
-    // Granville, OH coordinates
     const lat = 40.08;
     const lon = -82.49;
 
@@ -532,23 +575,21 @@ async function fetchAndRenderWeather() {
 function initializeMap() {
     if (!mapRenderTarget || map) return;
 
-    // --- NEW: Location Data ---
     const locations = [
-        { name: 'Ross Granville Market', address: 'Inside Slayter Union', coords: [40.0630707, -82.5189282], accepts: ['credits'] },
-        { name: 'Station', address: '425 S Main St, Granville', coords: [40.0648271, -82.5205385], accepts: ['credits'] },
-        { name: 'Broadway Pub', address: '126 E Broadway, Granville', coords: [40.068128, -82.5191948], accepts: ['credits'] },
-        { name: 'Three Tigers', address: '133 N Prospect St, Granville', coords: [40.0683299, -82.5184905], accepts: ['credits'] },
-        { name: 'Pochos', address: '128 E Broadway, Granville', coords: [40.0681522, -82.5190099], accepts: ['credits'] },
-        { name: 'Harvest', address: '454 S Main St, Granville', coords: [40.063813, -82.520413], accepts: ['credits'] },
-        { name: 'Whitt\'s', address: '226 E Broadway, Granville', coords: [40.0680189, -82.5174337], accepts: ['credits'] },
-        { name: 'Dragon Village', address: '127 E Broadway, Granville', coords: [40.0676361, -82.5190986], accepts: ['credits'] },
-        { name: 'Curtis Dining Hall', address: '100 Smith Ln, Granville', coords: [40.0718253, -82.5243115], accepts: ['dining', 'swipes', 'bonus'] },
-        { name: 'Huffman Dining Hall', address: '700 East Loop, Granville', coords: [40.072603, -82.517739], accepts: ['dining', 'swipes', 'bonus'] },
-        { name: 'Slayter', address: '200 Ridge Rd, Granville', coords: [40.0718253, -82.5243115], accepts: ['dining', 'bonus'] },
-        { name: 'Slivys', address: 'Olin Hall, 900 Sunset Hill', coords: [40.0744031, -82.5274519], accepts: ['dining'] }
+        { name: 'Campus Market', address: 'Inside Student Union', coords: [40.0630707, -82.5189282], accepts: ['credits'] },
+        { name: 'Local Coffee Shop', address: '123 College Ave', coords: [40.0648271, -82.5205385], accepts: ['credits'] },
+        { name: 'Downtown Pub', address: '126 E Main St', coords: [40.068128, -82.5191948], accepts: ['credits'] },
+        { name: 'Taco Spot', address: '133 N Oak St', coords: [40.0683299, -82.5184905], accepts: ['credits'] },
+        { name: 'Pizza Place', address: '128 E Main St', coords: [40.0681522, -82.5190099], accepts: ['credits'] },
+        { name: 'Healthy Eats', address: '454 S University Dr', coords: [40.063813, -82.520413], accepts: ['credits'] },
+        { name: 'Ice Cream Parlor', address: '226 E Main St', coords: [40.0680189, -82.5174337], accepts: ['credits'] },
+        { name: 'Noodle House', address: '127 E Main St', coords: [40.0676361, -82.5190986], accepts: ['credits'] },
+        { name: 'West Dining Hall', address: '100 West Campus Dr', coords: [40.0718253, -82.5243115], accepts: ['dining', 'swipes', 'bonus'] },
+        { name: 'East Dining Hall', address: '700 East Campus Dr', coords: [40.072603, -82.517739], accepts: ['dining', 'swipes', 'bonus'] },
+        { name: 'Student Union Cafe', address: '200 College Ave', coords: [40.0718253, -82.5243115], accepts: ['dining', 'bonus'] },
+        { name: 'Science Center Cafe', address: '900 Knowledge Hill', coords: [40.0744031, -82.5274519], accepts: ['dining'] }
     ];
 
-    // --- Map Initialization ---
     mapRenderTarget.style.width = '100%';
     mapRenderTarget.style.height = '100%';
     
@@ -563,19 +604,17 @@ function initializeMap() {
         maxZoom: 20
     }).addTo(map);
 
-    // --- NEW: Custom Icons ---
     const createIcon = (color, symbol) => L.divIcon({
         html: `<div style="background: ${color}; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.4); border: 2px solid white;">${symbol}</div>`,
         iconSize: [32, 32],
         className: 'custom-map-icon'
     });
 
-    const creditsIcon = createIcon('#4CAF50', '$'); // Green for credits
-    const diningIcon = createIcon('#2196F3', 'D'); // Blue for dining/campus cash
+    const creditsIcon = createIcon('#4CAF50', '$');
+    const diningIcon = createIcon('#2196F3', 'D');
 
-    // --- NEW: Add Markers from Data ---
     locations.forEach(location => {
-        let icon = creditsIcon; // Default to credits
+        let icon = creditsIcon;
         if (location.accepts.includes('dining') || location.accepts.includes('swipes')) {
             icon = diningIcon;
         }
@@ -592,7 +631,6 @@ function initializeMap() {
             .bindPopup(popupContent);
     });
 
-    // Invalidate map size after a short delay to ensure it renders correctly
     setTimeout(() => {
         if (map) {
             map.invalidateSize();

@@ -28,6 +28,12 @@
         <div id="pfp-modal" class="pfp-modal">
             <h2>Change Your Look</h2>
             <img id="pfp-preview" src="" alt="New profile picture preview" class="pfp-preview">
+            
+            <div class="form-group bio-group">
+                <label for="user-bio-input">Your Status</label>
+                <textarea id="user-bio-input" rows="2" maxlength="50" placeholder="Set a short status..."></textarea>
+            </div>
+            
             <p id="pfp-error" class="error-message hidden"></p>
             <div class="pfp-buttons">
                 <label for="pfp-upload-input" class="pfp-button upload-button">Choose File</label>
@@ -198,10 +204,7 @@
                 <div class="form-group">
                     <label for="custom-item-store">Location</label>
                     <select id="custom-item-store">
-                        <option value="Ross Market">Ross Market</option>
-                        <option value="Curtis Dining">Curtis Dining</option>
-                        <option value="Huffman Dining">Huffman Dining</option>
-                        <option value="The Nest">The Nest</option>
+                        <option value="Campus Market">Ross Granville Market</option>
                         <option value="Other">Other Location</option>
                     </select>
                 </div>
@@ -238,7 +241,6 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>
             <span>Stats</span>
         </a>
-        <!-- THE FIX: Changed from an <a> tag to a <button> tag -->
         <button id="logout-button" class="tab-item">
              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
             <span>Log Out</span>
