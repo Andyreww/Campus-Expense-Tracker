@@ -86,12 +86,16 @@ firebaseReady.then(({ auth, db }) => {
         if (user) {
             // --- USER IS LOGGED IN ---
             console.log(`Auth Guard: User logged in (${user.uid}). Path: ${path}`);
-            if (onLoginPage || onIndexPage) {
-                // If a logged-in user is on the login/index page, send them where they belong.
+            
+            // **THE FIX IS HERE**
+            // We ONLY redirect if a logged-in user is on the LOGIN page.
+            // We no longer redirect from the index/landing page. This prevents the logout loop.
+            // The UI on the landing page will update via script.js to show the user is logged in.
+            if (onLoginPage) {
                 const userDocRef = doc(db, "users", user.uid);
                 getDoc(userDocRef).then(userDocSnap => {
                     if (userDocSnap.exists()) {
-                        console.log("Redirecting to dashboard...");
+                        console.log("Redirecting logged-in user from login page to dashboard...");
                         window.location.replace('/dashboard.html');
                     } else {
                         console.log("New user, redirecting to questionnaire...");
@@ -103,19 +107,14 @@ firebaseReady.then(({ auth, db }) => {
             // --- USER IS LOGGED OUT ---
             console.log(`Auth Guard: User is logged out. Path: ${path}`);
             
-            // The listener is now responsible for cleanup and redirection.
-            // This prevents the race condition where the page redirects before auth state is confirmed.
             localStorage.clear();
             sessionStorage.clear();
             console.log("Auth Guard detected logout, cleared all client-side storage.");
 
             if (onProtectedPage) {
                 console.log("User on protected page while logged out, redirecting to landing page...");
-                // **THE FIX**: Redirect to the main landing page (index.html) instead of the login page.
                 window.location.replace('/index.html');
             }
-            // If the user is already on a public page (like login.html or index.html),
-            // they will just stay there. No redirect is needed.
         }
     });
 });
