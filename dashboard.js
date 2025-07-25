@@ -165,27 +165,57 @@ function setupEventListeners() {
             // Sign out from Firebase
             await signOut(auth);
             
-            // Clear any cached authentication data
-            if (typeof window !== 'undefined' && window.localStorage) {
-                // Clear all Firebase-related items from localStorage
-                const keysToRemove = [];
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key && (key.includes('firebase') || key.includes('firebaseui'))) {
-                        keysToRemove.push(key);
+            // Clear all possible storage mechanisms
+            if (typeof window !== 'undefined') {
+                // Clear localStorage
+                if (window.localStorage) {
+                    try {
+                        // Clear all items, not just Firebase ones
+                        localStorage.clear();
+                    } catch (e) {
+                        console.warn("Could not clear localStorage:", e);
                     }
                 }
-                keysToRemove.forEach(key => localStorage.removeItem(key));
+                
+                // Clear sessionStorage
+                if (window.sessionStorage) {
+                    try {
+                        sessionStorage.clear();
+                    } catch (e) {
+                        console.warn("Could not clear sessionStorage:", e);
+                    }
+                }
+                
+                // Clear IndexedDB (where Firebase actually stores auth)
+                if (window.indexedDB) {
+                    try {
+                        // Delete Firebase auth database
+                        const deleteReq = indexedDB.deleteDatabase('firebaseLocalStorageDb');
+                        deleteReq.onsuccess = () => console.log("Firebase IndexedDB cleared");
+                        deleteReq.onerror = () => console.warn("Could not clear Firebase IndexedDB");
+                        
+                        // Also try to delete other potential Firebase databases
+                        indexedDB.deleteDatabase('firebase-heartbeat-database');
+                        indexedDB.deleteDatabase('firebase-installations-database');
+                    } catch (e) {
+                        console.warn("Could not clear IndexedDB:", e);
+                    }
+                }
+                
+                // Clear cookies if any
+                if (document.cookie) {
+                    document.cookie.split(";").forEach(function(c) { 
+                        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                    });
+                }
             }
             
-            // Clear session storage as well
-            if (typeof window !== 'undefined' && window.sessionStorage) {
-                sessionStorage.clear();
-            }
+            // Small delay to ensure everything is cleared
+            await new Promise(resolve => setTimeout(resolve, 100));
             
-            // Force a hard reload to login page (bypasses cache)
-            window.location.href = "login.html";
-            window.location.reload(true);
+            // Force complete page reload with cache bypass
+            // Using replace() prevents going back to the dashboard with browser back button
+            window.location.replace("login.html");
             
         } catch (error) {
             console.error("Logout Error:", error);

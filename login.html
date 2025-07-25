@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nooksii - Login</title>
     
+    <!-- Prevent caching of auth state -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
     <!-- External Stylesheets -->
     <link rel="stylesheet" href="login.css">
     
@@ -20,12 +25,12 @@
         <div class="login-clipboard">
             <div class="clip"></div>
             <div class="paper">
-                <a href="index.html" class="back-link">
+                <a href="index.html" class="back-link" onclick="window.location.replace('index.html'); return false;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
                     <span>Back to Nook</span>
                 </a>
                 <h1 class="login-title">Grab a Seat</h1>
-                <p class="login-subtitle">It’s all here, waiting for you</p>
+                <p class="login-subtitle">It's all here, waiting for you</p>
 
                 <form id="auth-form" class="auth-form">
                     <div>
