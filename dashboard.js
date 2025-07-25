@@ -67,7 +67,6 @@ function renderDashboard(userData) {
     publicLeaderboardCheckbox.checked = !!showOnWallOfFame;
     
     updateBalancesUI(balances);
-    // Pass the university to the weather function
     fetchAndRenderWeather();
     
     const today = new Date();
@@ -101,7 +100,6 @@ function assignDOMElements() {
     swipesCard = document.getElementById('swipes-card');
     bonusCard = document.getElementById('bonus-card');
     logoutButton = document.getElementById('logout-button');
-    // FIX: This selector is now more specific to only get tabs that switch sections.
     tabItems = document.querySelectorAll('.tab-item[data-section]');
     mainSections = document.querySelectorAll('.main-section');
     leaderboardList = document.getElementById('leaderboard-list');
@@ -149,8 +147,6 @@ function setupEventListeners() {
         });
     }
 
-    // FIX: Because the selector for `tabItems` is more specific now, we don't need to check for `data-section` here.
-    // This loop will ONLY run on the correct tabs, leaving the Stats link and Logout button alone.
     if (tabItems) tabItems.forEach(tab => {
         tab.addEventListener('click', (e) => handleTabClick(e, db));
     });
@@ -496,8 +492,8 @@ function updateBalancesUI(balances) {
 }
 
 async function fetchAndRenderWeather() {
-    // FIX: Hardcoding the location to Granville, OH as requested.
-    const location = 'Granville, OH';
+    // FIX: Using a more specific format for the location to help the API find the city.
+    const location = 'Granville,OH,US';
     if (!weatherWidget) return;
     weatherWidget.innerHTML = `<div class="spinner"></div>`;
     
@@ -505,11 +501,12 @@ async function fetchAndRenderWeather() {
 
     try {
         const response = await fetch(apiUrl);
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
-            throw new Error(errorData.message);
-        }
         const data = await response.json();
+
+        // Even if the fetch itself is okay, the API might send back an error.
+        if (!response.ok || data.cod !== 200) {
+            throw new Error(data.message || 'City not found');
+        }
         
         const temp = Math.round(data.main.temp);
         const description = data.weather[0].description;
