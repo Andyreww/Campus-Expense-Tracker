@@ -33,7 +33,6 @@ async function main() {
         
         currentUser = firebaseServices.auth.currentUser;
         if (!currentUser) {
-            // This is a fallback safety net. The guard in auth.js should have already redirected.
             window.location.replace('/login.html');
             return;
         }
@@ -68,7 +67,8 @@ function renderDashboard(userData) {
     publicLeaderboardCheckbox.checked = !!showOnWallOfFame;
     
     updateBalancesUI(balances);
-    fetchAndRenderWeather(university);
+    // Pass the university to the weather function
+    fetchAndRenderWeather();
     
     const today = new Date();
     if (newspaperDate) {
@@ -101,7 +101,8 @@ function assignDOMElements() {
     swipesCard = document.getElementById('swipes-card');
     bonusCard = document.getElementById('bonus-card');
     logoutButton = document.getElementById('logout-button');
-    tabItems = document.querySelectorAll('.tab-item');
+    // FIX: This selector is now more specific to only get tabs that switch sections.
+    tabItems = document.querySelectorAll('.tab-item[data-section]');
     mainSections = document.querySelectorAll('.main-section');
     leaderboardList = document.getElementById('leaderboard-list');
     publicLeaderboardContainer = document.getElementById('public-leaderboard-container');
@@ -148,12 +149,10 @@ function setupEventListeners() {
         });
     }
 
-    // THE FIX: Only attach the special click handler to tabs that are meant for in-page navigation.
-    // This leaves the "Stats" link alone to behave like a normal link.
+    // FIX: Because the selector for `tabItems` is more specific now, we don't need to check for `data-section` here.
+    // This loop will ONLY run on the correct tabs, leaving the Stats link and Logout button alone.
     if (tabItems) tabItems.forEach(tab => {
-        if (tab.hasAttribute('data-section')) {
-           tab.addEventListener('click', (e) => handleTabClick(e, db));
-        }
+        tab.addEventListener('click', (e) => handleTabClick(e, db));
     });
     
     if (publicLeaderboardCheckbox) publicLeaderboardCheckbox.addEventListener('change', (e) => handlePublicToggle(e, db));
@@ -198,7 +197,6 @@ function setupEventListeners() {
 }
 
 function handleTabClick(e, db) {
-    // This function is now only called for tabs with a `data-section` attribute.
     e.preventDefault(); 
     const tab = e.currentTarget;
     const targetSectionId = tab.dataset.section;
@@ -210,11 +208,9 @@ function switchTab(sectionId, db) {
     const targetSection = document.getElementById(sectionId);
 
     if (targetTab && targetSection) {
-        // Remove 'active' from all tab items and sections
         document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
         mainSections.forEach(s => s.classList.remove('active'));
 
-        // Add 'active' to the clicked tab and its corresponding section
         targetTab.classList.add('active');
         targetSection.classList.add('active');
 
@@ -499,8 +495,9 @@ function updateBalancesUI(balances) {
     bonusBalanceEl.textContent = balances.bonus;
 }
 
-async function fetchAndRenderWeather(university) {
-    const location = university || 'Granville, OH';
+async function fetchAndRenderWeather() {
+    // FIX: Hardcoding the location to Granville, OH as requested.
+    const location = 'Granville, OH';
     if (!weatherWidget) return;
     weatherWidget.innerHTML = `<div class="spinner"></div>`;
     
@@ -508,8 +505,11 @@ async function fetchAndRenderWeather(university) {
 
     try {
         const response = await fetch(apiUrl);
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
+            throw new Error(errorData.message);
+        }
         const data = await response.json();
-        if (!response.ok) throw new Error(data.message || `Error: ${response.status}`);
         
         const temp = Math.round(data.main.temp);
         const description = data.weather[0].description;
