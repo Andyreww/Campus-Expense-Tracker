@@ -531,7 +531,24 @@ async function fetchAndRenderWeather() {
 
 function initializeMap() {
     if (!mapRenderTarget || map) return;
-    
+
+    // --- NEW: Location Data ---
+    const locations = [
+        { name: 'Ross Granville Market', address: 'Inside Slayter Union', coords: [40.0630707, -82.5189282], accepts: ['credits'] },
+        { name: 'Station', address: '425 S Main St, Granville', coords: [40.0648271, -82.5205385], accepts: ['credits'] },
+        { name: 'Broadway Pub', address: '126 E Broadway, Granville', coords: [40.068128, -82.5191948], accepts: ['credits'] },
+        { name: 'Three Tigers', address: '133 N Prospect St, Granville', coords: [40.0683299, -82.5184905], accepts: ['credits'] },
+        { name: 'Pochos', address: '128 E Broadway, Granville', coords: [40.0681522, -82.5190099], accepts: ['credits'] },
+        { name: 'Harvest', address: '454 S Main St, Granville', coords: [40.063813, -82.520413], accepts: ['credits'] },
+        { name: 'Whitt\'s', address: '226 E Broadway, Granville', coords: [40.0680189, -82.5174337], accepts: ['credits'] },
+        { name: 'Dragon Village', address: '127 E Broadway, Granville', coords: [40.0676361, -82.5190986], accepts: ['credits'] },
+        { name: 'Curtis Dining Hall', address: '100 Smith Ln, Granville', coords: [40.0718253, -82.5243115], accepts: ['dining', 'swipes', 'bonus'] },
+        { name: 'Huffman Dining Hall', address: '700 East Loop, Granville', coords: [40.072603, -82.517739], accepts: ['dining', 'swipes', 'bonus'] },
+        { name: 'Slayter', address: '200 Ridge Rd, Granville', coords: [40.0718253, -82.5243115], accepts: ['dining', 'bonus'] },
+        { name: 'Slivys', address: 'Olin Hall, 900 Sunset Hill', coords: [40.0744031, -82.5274519], accepts: ['dining'] }
+    ];
+
+    // --- Map Initialization ---
     mapRenderTarget.style.width = '100%';
     mapRenderTarget.style.height = '100%';
     
@@ -546,21 +563,40 @@ function initializeMap() {
         maxZoom: 20
     }).addTo(map);
 
-    const coffeeIcon = L.divIcon({
-        html: '<div style="background: #4CAF50; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">☕</div>',
-        iconSize: [30, 30],
-        className: 'custom-div-icon'
+    // --- NEW: Custom Icons ---
+    const createIcon = (color, symbol) => L.divIcon({
+        html: `<div style="background: ${color}; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.4); border: 2px solid white;">${symbol}</div>`,
+        iconSize: [32, 32],
+        className: 'custom-map-icon'
     });
 
-    L.marker([40.069, -82.52], { icon: coffeeIcon }).addTo(map)
-        .bindPopup('Aura Café - Main Campus');
-    L.marker([40.072, -82.525], { icon: coffeeIcon }).addTo(map)
-        .bindPopup('The Daily Grind - Student Union');
-    L.marker([40.065, -82.518], { icon: coffeeIcon }).addTo(map)
-        .bindPopup('Bean There - Library');
+    const creditsIcon = createIcon('#4CAF50', '$'); // Green for credits
+    const diningIcon = createIcon('#2196F3', 'D'); // Blue for dining/campus cash
 
+    // --- NEW: Add Markers from Data ---
+    locations.forEach(location => {
+        let icon = creditsIcon; // Default to credits
+        if (location.accepts.includes('dining') || location.accepts.includes('swipes')) {
+            icon = diningIcon;
+        }
+
+        const popupContent = `
+            <div style="font-family: 'Nunito', sans-serif; text-align: center;">
+                <strong style="font-size: 1.1em;">${location.name}</strong><br>
+                ${location.address}<br>
+                <em style="font-size: 0.9em; color: #555;">Accepts: ${location.accepts.join(', ')}</em>
+            </div>
+        `;
+
+        L.marker(location.coords, { icon: icon }).addTo(map)
+            .bindPopup(popupContent);
+    });
+
+    // Invalidate map size after a short delay to ensure it renders correctly
     setTimeout(() => {
-        map.invalidateSize();
+        if (map) {
+            map.invalidateSize();
+        }
     }, 100);
 }
 
@@ -592,6 +628,9 @@ style.textContent = `
     @keyframes spin {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
+    }
+    .leaflet-popup-content-wrapper {
+        border-radius: 8px !important;
     }
 `;
 document.head.appendChild(style);
