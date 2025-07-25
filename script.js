@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, collection, query, where, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -16,6 +16,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
+        
+        // Set auth persistence to session only
+        try {
+            await setPersistence(auth, browserSessionPersistence);
+        } catch (error) {
+            console.warn("Could not set auth persistence:", error);
+        }
     } catch (error) {
         console.error("Error initializing Firebase with Netlify config:", error);
         // Continue script execution even if Firebase fails
@@ -38,19 +45,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Auth State Logic ---
     let currentUser = null;
+    let authStateHandled = false; // Prevent double handling
+    
     if (auth) {
         onAuthStateChanged(auth, async (user) => {
+            // Prevent double handling
+            if (authStateHandled && user?.uid === currentUser?.uid) return;
+            authStateHandled = true;
+            
             if (user) {
                 // Set currentUser globally for use elsewhere
                 currentUser = user;
                 // User is signed in
-                desktopLoginBtn.classList.add('hidden');
-                userAvatarLink.classList.remove('hidden');
-                heroCtaButton.href = 'dashboard.html';
+                if (desktopLoginBtn) desktopLoginBtn.classList.add('hidden');
+                if (userAvatarLink) userAvatarLink.classList.remove('hidden');
+                if (heroCtaButton) heroCtaButton.href = 'dashboard.html';
                 
-                if (user.photoURL) {
+                if (user.photoURL && userAvatarImg) {
                     userAvatarImg.src = user.photoURL;
-                } else {
+                } else if (userAvatarImg) {
                     const initial = (user.displayName || user.email).charAt(0).toUpperCase();
                     const svg = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#0EA5E9"/><text x="50%" y="50%" font-family="Poppins, sans-serif" font-size="20" fill="#FFFFFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
                     userAvatarImg.src = `data:image/svg+xml;base64,${btoa(svg)}`;
@@ -58,60 +71,41 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 // --- Wall of Fame Opt-In Logic ---
                 if (db) {
-                    const userDocRef = collection(db, "users");
-                    const userQuery = query(userDocRef, where("uid", "==", user.uid));
-                    const userSnapshot = await getDocs(userQuery);
-                    if (!userSnapshot.empty) {
-                        const userData = userSnapshot.docs[0].data();
-                        if (userData.showOnWallOfFame) {
-                            const wallOfFameRef = collection(db, "wallOfFame");
-                            // Use setDoc to update or create the wallOfFame entry for this user
-                            const { setDoc, doc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
-                            await setDoc(doc(wallOfFameRef, user.uid), {
-                                displayName: user.displayName || "Anonymous",
-                                photoURL: user.photoURL || "",
-                                currentStreak: userData.currentStreak || 0
-                            }, { merge: true });
+                    try {
+                        const userDocRef = collection(db, "users");
+                        const userQuery = query(userDocRef, where("uid", "==", user.uid));
+                        const userSnapshot = await getDocs(userQuery);
+                        if (!userSnapshot.empty) {
+                            const userData = userSnapshot.docs[0].data();
+                            if (userData.showOnWallOfFame) {
+                                const wallOfFameRef = collection(db, "wallOfFame");
+                                // Use setDoc to update or create the wallOfFame entry for this user
+                                const { setDoc, doc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                                await setDoc(doc(wallOfFameRef, user.uid), {
+                                    displayName: user.displayName || "Anonymous",
+                                    photoURL: user.photoURL || "",
+                                    currentStreak: userData.currentStreak || 0
+                                }, { merge: true });
+                            }
                         }
+                    } catch (error) {
+                        console.error("Error updating wall of fame:", error);
                     }
                 }
-                // --- Update Wall of Fame Entry if opted-in after login ---
-                updateWallOfFameEntry();
             } else {
                 // User is signed out
-                desktopLoginBtn.classList.remove('hidden');
-                userAvatarLink.classList.add('hidden');
-                heroCtaButton.href = 'login.html';
+                currentUser = null;
+                if (desktopLoginBtn) desktopLoginBtn.classList.remove('hidden');
+                if (userAvatarLink) userAvatarLink.classList.add('hidden');
+                if (heroCtaButton) heroCtaButton.href = 'login.html';
             }
         });
     }
 
-    // --- Function to update Wall of Fame Entry on opt-in change ---
-    const updateWallOfFameEntry = async () => {
-        try {
-            if (!db || !currentUser) return;
-            const wallOfFameRef = collection(db, "wallOfFame");
-            const userDocRef = collection(db, "users");
-            const userQuery = query(userDocRef, where("uid", "==", currentUser.uid));
-            const userSnapshot = await getDocs(userQuery);
-            if (!userSnapshot.empty) {
-                const userData = userSnapshot.docs[0].data();
-                if (userData.showOnWallOfFame) {
-                    const { setDoc, doc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
-                    await setDoc(doc(wallOfFameRef, currentUser.uid), {
-                        displayName: currentUser.displayName || "Anonymous",
-                        photoURL: currentUser.photoURL || "",
-                        currentStreak: userData.currentStreak || 0
-                    }, { merge: true });
-                }
-            }
-        } catch (error) {
-            console.error("Error updating Wall of Fame entry:", error);
-        }
-    };
-
     // --- Wall of Fame Logic ---
     const fetchWallOfFame = async () => {
+        if (!db || !wallOfFameList) return;
+        
         try {
             const wallOfFameRef = collection(db, "wallOfFame");
             const q = query(wallOfFameRef, 
@@ -146,7 +140,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         } catch (error) {
             console.error("Error fetching Wall of Fame:", error);
-            wallOfFameList.innerHTML = '<p class="loading-text">Could not load top players right now.</p>';
+            if (wallOfFameList) {
+                wallOfFameList.innerHTML = '<p class="loading-text">Could not load top players right now.</p>';
+            }
         }
     };
 
@@ -157,23 +153,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Mobile Menu Logic ---
     function openMenu() {
-        mobileMenu.classList.add('is-open');
-        mobileMenuOverlay.classList.add('is-open');
-        document.body.style.overflow = 'hidden'; // Prevent background scrolling
-        menuButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>`;
+        if (mobileMenu && mobileMenuOverlay && menuButton) {
+            mobileMenu.classList.add('is-open');
+            mobileMenuOverlay.classList.add('is-open');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            menuButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>`;
+        }
     }
 
     function closeMenu() {
-        mobileMenu.classList.remove('is-open');
-        mobileMenuOverlay.classList.remove('is-open');
-        document.body.style.overflow = ''; // Restore scrolling
-        menuButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>`;
+        if (mobileMenu && mobileMenuOverlay && menuButton) {
+            mobileMenu.classList.remove('is-open');
+            mobileMenuOverlay.classList.remove('is-open');
+            document.body.style.overflow = ''; // Restore scrolling
+            menuButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>`;
+        }
     }
 
-    menuButton.addEventListener('click', () => {
-        mobileMenu.classList.contains('is-open') ? closeMenu() : openMenu();
-    });
-    mobileMenuOverlay.addEventListener('click', closeMenu);
+    if (menuButton) {
+        menuButton.addEventListener('click', () => {
+            mobileMenu.classList.contains('is-open') ? closeMenu() : openMenu();
+        });
+    }
+    if (mobileMenuOverlay) mobileMenuOverlay.addEventListener('click', closeMenu);
     menuLinks.forEach(link => link.addEventListener('click', closeMenu));
 
     // --- Scrolled Mobile Dropdown Logic ---
@@ -181,10 +183,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (scrolledMenuPanel) {
             if (forceClose || scrolledMenuPanel.classList.contains('is-open')) {
                 scrolledMenuPanel.classList.remove('is-open');
-                scrolledMenuTrigger.classList.remove('is-open');
+                if (scrolledMenuTrigger) scrolledMenuTrigger.classList.remove('is-open');
             } else {
                 scrolledMenuPanel.classList.add('is-open');
-                scrolledMenuTrigger.classList.add('is-open');
+                if (scrolledMenuTrigger) scrolledMenuTrigger.classList.add('is-open');
             }
         }
     };
@@ -204,16 +206,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     let isTicking = false; 
     
     const handleScroll = () => {
-        if (window.scrollY > 50) {
-            header.classList.add('header-scrolled');
-        } else {
-            header.classList.remove('header-scrolled');
-            toggleScrolledMenu(true);
+        if (header) {
+            if (window.scrollY > 50) {
+                header.classList.add('header-scrolled');
+            } else {
+                header.classList.remove('header-scrolled');
+                toggleScrolledMenu(true);
+            }
         }
-        if (window.scrollY > 300) {
-            toTopWrapper.classList.add('is-visible');
-        } else {
-            toTopWrapper.classList.remove('is-visible');
+        if (toTopWrapper) {
+            if (window.scrollY > 300) {
+                toTopWrapper.classList.add('is-visible');
+            } else {
+                toTopWrapper.classList.remove('is-visible');
+            }
         }
     };
 

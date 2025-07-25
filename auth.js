@@ -5,7 +5,9 @@ import {
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
     GoogleAuthProvider,
-    signInWithPopup
+    signInWithPopup,
+    setPersistence,
+    browserSessionPersistence
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -24,6 +26,14 @@ async function main() {
         const auth = getAuth(app);
         const db = getFirestore(app);
         const googleProvider = new GoogleAuthProvider();
+
+        // IMPORTANT: Set auth persistence to SESSION only
+        // This ensures auth state is cleared when the browser is closed
+        try {
+            await setPersistence(auth, browserSessionPersistence);
+        } catch (error) {
+            console.warn("Could not set auth persistence:", error);
+        }
 
         // Enable offline persistence to prevent "client is offline" errors
         enableIndexedDbPersistence(db).catch((err) => {
@@ -84,7 +94,8 @@ async function main() {
             try {
                 const userDocRef = doc(db, "users", user.uid);
                 const userDocSnap = await getDoc(userDocRef);
-                window.location.href = userDocSnap.exists() ? "dashboard.html" : "questionnaire.html";
+                // Use replace() instead of href to prevent back button issues
+                window.location.replace(userDocSnap.exists() ? "dashboard.html" : "questionnaire.html");
             } catch (error) {
                 showAuthError(error.message);
                 setLoadingState(false);

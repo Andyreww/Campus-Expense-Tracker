@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signOut, updateProfile, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc, addDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
@@ -18,6 +18,7 @@ let map = null;
 let currentUser = null;
 let selectedPfpFile = null;
 let firebaseServices = null;
+let authUnsubscribe = null; // Store the auth listener to unsubscribe on logout
 
 // --- Main App Initialization ---
 async function main() {
@@ -36,8 +37,15 @@ async function main() {
         const storage = getStorage(app);
         firebaseServices = { auth, db, storage };
 
+        // Set auth persistence to session only (clears on browser close)
+        try {
+            await setPersistence(auth, browserSessionPersistence);
+        } catch (error) {
+            console.warn("Could not set auth persistence:", error);
+        }
+
         // --- API Usage: Authentication State ---
-        onAuthStateChanged(auth, (user) => {
+        authUnsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
                 checkProfile();
@@ -154,7 +162,7 @@ function setupEventListeners() {
     if (pfpUploadInput) pfpUploadInput.addEventListener('change', handlePfpUpload);
     if (pfpSaveButton) pfpSaveButton.addEventListener('click', () => savePfp(storage, db));
 
-    // FIXED LOGOUT HANDLER
+    // COMPREHENSIVE LOGOUT HANDLER
     if (logoutButton) logoutButton.addEventListener('click', async (e) => {
         e.preventDefault();
         
@@ -162,64 +170,67 @@ function setupEventListeners() {
             // Show loading state
             logoutButton.innerHTML = '<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span class="ml-1">Logging out...</span>';
             
-            // Sign out from Firebase
+            // Unsubscribe from auth state listener first
+            if (authUnsubscribe) {
+                authUnsubscribe();
+                authUnsubscribe = null;
+            }
+            
+            // Clear current user reference
+            currentUser = null;
+            
+            // Sign out from Firebase and wait for it to complete
             await signOut(auth);
             
-            // Clear all possible storage mechanisms
+            // Force clear all auth tokens from memory
+            auth._currentUser = null;
+            auth.currentUser = null;
+            
+            // Clear all storage mechanisms
             if (typeof window !== 'undefined') {
-                // Clear localStorage
-                if (window.localStorage) {
-                    try {
-                        // Clear all items, not just Firebase ones
-                        localStorage.clear();
-                    } catch (e) {
-                        console.warn("Could not clear localStorage:", e);
-                    }
-                }
+                // Clear everything from localStorage
+                localStorage.clear();
                 
-                // Clear sessionStorage
-                if (window.sessionStorage) {
-                    try {
-                        sessionStorage.clear();
-                    } catch (e) {
-                        console.warn("Could not clear sessionStorage:", e);
-                    }
-                }
+                // Clear everything from sessionStorage
+                sessionStorage.clear();
                 
-                // Clear IndexedDB (where Firebase actually stores auth)
+                // Clear all IndexedDB databases
                 if (window.indexedDB) {
-                    try {
-                        // Delete Firebase auth database
-                        const deleteReq = indexedDB.deleteDatabase('firebaseLocalStorageDb');
-                        deleteReq.onsuccess = () => console.log("Firebase IndexedDB cleared");
-                        deleteReq.onerror = () => console.warn("Could not clear Firebase IndexedDB");
-                        
-                        // Also try to delete other potential Firebase databases
-                        indexedDB.deleteDatabase('firebase-heartbeat-database');
-                        indexedDB.deleteDatabase('firebase-installations-database');
-                    } catch (e) {
-                        console.warn("Could not clear IndexedDB:", e);
-                    }
+                    const databases = await indexedDB.databases();
+                    const deletePromises = databases.map(db => {
+                        return new Promise((resolve) => {
+                            const deleteReq = indexedDB.deleteDatabase(db.name);
+                            deleteReq.onsuccess = () => resolve();
+                            deleteReq.onerror = () => resolve(); // Resolve even on error
+                        });
+                    });
+                    await Promise.all(deletePromises);
                 }
                 
-                // Clear cookies if any
-                if (document.cookie) {
-                    document.cookie.split(";").forEach(function(c) { 
-                        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                // Clear all cookies
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/;domain=" + window.location.hostname);
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/;domain=." + window.location.hostname);
+                });
+                
+                // Clear service worker caches if any
+                if ('caches' in window) {
+                    caches.keys().then(names => {
+                        names.forEach(name => caches.delete(name));
                     });
                 }
             }
             
-            // Small delay to ensure everything is cleared
-            await new Promise(resolve => setTimeout(resolve, 100));
+            // Wait a bit to ensure everything is cleared
+            await new Promise(resolve => setTimeout(resolve, 500));
             
-            // Force complete page reload with cache bypass
-            // Using replace() prevents going back to the dashboard with browser back button
-            window.location.replace("login.html");
+            // Navigate to login page without allowing back button
+            window.location.replace("/login.html");
             
         } catch (error) {
             console.error("Logout Error:", error);
-            alert("Error logging out. Please try again.");
+            alert("Error logging out. Please clear your browser data and try again.");
             // Reset button state
             logoutButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg><span>Log Out</span>';
         }
