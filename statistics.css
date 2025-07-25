@@ -84,7 +84,7 @@ body {
     border: 2px solid var(--wood-dark);
     border-bottom: 5px solid var(--wood-dark);
     max-width: 350px;
-    margin: 0 auto;
+    margin: 5px auto 0; /* Added small top margin to prevent clipping */
     transform: rotate(0.5deg); /* Counter-rotate the card's tilt */
 }
 
