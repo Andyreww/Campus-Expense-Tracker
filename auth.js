@@ -7,7 +7,11 @@ import {
     onAuthStateChanged, 
     signOut as firebaseSignOut,
     setPersistence,
-    browserLocalPersistence
+    browserLocalPersistence,
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword,
+    GoogleAuthProvider,
+    signInWithPopup
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { 
     initializeFirestore, 
@@ -117,3 +121,100 @@ firebaseReady.then(({ auth, db }) => {
         }
     });
 });
+
+// --- LOGIN PAGE SPECIFIC LOGIC ---
+// This part of the script only runs on the login page to make the form work.
+if (window.location.pathname.includes('/login.html')) {
+    
+    const setupLoginEventListeners = (auth) => {
+        const authForm = document.getElementById('auth-form');
+        if (!authForm) return; // Don't run if the form isn't on the page
+        
+        // Get all the form elements
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const createAccountButton = document.getElementById('create-account-button');
+        const signInButton = document.getElementById('sign-in-button');
+        const googleSignInButton = document.getElementById('google-signin-button');
+        const authError = document.getElementById('auth-error');
+
+        // Store original button text to restore after loading
+        const originalButtonContent = {
+            signIn: signInButton.innerHTML,
+            createAccount: createAccountButton.innerHTML,
+            google: googleSignInButton.innerHTML
+        };
+
+        // Function to show a user-friendly error message
+        const showAuthError = (message) => {
+            let friendlyMessage = "An unexpected error occurred.";
+            if (message.includes('auth/invalid-credential') || message.includes('auth/wrong-password') || message.includes('auth/user-not-found')) {
+                friendlyMessage = "Incorrect email or password. Please try again.";
+            } else if (message.includes('auth/email-already-in-use')) {
+                friendlyMessage = "An account with this email already exists.";
+            } else if (message.includes('auth/popup-closed-by-user')) {
+                friendlyMessage = "Sign-in window closed. Please try again.";
+            } else if (message.includes('offline') || message.includes('network-request-failed')) {
+                friendlyMessage = "Network error. Please check your connection.";
+            }
+            authError.textContent = friendlyMessage;
+            authError.classList.remove('hidden');
+        };
+
+        // Function to handle button loading states
+        const setLoadingState = (isLoading, activeBtn = null) => {
+            const allButtons = [signInButton, createAccountButton, googleSignInButton];
+            allButtons.forEach(btn => {
+                if (btn) {
+                    btn.disabled = isLoading;
+                    if (isLoading && btn === activeBtn) {
+                        btn.innerHTML = `<div class="spinner"></div> Verifying...`;
+                    } else if (!isLoading) {
+                        if (btn === signInButton) btn.innerHTML = originalButtonContent.signIn;
+                        if (btn === createAccountButton) btn.innerHTML = originalButtonContent.createAccount;
+                        if (btn === googleSignInButton) btn.innerHTML = originalButtonContent.google;
+                    }
+                }
+            });
+        };
+        
+        // Wrapper to handle auth actions, including loading and error states
+        const handleAuthAction = (authPromise, button) => {
+            if(authError) authError.classList.add('hidden');
+            setLoadingState(true, button);
+            authPromise.catch(error => {
+                console.error("Auth Action Error:", error.code, error.message);
+                showAuthError(error.message);
+            }).finally(() => {
+                setLoadingState(false);
+            });
+        };
+
+        // Attach event listeners
+        authForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleAuthAction(signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value), signInButton);
+        });
+        createAccountButton.addEventListener('click', () => {
+            handleAuthAction(createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value), createAccountButton);
+        });
+        googleSignInButton.addEventListener('click', () => {
+            const googleProvider = new GoogleAuthProvider();
+            handleAuthAction(signInWithPopup(auth, googleProvider), googleSignInButton);
+        });
+    };
+
+    // Wait for Firebase to be ready before setting up listeners
+    firebaseReady.then(({ auth }) => {
+        if (!auth) {
+            console.error("Firebase not available for login page.");
+            return;
+        }
+        // Make sure the DOM is loaded before trying to find elements
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => setupLoginEventListeners(auth));
+        } else {
+            setupLoginEventListeners(auth);
+        }
+    });
+}
