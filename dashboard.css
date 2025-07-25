@@ -592,8 +592,8 @@ body {
     box-shadow: 0 3px 10px rgba(76, 175, 80, 0.3);
 }
 
-.tab-item[href="login.html"] { background: linear-gradient(180deg, rgba(211, 47, 47, 0.08) 0%, rgba(211, 47, 47, 0.03) 100%); border-color: rgba(211, 47, 47, 0.2); }
-.tab-item[href="login.html"]:hover { background: linear-gradient(180deg, #d32f2f 0%, #b71c1c 100%); color: white; border-color: transparent; border-bottom: 3px solid #8b0000; box-shadow: 0 3px 10px rgba(211, 47, 47, 0.3); }
+#logout-button { background: linear-gradient(180deg, rgba(211, 47, 47, 0.08) 0%, rgba(211, 47, 47, 0.03) 100%); border-color: rgba(211, 47, 47, 0.2); }
+#logout-button:hover { background: linear-gradient(180deg, #d32f2f 0%, #b71c1c 100%); color: white; border-color: transparent; border-bottom: 3px solid #8b0000; box-shadow: 0 3px 10px rgba(211, 47, 47, 0.3); }
 
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 150; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
 .modal-overlay:not(.hidden) { opacity: 1; pointer-events: auto; }
