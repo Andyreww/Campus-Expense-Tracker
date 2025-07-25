@@ -1,7 +1,6 @@
 // auth.js - The Single Source of Truth for Firebase
 
 // --- IMPORTS ---
-// We are now using browserLocalPersistence to keep the user logged in across sessions.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { 
     getAuth, 
@@ -18,9 +17,10 @@ import { getFirestore, doc, getDoc, enableIndexedDbPersistence } from "https://w
 import { getStorage } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
 // --- CENTRAL FIREBASE INITIALIZATION ---
-// This promise ensures Firebase is initialized only ONCE.
+// This promise ensures Firebase is initialized only ONCE and makes services available to other scripts.
 export const firebaseReady = new Promise(async (resolve) => {
     try {
+        // Fetch the config from your Netlify function. This is a great way to keep keys secure.
         const response = await fetch('/.netlify/functions/getFirebaseConfig');
         if (!response.ok) throw new Error('Could not load Firebase configuration.');
         const firebaseConfig = await response.json();
@@ -30,11 +30,10 @@ export const firebaseReady = new Promise(async (resolve) => {
         const db = getFirestore(app);
         const storage = getStorage(app);
 
-        // --- PERSISTENCE CHANGE ---
-        // Set persistence to LOCAL. This keeps the user logged in even if they
-        // close the tab or browser, fulfilling the user's request.
+        // Set persistence to LOCAL to keep users logged in even after they close the browser.
         await setPersistence(auth, browserLocalPersistence);
         
+        // Enable offline data persistence for Firestore.
         await enableIndexedDbPersistence(db).catch(err => console.warn("Firestore persistence error:", err.message));
 
         console.log("Firebase services initialized successfully with LOCAL persistence.");
@@ -47,89 +46,94 @@ export const firebaseReady = new Promise(async (resolve) => {
     }
 });
 
-// --- REBUILT LOGOUT FUNCTION ---
-// This function is now simpler. It ONLY tells Firebase to sign out.
-// The onAuthStateChanged listener is now responsible for all redirection and cleanup.
+// --- LOGOUT FUNCTION ---
+// A simple, clean function to sign the user out.
 export const logout = async () => {
-    console.log("Logout function called. Initiating sign out.");
+    console.log("Logout function called.");
     const { auth } = await firebaseReady;
     if (!auth) {
         console.error("Auth service not ready, cannot log out.");
         return;
     }
     try {
-        // Just sign out. The onAuthStateChanged listener will handle the redirect.
+        // The onAuthStateChanged listener below will automatically handle redirecting the user.
         await firebaseSignOut(auth);
-        console.log("Firebase sign out command issued successfully. The auth listener will now take over.");
+        console.log("Firebase sign out successful.");
     } catch (error) {
         console.error("Error during sign out:", error);
-        // As a fallback, if the sign-out itself fails, we can still try to force a redirect.
-        window.location.replace('/index.html');
     }
 };
 
 
 // --- AUTH STATE GUARD & ROUTER ---
-// This is the core of the auth system. It's the single source of truth for what happens
-// when a user's login state changes.
+// This is the most important part. It runs whenever the user's login state changes
+// and handles all page routing to prevent unauthorized access and redirect loops.
 firebaseReady.then(({ auth, db }) => {
-    if (!auth) return;
+    if (!auth || !db) return;
 
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
         const path = window.location.pathname;
-        const onLoginPage = path.endsWith('/login.html');
-        const onIndexPage = path === '/' || path.endsWith('/index.html');
+
+        // Define all possible page types for clarity.
+        const onAuthPage = path.endsWith('/login.html') || path.endsWith('/signup.html');
+        const onLandingPage = path === '/' || path.endsWith('/index.html');
         const onQuestionnairePage = path.endsWith('/questionnaire.html');
-        
-        const onProtectedPage = !onLoginPage && !onIndexPage && !onQuestionnairePage;
+
+        // A page is "protected" if it's NOT the landing, auth, or questionnaire page.
+        const onProtectedPage = !onAuthPage && !onLandingPage && !onQuestionnairePage;
 
         if (user) {
             // --- USER IS LOGGED IN ---
             console.log(`Auth Guard: User logged in (${user.uid}). Path: ${path}`);
-            
-            // **THE FIX IS HERE**
-            // We ONLY redirect if a logged-in user is on the LOGIN page.
-            // We no longer redirect from the index/landing page. This prevents the logout loop.
-            // The UI on the landing page will update via script.js to show the user is logged in.
-            if (onLoginPage) {
-                const userDocRef = doc(db, "users", user.uid);
-                getDoc(userDocRef).then(userDocSnap => {
+
+            // If a logged-in user is on an auth page, they need to be redirected.
+            if (onAuthPage) {
+                try {
+                    // Check if they have a user profile document.
+                    const userDocRef = doc(db, "users", user.uid);
+                    const userDocSnap = await getDoc(userDocRef);
+
                     if (userDocSnap.exists()) {
-                        console.log("Redirecting logged-in user from login page to dashboard...");
+                        // Profile exists, go to the main dashboard.
+                        console.log("Redirecting existing user from auth page to dashboard.");
                         window.location.replace('/dashboard.html');
                     } else {
-                        console.log("New user, redirecting to questionnaire...");
+                        // New user, send them to the questionnaire to set up their profile.
+                        console.log("Redirecting new user from auth page to questionnaire.");
                         window.location.replace('/questionnaire.html');
                     }
-                });
+                } catch (dbError) {
+                    console.error("Error checking user document, redirecting to dashboard as a fallback:", dbError);
+                    window.location.replace('/dashboard.html');
+                }
             }
+            // If they are on any other page (dashboard, landing page, etc.), they are fine. No redirect needed.
+
         } else {
             // --- USER IS LOGGED OUT ---
             console.log(`Auth Guard: User is logged out. Path: ${path}`);
-            
-            localStorage.clear();
-            sessionStorage.clear();
-            console.log("Auth Guard detected logout, cleared all client-side storage.");
 
+            // If a logged-out user tries to access a protected page (e.g., dashboard),
+            // send them back to the landing page.
             if (onProtectedPage) {
-                console.log("User on protected page while logged out, redirecting to landing page...");
+                console.log("User on protected page while logged out. Redirecting to landing page.");
                 window.location.replace('/index.html');
             }
+            // If they are on the landing page, login, or signup page, they are fine. This prevents the redirect loop.
         }
     });
 });
 
 
-// --- LOGIN PAGE SPECIFIC LOGIC (No changes needed here) ---
-if (window.location.pathname.endsWith('/') || window.location.pathname.endsWith('/login.html') || window.location.pathname.endsWith('/index.html')) {
+// --- LOGIN PAGE SPECIFIC LOGIC ---
+// This part of the script only runs on pages with the login form.
+if (window.location.pathname.includes('/login.html')) {
     
     const setupLoginEventListeners = (auth) => {
         const authForm = document.getElementById('auth-form');
-        if (!authForm) {
-            console.log("No auth form found on this page. Skipping login event listeners.");
-            return;
-        }
+        if (!authForm) return; // Don't run if the form isn't on the page
         
+        // Get all the form elements
         const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
         const createAccountButton = document.getElementById('create-account-button');
@@ -137,12 +141,14 @@ if (window.location.pathname.endsWith('/') || window.location.pathname.endsWith(
         const googleSignInButton = document.getElementById('google-signin-button');
         const authError = document.getElementById('auth-error');
 
+        // Store original button text to restore after loading
         const originalButtonContent = {
             signIn: signInButton.innerHTML,
             createAccount: createAccountButton.innerHTML,
             google: googleSignInButton.innerHTML
         };
 
+        // Function to show a user-friendly error message
         const showAuthError = (message) => {
             let friendlyMessage = "An unexpected error occurred.";
             if (message.includes('auth/invalid-credential') || message.includes('auth/wrong-password') || message.includes('auth/user-not-found')) {
@@ -158,6 +164,7 @@ if (window.location.pathname.endsWith('/') || window.location.pathname.endsWith(
             authError.classList.remove('hidden');
         };
 
+        // Function to handle button loading states
         const setLoadingState = (isLoading, activeBtn = null) => {
             const allButtons = [signInButton, createAccountButton, googleSignInButton];
             allButtons.forEach(btn => {
@@ -174,15 +181,19 @@ if (window.location.pathname.endsWith('/') || window.location.pathname.endsWith(
             });
         };
         
+        // Wrapper to handle auth actions, including loading and error states
         const handleAuthAction = (authPromise, button) => {
             if(authError) authError.classList.add('hidden');
             setLoadingState(true, button);
             authPromise.catch(error => {
+                console.error("Auth Action Error:", error.code, error.message);
                 showAuthError(error.message);
+            }).finally(() => {
                 setLoadingState(false);
             });
         };
 
+        // Attach event listeners
         authForm.addEventListener('submit', (e) => {
             e.preventDefault();
             handleAuthAction(signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value), signInButton);
@@ -196,11 +207,13 @@ if (window.location.pathname.endsWith('/') || window.location.pathname.endsWith(
         });
     };
 
+    // Wait for Firebase to be ready before setting up listeners
     firebaseReady.then(({ auth }) => {
         if (!auth) {
             console.error("Firebase not available for login page.");
             return;
         }
+        // Make sure the DOM is loaded before trying to find elements
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => setupLoginEventListeners(auth));
         } else {
