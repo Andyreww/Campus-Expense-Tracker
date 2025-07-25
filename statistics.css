@@ -5,6 +5,10 @@
 /* Inherit variables from dashboard.css for consistency */
 /* Ensure dashboard.css is linked BEFORE this file in the HTML */
 
+html {
+    background-color: var(--wood-light); /* QUICK FIX: Prevents white flash on load */
+}
+
 body {
     background-color: var(--wood-light); /* Matching background */
 }
@@ -65,6 +69,54 @@ body {
     position: relative;
     height: 300px;
     width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* NEW: Forecast Gate Styles */
+.forecast-gate {
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--border-color) 100%);
+    color: var(--text-primary);
+    padding: 2rem;
+    border-radius: 1rem;
+    text-align: center;
+    border: 2px solid var(--wood-dark);
+    border-bottom: 5px solid var(--wood-dark);
+    max-width: 350px;
+    margin: 0 auto;
+}
+
+.forecast-gate-icon {
+    background: var(--paper-white, #fdfaf2);
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    border: 2px solid var(--wood-dark);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.forecast-gate-icon svg {
+    width: 32px;
+    height: 32px;
+    stroke: var(--brand-primary);
+}
+
+.forecast-gate-title {
+    font-family: 'Patrick Hand', cursive;
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.forecast-gate-text {
+    font-family: 'Nunito', sans-serif;
+    font-size: 1rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
 }
 
 /* Insights Styles */

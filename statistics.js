@@ -209,58 +209,82 @@ function renderChart(userData, purchases) {
     const chartContainer = spendingChartCanvas.parentElement;
     const currentBalance = userData.balances?.credits || 0;
 
-    if (purchases.length < 2) {
-        chartContainer.innerHTML = '<p style="text-align:center; padding: 2rem;">Not enough spending data to make a projection yet!</p>';
+    // 1. Aggregate purchases by day
+    const spendingByDay = {};
+    purchases.forEach(p => {
+        const day = p.purchaseDate.toISOString().split('T')[0]; // Group by YYYY-MM-DD
+        if (!spendingByDay[day]) {
+            spendingByDay[day] = 0;
+        }
+        spendingByDay[day] += p.total;
+    });
+    const uniqueSpendingDays = Object.keys(spendingByDay).sort();
+
+    // 2. Prediction Gate: Wait for at least 3 unique days of data
+    if (uniqueSpendingDays.length < 3) {
+        const daysNeeded = 3 - uniqueSpendingDays.length;
+        chartContainer.innerHTML = `
+            <div class="forecast-gate">
+                <div class="forecast-gate-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>
+                </div>
+                <div class="forecast-gate-title">Unlock Your Forecast</div>
+                <div class="forecast-gate-text">
+                    Log your spending for <strong>${daysNeeded} more day${daysNeeded > 1 ? 's' : ''}</strong> to see your projection. The more you log, the smarter it gets!
+                </div>
+            </div>
+        `;
         return;
     }
 
-    // 1. Reconstruct balance history
-    const historyChronological = purchases.slice().reverse();
-    const totalSpent = historyChronological.reduce((sum, p) => sum + p.total, 0);
+    // 3. Reconstruct actual balance history on a daily basis
+    const totalSpent = purchases.reduce((sum, p) => sum + p.total, 0);
     let runningBalance = currentBalance + totalSpent;
     
     const labels = [];
     const actualData = [];
 
-    historyChronological.forEach(p => {
-        runningBalance -= p.total;
-        labels.push(p.purchaseDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-        actualData.push(runningBalance + p.total); // Balance *before* this purchase
+    uniqueSpendingDays.forEach(day => {
+        runningBalance -= spendingByDay[day];
+        labels.push(day); // Use the YYYY-MM-DD string for labels
+        actualData.push(runningBalance);
     });
-    // Add the final, current balance point
-    const lastPurchaseDate = historyChronological[historyChronological.length - 1].purchaseDate;
-    labels.push(lastPurchaseDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-    actualData.push(currentBalance);
 
-
-    // 2. Calculate projection
-    const firstPurchaseDate = historyChronological[0].purchaseDate;
-    const diffTime = Math.abs(lastPurchaseDate - firstPurchaseDate);
-    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-    const avgDailySpending = totalSpent / diffDays;
+    // 4. Calculate new average daily spending
+    const avgDailySpending = totalSpent / uniqueSpendingDays.length;
 
     if (avgDailySpending <= 0) {
         chartContainer.innerHTML = '<p style="text-align:center; padding: 2rem;">Your balance is safe! No recent spending detected.</p>';
         return;
     }
 
-    const daysLeft = Math.ceil(currentBalance / avgDailySpending);
-    const zeroDate = new Date(lastPurchaseDate); // Start projection from the last purchase date
-    zeroDate.setDate(lastPurchaseDate.getDate() + daysLeft);
+    // 5. Create detailed projection
+    const lastActualBalance = actualData[actualData.length - 1];
+    const lastActualDate = new Date(uniqueSpendingDays[uniqueSpendingDays.length - 1]);
 
-    // Create projection data, starting from the last actual point
-    const projectionData = new Array(actualData.length - 1).fill(null); // Pad with nulls
-    projectionData.push(currentBalance); // Start projection
-    projectionData.push(0); // End projection at 0
-    
-    // Add the final date label for the projection
-    labels.push(zeroDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    const projectionData = new Array(actualData.length - 1).fill(null);
+    projectionData.push(lastActualBalance);
 
+    let projectedBalance = lastActualBalance;
+    let dayCounter = 1;
+    let zeroDate = lastActualDate;
 
-    // 3. Render the chart
-    if (spendingChart) {
-        spendingChart.destroy();
+    while (projectedBalance > 0) {
+        const nextDay = new Date(lastActualDate);
+        nextDay.setDate(lastActualDate.getDate() + dayCounter);
+        
+        labels.push(nextDay.toISOString().split('T')[0]);
+        projectedBalance -= avgDailySpending;
+        projectionData.push(Math.max(0, projectedBalance));
+        
+        if (projectedBalance <= 0) {
+            zeroDate = nextDay;
+        }
+        dayCounter++;
     }
+
+    // 6. Render the chart
+    if (spendingChart) spendingChart.destroy();
     if (!document.getElementById('spending-chart')) {
         const newCanvas = document.createElement('canvas');
         newCanvas.id = 'spending-chart';
@@ -277,7 +301,7 @@ function renderChart(userData, purchases) {
                 {
                     label: 'Actual Balance',
                     data: actualData,
-                    borderColor: '#4CAF50', // Green for actual history
+                    borderColor: '#4CAF50',
                     fill: false,
                     tension: 0.1,
                     borderWidth: 3,
@@ -287,17 +311,14 @@ function renderChart(userData, purchases) {
                 {
                     label: 'Projected Balance',
                     data: projectionData,
-                    borderColor: '#E74C3C', // Red for projection
+                    borderColor: '#E74C3C',
                     backgroundColor: 'rgba(231, 76, 60, 0.1)',
-                    fill: {
-                        target: 'origin',
-                        above: 'rgba(231, 76, 60, 0.1)',
-                    },
-                    borderDash: [5, 5], // Dashed line for projection
+                    fill: { target: 'origin', above: 'rgba(231, 76, 60, 0.1)' },
+                    borderDash: [5, 5],
                     borderWidth: 3,
-                    tension: 0, // Straight line for projection
+                    tension: 0.1,
                     pointRadius: 5,
-                    pointStyle: 'rectRot', // Diamond shape for projection points
+                    pointStyle: 'rectRot',
                     pointBackgroundColor: '#E74C3C',
                 }
             ]
@@ -313,10 +334,7 @@ function renderChart(userData, purchases) {
                     color: 'var(--text-primary)',
                     padding: { bottom: 15 }
                 },
-                legend: {
-                    display: true,
-                    position: 'bottom',
-                },
+                legend: { display: true, position: 'bottom' },
                 tooltip: {
                     callbacks: {
                         label: (context) => `${context.dataset.label}: $${Number(context.raw).toFixed(2)}`
@@ -325,16 +343,13 @@ function renderChart(userData, purchases) {
             },
             scales: {
                 x: {
-                    type: 'category', // Use category scale for string labels
-                    grid: {
-                        display: false,
-                    }
+                    type: 'time',
+                    time: { unit: 'day', tooltipFormat: 'MMM d' },
+                    grid: { display: false }
                 },
                 y: {
                     beginAtZero: true,
-                    ticks: {
-                        callback: (value) => '$' + value
-                    }
+                    ticks: { callback: (value) => '$' + value }
                 }
             }
         }
