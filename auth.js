@@ -48,34 +48,23 @@ export const firebaseReady = new Promise(async (resolve) => {
 });
 
 // --- REBUILT LOGOUT FUNCTION ---
-// This function now handles the entire logout process to ensure the correct order of operations.
+// This function is now simpler. It ONLY tells Firebase to sign out.
+// The onAuthStateChanged listener is now responsible for all redirection and cleanup.
 export const logout = async () => {
-    console.log("Logout function called. Beginning sign out process.");
+    console.log("Logout function called. Initiating sign out.");
     const { auth } = await firebaseReady;
     if (!auth) {
         console.error("Auth service not ready, cannot log out.");
         return;
     }
     try {
-        // Step 1: Tell Firebase to sign the user out. Wait for this to complete.
+        // Just sign out. The onAuthStateChanged listener will handle the redirect.
         await firebaseSignOut(auth);
-        console.log("Firebase sign out successful.");
-
-        // Step 2: Manually clear all client-side storage to prevent UI flicker.
-        localStorage.clear();
-        sessionStorage.clear();
-        console.log("Cleared client-side storage.");
-
-        // Step 3: Redirect to the main landing page (index.html).
-        // Using window.location.href ensures a full, clean page load.
-        window.location.href = '/index.html';
-
+        console.log("Firebase sign out command issued successfully. The auth listener will now take over.");
     } catch (error) {
         console.error("Error during sign out:", error);
-        // As a last resort, if signout fails, still clear everything and force a redirect.
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.href = '/index.html';
+        // As a fallback, if the sign-out itself fails, we can still try to force a redirect.
+        window.location.replace('/login.html');
     }
 };
 
@@ -114,12 +103,18 @@ firebaseReady.then(({ auth, db }) => {
             // --- USER IS LOGGED OUT ---
             console.log(`Auth Guard: User is logged out. Path: ${path}`);
             
-            // The logout() function now handles clearing storage and the initial redirect.
-            // This block's only job is to protect pages if a logged-out user tries to access them directly.
+            // The listener is now responsible for cleanup and redirection.
+            // This prevents the race condition where the page redirects before auth state is confirmed.
+            localStorage.clear();
+            sessionStorage.clear();
+            console.log("Auth Guard detected logout, cleared all client-side storage.");
+
             if (onProtectedPage) {
                 console.log("User on protected page while logged out, redirecting to login...");
                 window.location.replace('/login.html');
             }
+            // If the user is already on a public page (like login.html or index.html),
+            // they will just stay there. No redirect is needed.
         }
     });
 });
