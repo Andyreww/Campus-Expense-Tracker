@@ -31,7 +31,8 @@
             
             <div class="form-group bio-group">
                 <label for="user-bio-input">Your Status</label>
-                <textarea id="user-bio-input" rows="2" maxlength="50" placeholder="Set a short status..."></textarea>
+                <!-- THE FIX: Changed maxlength to 15 to match JS -->
+                <textarea id="user-bio-input" rows="2" maxlength="15" placeholder="Set a short status..."></textarea>
             </div>
             
             <p id="pfp-error" class="error-message hidden"></p>
@@ -204,7 +205,10 @@
                 <div class="form-group">
                     <label for="custom-item-store">Location</label>
                     <select id="custom-item-store">
-                        <option value="Campus Market">Ross Granville Market</option>
+                        <option value="Campus Market">Campus Market</option>
+                        <option value="West Dining Hall">West Dining Hall</option>
+                        <option value="East Dining Hall">East Dining Hall</option>
+                        <option value="Student Cafe">Student Cafe</option>
                         <option value="Other">Other Location</option>
                     </select>
                 </div>

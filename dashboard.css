@@ -730,12 +730,13 @@ body {
 
     .newspaper-title { font-size: 2.5rem; letter-spacing: 1px; }
     .leaderboard-header::after { display: none; }
-    /* THE FIX: Mobile leaderboard layout adjustments */
     .leaderboard-item {
         font-size: 0.9rem;
         align-items: flex-start;
     }
     .leaderboard-streak {
+        /* THE FIX: Remove auto margin and add padding */
+        margin-left: 0;
         padding-left: 0.5rem;
         flex-shrink: 0;
     }
