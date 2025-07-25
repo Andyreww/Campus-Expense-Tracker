@@ -1,7 +1,11 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut, updateProfile, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc, addDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+// --- IMPORTS ---
+// We ONLY import what we need: the central Firebase promise and the logout function.
+import { firebaseReady, logout } from './auth.js';
+// We still need these for Firestore/Storage operations within this file.
+import { doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc, addDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+import { updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
 
 // --- DOM Elements ---
 let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar, avatarButton,
@@ -18,60 +22,51 @@ let map = null;
 let currentUser = null;
 let selectedPfpFile = null;
 let firebaseServices = null;
-let authUnsubscribe = null; // Store the auth listener to unsubscribe on logout
+// We no longer need authUnsubscribe as it's handled globally in auth.js
 
 // --- Main App Initialization ---
 async function main() {
     assignDOMElements();
     try {
-        // --- API Usage: Firebase Configuration ---
-        const response = await fetch('/.netlify/functions/getFirebaseConfig');
-        if (!response.ok) {
-            throw new Error('Could not load Firebase configuration.');
+        // --- REFACTORED FIREBASE INITIALIZATION ---
+        // Wait for the central auth module to give us the Firebase services.
+        const services = await firebaseReady;
+        if (!services.auth || !services.db || !services.storage) {
+            throw new Error('Firebase services could not be initialized.');
         }
-        const firebaseConfig = await response.json();
+        firebaseServices = services;
         
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const storage = getStorage(app);
-        firebaseServices = { auth, db, storage };
-
-        // Set auth persistence to session only (clears on browser close)
-        try {
-            await setPersistence(auth, browserSessionPersistence);
-        } catch (error) {
-            console.warn("Could not set auth persistence:", error);
+        // The auth guard in auth.js will redirect if the user is not logged in.
+        // If the script reaches this point, we can assume we have a user.
+        currentUser = firebaseServices.auth.currentUser;
+        if (!currentUser) {
+            // This is a fallback safety net. The guard in auth.js should have already redirected.
+            console.error("Dashboard loaded without a user. This should not happen. Redirecting...");
+            window.location.replace('/login.html');
+            return;
         }
 
-        // --- API Usage: Authentication State ---
-        authUnsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUser = user;
-                checkProfile();
-            } else {
-                window.location.href = "login.html";
-            }
-        });
+        // --- Profile check remains the same ---
+        checkProfile();
 
     } catch (error) {
-        console.error("Fatal Error:", error);
+        console.error("Fatal Error on Dashboard:", error);
         if (loadingIndicator) {
-            loadingIndicator.innerHTML = "Failed to load application. Please try again later.";
+            loadingIndicator.innerHTML = "Failed to load dashboard. Please try again later.";
         }
     }
 }
 
 // --- App Logic ---
 async function checkProfile() {
-    // --- API Usage: Firestore Get Document ---
     const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
         renderDashboard(userDoc.data());
     } else {
-        // If no profile exists, redirect to the questionnaire to set one up.
+        // If no profile exists, the guard in auth.js should have already redirected.
+        // This is a fallback.
         window.location.href = "questionnaire.html";
     }
 }
@@ -86,7 +81,6 @@ function renderDashboard(userData) {
     updateBalancesUI(balances);
     fetchAndRenderWeather(university);
     
-    // Set newspaper date
     const today = new Date();
     if (newspaperDate) {
         newspaperDate.textContent = today.toLocaleDateString('en-US', { 
@@ -97,13 +91,10 @@ function renderDashboard(userData) {
         });
     }
     
-    // Hide loading screen and show dashboard
     loadingIndicator.style.display = 'none';
     dashboardContainer.style.display = 'block';
     
-    // Setup event listeners after elements are visible
     setupEventListeners();
-    // Handle initial tab state from URL hash
     handleInitialTab();
 }
 
@@ -152,7 +143,7 @@ function assignDOMElements() {
 }
 
 function setupEventListeners() {
-    const { auth, db, storage } = firebaseServices;
+    const { db, storage } = firebaseServices;
 
     if (avatarButton) avatarButton.addEventListener('click', () => pfpModalOverlay.classList.remove('hidden'));
     if (pfpCloseButton) pfpCloseButton.addEventListener('click', closeModal);
@@ -162,82 +153,20 @@ function setupEventListeners() {
     if (pfpUploadInput) pfpUploadInput.addEventListener('change', handlePfpUpload);
     if (pfpSaveButton) pfpSaveButton.addEventListener('click', () => savePfp(storage, db));
 
-    // COMPREHENSIVE LOGOUT HANDLER
-    if (logoutButton) logoutButton.addEventListener('click', async (e) => {
-        e.preventDefault();
-        
-        try {
-            // Show loading state
-            logoutButton.innerHTML = '<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span class="ml-1">Logging out...</span>';
-            
-            // Unsubscribe from auth state listener first
-            if (authUnsubscribe) {
-                authUnsubscribe();
-                authUnsubscribe = null;
-            }
-            
-            // Clear current user reference
-            currentUser = null;
-            
-            // Sign out from Firebase and wait for it to complete
-            await signOut(auth);
-            
-            // Force clear all auth tokens from memory
-            auth._currentUser = null;
-            auth.currentUser = null;
-            
-            // Clear all storage mechanisms
-            if (typeof window !== 'undefined') {
-                // Clear everything from localStorage
-                localStorage.clear();
-                
-                // Clear everything from sessionStorage
-                sessionStorage.clear();
-                
-                // Clear all IndexedDB databases
-                if (window.indexedDB) {
-                    const databases = await indexedDB.databases();
-                    const deletePromises = databases.map(db => {
-                        return new Promise((resolve) => {
-                            const deleteReq = indexedDB.deleteDatabase(db.name);
-                            deleteReq.onsuccess = () => resolve();
-                            deleteReq.onerror = () => resolve(); // Resolve even on error
-                        });
-                    });
-                    await Promise.all(deletePromises);
-                }
-                
-                // Clear all cookies
-                document.cookie.split(";").forEach(function(c) { 
-                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
-                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/;domain=" + window.location.hostname);
-                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/;domain=." + window.location.hostname);
-                });
-                
-                // Clear service worker caches if any
-                if ('caches' in window) {
-                    caches.keys().then(names => {
-                        names.forEach(name => caches.delete(name));
-                    });
-                }
-            }
-            
-            // Wait a bit to ensure everything is cleared
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // Navigate to login page without allowing back button
-            window.location.replace("/login.html");
-            
-        } catch (error) {
-            console.error("Logout Error:", error);
-            alert("Error logging out. Please clear your browser data and try again.");
-            // Reset button state
-            logoutButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg><span>Log Out</span>';
-        }
-    });
+    // --- REFACTORED LOGOUT HANDLER ---
+    // This is now incredibly simple. We just call the imported `logout` function.
+    if (logoutButton) {
+        logoutButton.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevent the link from navigating
+            logout(); // Call the central, reliable logout function
+        });
+    }
 
     if (tabItems) tabItems.forEach(tab => {
-        tab.addEventListener('click', (e) => handleTabClick(e, db));
+        // Make sure not to override the logout button's new listener
+        if (tab !== logoutButton) {
+           tab.addEventListener('click', (e) => handleTabClick(e, db));
+        }
     });
     
     if (publicLeaderboardCheckbox) publicLeaderboardCheckbox.addEventListener('change', (e) => handlePublicToggle(e, db));
@@ -251,15 +180,12 @@ function setupEventListeners() {
 
     // FAB Container Listeners
     if (mainFab && fabContainer) {
-        // Mobile: tap to expand/collapse
         const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         if (isMobile) {
             mainFab.addEventListener('click', (e) => {
                 e.preventDefault();
                 fabContainer.classList.toggle('expanded');
             });
-
-            // Close FAB menu when tapping elsewhere
             document.addEventListener('click', (e) => {
                 if (!fabContainer.contains(e.target)) {
                     fabContainer.classList.remove('expanded');
@@ -273,13 +199,11 @@ function setupEventListeners() {
         customLogModal.classList.remove('hidden');
         customItemName.focus();
     });
-
     if (customLogCancel) customLogCancel.addEventListener('click', closeCustomLogModal);
     if (customLogClose) customLogClose.addEventListener('click', closeCustomLogModal);
     if (customLogModal) customLogModal.addEventListener('click', (e) => {
         if (e.target === customLogModal) closeCustomLogModal();
     });
-
     if (customLogForm) customLogForm.addEventListener('submit', (e) => {
         e.preventDefault();
         logCustomPurchase(db);
@@ -295,7 +219,6 @@ function handleTabClick(e, db) {
     }
 }
 
-// Function to handle switching tabs, can be called from multiple places
 function switchTab(sectionId, db) {
     const targetTab = document.querySelector(`.tab-item[data-section="${sectionId}"]`);
     const targetSection = document.getElementById(sectionId);
@@ -309,7 +232,7 @@ function switchTab(sectionId, db) {
 
         if (sectionId === 'leaderboard-section') {
             publicLeaderboardContainer.classList.remove('hidden');
-            if (db) { // Only fetch if db is available
+            if (db) {
                 fetchAndRenderLeaderboard(db);
             }
         } else {
@@ -318,15 +241,13 @@ function switchTab(sectionId, db) {
     }
 }
 
-// Function to check URL hash on page load
 function handleInitialTab() {
     const hash = window.location.hash;
     if (hash) {
-        const sectionId = hash.substring(1); // Remove '#'
+        const sectionId = hash.substring(1);
         switchTab(sectionId, firebaseServices?.db);
     }
 }
-
 
 function openMapModal() {
     if (!map) {
@@ -435,7 +356,6 @@ async function logCustomPurchase(db) {
         return;
     }
 
-    // Check balance
     const userDocRef = doc(db, "users", currentUser.uid);
     const userDoc = await getDoc(userDocRef);
     const userData = userDoc.data();
@@ -446,13 +366,11 @@ async function logCustomPurchase(db) {
         return;
     }
 
-    // Disable submit button
     const submitBtn = customLogForm.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="loading-spinner" style="display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite;"></span> Logging...';
 
     try {
-        // Calculate streak
         let { currentStreak = 0, longestStreak = 0, lastLogDate = null } = userData;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -476,21 +394,15 @@ async function logCustomPurchase(db) {
             longestStreak = currentStreak;
         }
 
-        // Log the purchase
         const purchaseRef = collection(db, "users", currentUser.uid, "purchases");
         await addDoc(purchaseRef, {
-            items: [{
-                name: itemName,
-                price: itemPrice,
-                quantity: 1
-            }],
+            items: [{ name: itemName, price: itemPrice, quantity: 1 }],
             total: itemPrice,
             store: storeName,
             purchaseDate: Timestamp.now(),
             isCustom: true
         });
 
-        // Update balance and streak
         const newBalance = currentBalance - itemPrice;
         await updateDoc(userDocRef, {
             "balances.credits": newBalance,
@@ -499,21 +411,15 @@ async function logCustomPurchase(db) {
             lastLogDate: Timestamp.now()
         });
 
-        // Update wall of fame if enabled
         if (userData.showOnWallOfFame && currentUser?.uid) {
-            try {
-                const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
-                await setDoc(wallOfFameDocRef, {
-                    displayName: currentUser.displayName || "Anonymous",
-                    photoURL: currentUser.photoURL || "",
-                    currentStreak: currentStreak
-                }, { merge: true });
-            } catch (wallError) {
-                console.warn("Could not update wall of fame:", wallError);
-            }
+            const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
+            await setDoc(wallOfFameDocRef, {
+                displayName: currentUser.displayName || "Anonymous",
+                photoURL: currentUser.photoURL || "",
+                currentStreak: currentStreak
+            }, { merge: true });
         }
 
-        // Update UI
         creditsBalanceEl.textContent = `$${newBalance.toFixed(2)}`;
         const walletContainer = document.querySelector('.wallet-container, .table-item.item-credits');
         if (walletContainer) {
@@ -521,20 +427,11 @@ async function logCustomPurchase(db) {
             setTimeout(() => walletContainer.classList.remove('hit'), 600);
         }
 
-        // Success! Close modal
         closeCustomLogModal();
         
-        // Show success message
         const successMsg = document.createElement('div');
         successMsg.className = 'custom-log-success';
         successMsg.textContent = `✓ Logged: ${itemName}`;
-        successMsg.style.cssText = `
-            position: fixed; bottom: 140px; left: 50%; transform: translateX(-50%);
-            background: var(--brand-primary); color: white; padding: 1rem 2rem;
-            border-radius: 50px; font-weight: 700; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            animation: slideUp 0.3s ease-out, fadeOut 0.3s ease-out 2.7s forwards;
-            z-index: 200;
-        `;
         document.body.appendChild(successMsg);
         setTimeout(() => successMsg.remove(), 3000);
 
@@ -685,6 +582,13 @@ function initializeMap() {
 // Add keyframe animations to the page
 const style = document.createElement('style');
 style.textContent = `
+    .custom-log-success {
+        position: fixed; bottom: 140px; left: 50%; transform: translateX(-50%);
+        background: var(--brand-primary); color: white; padding: 1rem 2rem;
+        border-radius: 50px; font-weight: 700; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        animation: slideUp 0.3s ease-out, fadeOut 0.3s ease-out 2.7s forwards;
+        z-index: 200;
+    }
     @keyframes slideUp {
         from { transform: translate(-50%, 20px); opacity: 0; }
         to { transform: translate(-50%, 0); opacity: 1; }
@@ -698,7 +602,7 @@ style.textContent = `
         25% { transform: translateX(-5px) rotate(-1deg); }
         75% { transform: translateX(5px) rotate(1deg); }
     }
-    .animate-spin {
+    .animate-spin, .spinner {
         animation: spin 1s linear infinite;
     }
     @keyframes spin {
@@ -707,6 +611,7 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
 
 // --- Run the app ---
 document.addEventListener('DOMContentLoaded', main);

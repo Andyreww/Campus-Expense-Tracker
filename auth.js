@@ -1,148 +1,196 @@
-// Import the functions you need from the SDKs you need
+// auth.js - The Single Source of Truth for Firebase
+
+// --- IMPORTS ---
+// Import all necessary functions from the Firebase SDKs.
+// This file will provide these services to the rest of the app.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { 
     getAuth, 
+    onAuthStateChanged, 
+    signOut as firebaseSignOut,
+    setPersistence,
+    browserSessionPersistence,
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
     GoogleAuthProvider,
-    signInWithPopup,
-    setPersistence,
-    browserSessionPersistence
+    signInWithPopup
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getStorage } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
-// --- Main App Initialization ---
-async function main() {
+// --- CENTRAL FIREBASE INITIALIZATION ---
+// This promise ensures Firebase is initialized only ONCE.
+// Other scripts wait for this promise to resolve before using Firebase services.
+export const firebaseReady = new Promise(async (resolve) => {
     try {
-        // Securely fetch the Firebase config from our Netlify function
         const response = await fetch('/.netlify/functions/getFirebaseConfig');
-        if (!response.ok) {
-            throw new Error('Could not load app configuration.');
-        }
+        if (!response.ok) throw new Error('Could not load Firebase configuration.');
         const firebaseConfig = await response.json();
-
-        // Initialize Firebase with the secure config
+        
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const googleProvider = new GoogleAuthProvider();
+        const storage = getStorage(app);
 
-        // IMPORTANT: Set auth persistence to SESSION only
-        // This ensures auth state is cleared when the browser is closed
-        try {
-            await setPersistence(auth, browserSessionPersistence);
-        } catch (error) {
-            console.warn("Could not set auth persistence:", error);
-        }
+        // Set persistence to SESSION - user is logged out when browser closes.
+        await setPersistence(auth, browserSessionPersistence);
+        
+        // Enable offline data persistence for Firestore
+        await enableIndexedDbPersistence(db).catch(err => console.warn("Firestore persistence error:", err.message));
 
-        // Enable offline persistence to prevent "client is offline" errors
-        enableIndexedDbPersistence(db).catch((err) => {
-            console.warn("Firestore persistence error:", err.message);
-        });
-
-        // --- Get DOM Elements ---
-        const authForm = document.getElementById('auth-form');
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
-        const createAccountButton = document.getElementById('create-account-button');
-        const signInButton = document.getElementById('sign-in-button');
-        const googleSignInButton = document.getElementById('google-signin-button');
-        const authError = document.getElementById('auth-error');
-
-        // Store original button content
-        const originalButtonContent = {
-            signIn: signInButton.innerHTML,
-            createAccount: createAccountButton.innerHTML,
-            google: googleSignInButton.innerHTML
-        };
-
-        // --- Functions ---
-        const showAuthError = (message) => {
-            let friendlyMessage = "An unexpected error occurred.";
-            if (message.includes('auth/invalid-credential') || message.includes('auth/wrong-password') || message.includes('auth/user-not-found')) {
-                friendlyMessage = "Incorrect email or password. Please try again.";
-            } else if (message.includes('auth/email-already-in-use')) {
-                friendlyMessage = "An account with this email already exists.";
-            } else if (message.includes('permission-denied')) {
-                friendlyMessage = "PERMISSION ERROR: Check your Firestore rules.";
-            } else if (message.includes('offline') || message.includes('network-request-failed')) {
-                friendlyMessage = "Network error. Please check your connection.";
-            }
-            authError.textContent = friendlyMessage;
-            authError.classList.remove('hidden');
-        };
-
-        const setLoadingState = (isLoading, activeBtn = null) => {
-            const allButtons = [signInButton, createAccountButton, googleSignInButton];
-            if (isLoading) {
-                allButtons.forEach(btn => {
-                    btn.disabled = true;
-                    if (btn === activeBtn) {
-                        btn.innerHTML = `<div class="spinner"></div> Verifying...`;
-                    }
-                });
-            } else {
-                signInButton.innerHTML = originalButtonContent.signIn;
-                createAccountButton.innerHTML = originalButtonContent.createAccount;
-                googleSignInButton.innerHTML = originalButtonContent.google;
-                allButtons.forEach(btn => btn.disabled = false);
-            }
-        };
-
-        const handleRedirect = async (user) => {
-            if (!user) return setLoadingState(false);
-            try {
-                const userDocRef = doc(db, "users", user.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                // Use replace() instead of href to prevent back button issues
-                window.location.replace(userDocSnap.exists() ? "dashboard.html" : "questionnaire.html");
-            } catch (error) {
-                showAuthError(error.message);
-                setLoadingState(false);
-            }
-        };
-
-        const handleAuthAction = (authPromise, button) => {
-            authError.classList.add('hidden');
-            setLoadingState(true, button);
-            authPromise
-                .then(userCredential => handleRedirect(userCredential.user))
-                .catch(error => {
-                    showAuthError(error.message);
-                    setLoadingState(false);
-                });
-        };
-
-        const handleGoogleSignIn = () => {
-            authError.classList.add('hidden');
-            setLoadingState(true, googleSignInButton);
-            signInWithPopup(auth, googleProvider)
-                .then(result => handleRedirect(result.user))
-                .catch(error => {
-                    showAuthError(error.message);
-                    setLoadingState(false);
-                });
-        };
-
-        // --- Event Listeners ---
-        authForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            handleAuthAction(signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value), signInButton);
-        });
-        createAccountButton.addEventListener('click', () => {
-            handleAuthAction(createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value), createAccountButton);
-        });
-        googleSignInButton.addEventListener('click', handleGoogleSignIn);
+        console.log("Firebase services initialized successfully.");
+        resolve({ auth, db, storage });
 
     } catch (error) {
-        console.error("Fatal Error initializing auth page:", error);
-        const authErrorEl = document.getElementById('auth-error');
-        if(authErrorEl) {
-            authErrorEl.textContent = "Could not connect to services. Please check your connection and try again.";
-            authErrorEl.classList.remove('hidden');
-        }
+        console.error("FATAL: Firebase initialization failed.", error);
+        document.body.innerHTML = 'Could not connect to application services. Please try again later.';
+        resolve({ auth: null, db: null, storage: null }); // Resolve with null on failure
     }
-}
+});
 
-// Start the application
-main();
+// --- AUTH STATE GUARD & ROUTER ---
+// This is the core of the auth system. It runs on page load and whenever auth state changes.
+firebaseReady.then(({ auth, db }) => {
+    if (!auth) return;
+
+    onAuthStateChanged(auth, (user) => {
+        const path = window.location.pathname;
+        // Consider the root, login.html, and index.html as public/login pages
+        const onLoginPage = path === '/' || path.endsWith('/login.html') || path.endsWith('/index.html');
+        const onQuestionnairePage = path.endsWith('/questionnaire.html');
+        
+        // Any page that isn't the login or questionnaire page is considered protected.
+        const onProtectedPage = !onLoginPage && !onQuestionnairePage;
+
+        if (user) {
+            // USER IS LOGGED IN
+            console.log(`Auth Guard: User logged in (${user.uid}). Path: ${path}`);
+            if (onLoginPage) {
+                // If a logged-in user is on the login page, check if they have a profile.
+                const userDocRef = doc(db, "users", user.uid);
+                getDoc(userDocRef).then(userDocSnap => {
+                    if (userDocSnap.exists()) {
+                        console.log("Redirecting to dashboard...");
+                        window.location.replace('/dashboard.html');
+                    } else {
+                        console.log("New user, redirecting to questionnaire...");
+                        window.location.replace('/questionnaire.html');
+                    }
+                });
+            }
+        } else {
+            // USER IS LOGGED OUT
+            console.log(`Auth Guard: User logged out. Path: ${path}`);
+            if (onProtectedPage) {
+                // If a logged-out user tries to access a protected page, send them to login.
+                console.log("User on protected page, redirecting to login...");
+                window.location.replace('/login.html');
+            }
+        }
+    });
+});
+
+// --- GLOBAL LOGOUT FUNCTION ---
+export const logout = async () => {
+    console.log("Logout function called.");
+    const { auth } = await firebaseReady;
+    if (!auth) {
+        console.error("Auth service not ready, cannot log out.");
+        return;
+    }
+    try {
+        await firebaseSignOut(auth);
+        console.log("Firebase sign out successful.");
+        // Use replace to prevent user from navigating back to the dashboard
+        window.location.replace('/login.html');
+    } catch (error) {
+        console.error("Error during sign out:", error);
+        // Still try to redirect as a fallback
+        window.location.replace('/login.html');
+    }
+};
+
+// --- LOGIN PAGE SPECIFIC LOGIC ---
+// This block only runs if we are on the login page.
+if (window.location.pathname.endsWith('/') || window.location.pathname.endsWith('/login.html') || window.location.pathname.endsWith('/index.html')) {
+    // Wait for Firebase to be ready before setting up listeners
+    firebaseReady.then(({ auth }) => {
+        if (!auth) return;
+
+        // Wait for the DOM to be ready
+        document.addEventListener('DOMContentLoaded', () => {
+            const authForm = document.getElementById('auth-form');
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const createAccountButton = document.getElementById('create-account-button');
+            const signInButton = document.getElementById('sign-in-button');
+            const googleSignInButton = document.getElementById('google-signin-button');
+            const authError = document.getElementById('auth-error');
+
+            if (!authForm) return; // Don't run if the form isn't on the page
+
+            const originalButtonContent = {
+                signIn: signInButton.innerHTML,
+                createAccount: createAccountButton.innerHTML,
+                google: googleSignInButton.innerHTML
+            };
+
+            const showAuthError = (message) => {
+                let friendlyMessage = "An unexpected error occurred.";
+                if (message.includes('auth/invalid-credential') || message.includes('auth/wrong-password') || message.includes('auth/user-not-found')) {
+                    friendlyMessage = "Incorrect email or password. Please try again.";
+                } else if (message.includes('auth/email-already-in-use')) {
+                    friendlyMessage = "An account with this email already exists.";
+                } else if (message.includes('auth/popup-closed-by-user')) {
+                    friendlyMessage = "Sign-in window closed. Please try again.";
+                } else if (message.includes('offline') || message.includes('network-request-failed')) {
+                    friendlyMessage = "Network error. Please check your connection.";
+                }
+                authError.textContent = friendlyMessage;
+                authError.classList.remove('hidden');
+            };
+
+            const setLoadingState = (isLoading, activeBtn = null) => {
+                const allButtons = [signInButton, createAccountButton, googleSignInButton];
+                if (isLoading) {
+                    allButtons.forEach(btn => {
+                        if (btn) {
+                            btn.disabled = true;
+                            if (btn === activeBtn) {
+                                btn.innerHTML = `<div class="spinner"></div> Verifying...`;
+                            }
+                        }
+                    });
+                } else {
+                    if(signInButton) signInButton.innerHTML = originalButtonContent.signIn;
+                    if(createAccountButton) createAccountButton.innerHTML = originalButtonContent.createAccount;
+                    if(googleSignInButton) googleSignInButton.innerHTML = originalButtonContent.google;
+                    allButtons.forEach(btn => { if(btn) btn.disabled = false });
+                }
+            };
+
+            // The onAuthStateChanged listener will handle the redirect automatically.
+            // We just need to perform the auth action and handle errors.
+            const handleAuthAction = (authPromise, button) => {
+                authError.classList.add('hidden');
+                setLoadingState(true, button);
+                authPromise.catch(error => {
+                    showAuthError(error.message);
+                    setLoadingState(false);
+                });
+            };
+
+            authForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                handleAuthAction(signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value), signInButton);
+            });
+            createAccountButton.addEventListener('click', () => {
+                handleAuthAction(createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value), createAccountButton);
+            });
+            googleSignInButton.addEventListener('click', () => {
+                const googleProvider = new GoogleAuthProvider();
+                handleAuthAction(signInWithPopup(auth, googleProvider), googleSignInButton);
+            });
+        });
+    });
+}
