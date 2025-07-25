@@ -492,35 +492,33 @@ function updateBalancesUI(balances) {
 }
 
 async function fetchAndRenderWeather() {
-    // FIX: Using coordinates for a more reliable API call.
-    const lat = 40.08;
-    const lon = -82.49;
     if (!weatherWidget) return;
     weatherWidget.innerHTML = `<div class="spinner"></div>`;
-    
-    // Construct the API URL with latitude and longitude
+
+    // Granville, OH coordinates
+    const lat = 40.08;
+    const lon = -82.49;
+
     const apiUrl = `/.netlify/functions/getWeather?lat=${lat}&lon=${lon}`;
 
     try {
         const response = await fetch(apiUrl);
         const data = await response.json();
 
-        // Even if the fetch itself is okay, the API might send back an error.
-        if (!response.ok || data.cod !== 200) {
-            throw new Error(data.message || 'City not found');
+        if (!response.ok || !data.current) {
+            throw new Error(data.message || 'Error fetching weather');
         }
-        
-        const temp = Math.round(data.main.temp);
-        const description = data.weather[0].description;
-        const iconCode = data.weather[0].icon;
-        const locationName = data.name;
+
+        const temp = Math.round(data.current.temp);
+        const description = data.current.weather[0].description;
+        const iconCode = data.current.weather[0].icon;
 
         weatherWidget.innerHTML = `
             <div class="weather-content">
                 <img src="https://openweathermap.org/img/wn/${iconCode}@2x.png" alt="${description}" class="weather-icon">
                 <div class="weather-details">
                     <div class="weather-temp">${temp}°F</div>
-                    <div class="weather-location">${locationName}</div>
+                    <div class="weather-location">Granville, OH</div>
                     <div class="weather-description">${description}</div>
                 </div>
             </div>
