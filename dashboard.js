@@ -466,8 +466,7 @@ async function fetchAndRenderLeaderboard(db) {
 
         leaderboardList.innerHTML = '';
         users.forEach((user, index) => {
-            if (!user.showOnWallOfFame) return;
-            
+            // THE FIX: Removed the filter. This leaderboard now shows everyone.
             const item = document.createElement('div');
             item.className = 'leaderboard-item';
             if (user.id === currentUser.uid) {
@@ -506,7 +505,10 @@ async function handlePublicToggle(e, db) {
     const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
 
     try {
+        // This part is correct. It updates the user's preference in their main doc.
         await updateDoc(userDocRef, { showOnWallOfFame: isChecked });
+        
+        // This part correctly adds/removes them from the public collection.
         if (isChecked) {
             const userDoc = await getDoc(userDocRef);
             if (userDoc.exists()) {
@@ -521,7 +523,7 @@ async function handlePublicToggle(e, db) {
         } else {
             await deleteDoc(wallOfFameDocRef);
         }
-        fetchAndRenderLeaderboard(db);
+        // THE FIX: No longer need to refresh the dashboard leaderboard, as it's not affected by this toggle.
     } catch (error) {
         console.error("Error updating Top of the Grind status:", error);
     }
