@@ -719,8 +719,6 @@ body {
     
     .leaderboard-newspaper { 
         padding: 1.5rem 1rem; 
-        /* Add proper overflow handling for mobile */
-        overflow-x: hidden;
         width: 100%;
         box-sizing: border-box;
     }
