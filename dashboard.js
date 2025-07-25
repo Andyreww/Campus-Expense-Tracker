@@ -492,12 +492,14 @@ function updateBalancesUI(balances) {
 }
 
 async function fetchAndRenderWeather() {
-    // FIX: Using a more specific format for the location to help the API find the city.
-    const location = 'Granville,OH,US';
+    // FIX: Using coordinates for a more reliable API call.
+    const lat = 40.08;
+    const lon = -82.49;
     if (!weatherWidget) return;
     weatherWidget.innerHTML = `<div class="spinner"></div>`;
     
-    const apiUrl = `/.netlify/functions/getWeather?university=${encodeURIComponent(location)}`;
+    // Construct the API URL with latitude and longitude
+    const apiUrl = `/.netlify/functions/getWeather?lat=${lat}&lon=${lon}`;
 
     try {
         const response = await fetch(apiUrl);
