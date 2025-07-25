@@ -55,12 +55,11 @@ firebaseReady.then(({ auth, db }) => {
 
     onAuthStateChanged(auth, (user) => {
         const path = window.location.pathname;
-        // Consider the root, login.html, and index.html as public/login pages
-        const onLoginPage = path === '/' || path.endsWith('/login.html') || path.endsWith('/index.html');
+        const onLoginPage = path.endsWith('/login.html');
+        const onIndexPage = path === '/' || path.endsWith('/index.html');
         const onQuestionnairePage = path.endsWith('/questionnaire.html');
         
-        // Any page that isn't the login or questionnaire page is considered protected.
-        const onProtectedPage = !onLoginPage && !onQuestionnairePage;
+        const onProtectedPage = !onLoginPage && !onIndexPage && !onQuestionnairePage;
 
         if (user) {
             // USER IS LOGGED IN
@@ -90,25 +89,37 @@ firebaseReady.then(({ auth, db }) => {
     });
 });
 
-// --- GLOBAL LOGOUT FUNCTION ---
+// --- UPDATED GLOBAL LOGOUT FUNCTION ---
 export const logout = async () => {
-    console.log("Logout function called.");
+    console.log("Logout function called. Aggressive mode ON.");
     const { auth } = await firebaseReady;
     if (!auth) {
         console.error("Auth service not ready, cannot log out.");
         return;
     }
     try {
+        // Step 1: Sign out from Firebase. This tells the backend the session is over.
         await firebaseSignOut(auth);
         console.log("Firebase sign out successful.");
-        // Use replace to prevent user from navigating back to the dashboard
+
+        // Step 2: Manually clear client-side storage to prevent stale data.
+        // This is the aggressive part that helps prevent the UI flicker on the next page load.
+        localStorage.clear();
+        sessionStorage.clear();
+        console.log("Cleared localStorage and sessionStorage.");
+
+        // Step 3: Redirect to the login page. Use 'replace' to prevent the user from
+        // using the back button to return to the authenticated state.
         window.location.replace('/login.html');
     } catch (error) {
         console.error("Error during sign out:", error);
-        // Still try to redirect as a fallback
+        // As a fallback, still try to clear storage and redirect.
+        localStorage.clear();
+        sessionStorage.clear();
         window.location.replace('/login.html');
     }
 };
+
 
 // --- LOGIN PAGE SPECIFIC LOGIC ---
 // This block only runs if we are on the login page.
