@@ -100,7 +100,6 @@ function assignDOMElements() {
     bonusBalanceEl = document.getElementById('bonus-balance');
     swipesCard = document.getElementById('swipes-card');
     bonusCard = document.getElementById('bonus-card');
-    // THE FIX: Selecting by the new ID.
     logoutButton = document.getElementById('logout-button');
     tabItems = document.querySelectorAll('.tab-item');
     mainSections = document.querySelectorAll('.main-section');
@@ -143,17 +142,16 @@ function setupEventListeners() {
     if (pfpUploadInput) pfpUploadInput.addEventListener('change', handlePfpUpload);
     if (pfpSaveButton) pfpSaveButton.addEventListener('click', () => savePfp(storage, db));
 
-    // THE FIX: This listener now reliably targets the button.
     if (logoutButton) {
         logoutButton.addEventListener('click', () => {
-            // No need for e.preventDefault() on a button, but it doesn't hurt.
-            logout(); // Call the central, reliable logout function
+            logout();
         });
     }
 
+    // THE FIX: Only attach the special click handler to tabs that are meant for in-page navigation.
+    // This leaves the "Stats" link alone to behave like a normal link.
     if (tabItems) tabItems.forEach(tab => {
-        // Make sure not to override the logout button's new listener
-        if (tab.id !== 'logout-button') {
+        if (tab.hasAttribute('data-section')) {
            tab.addEventListener('click', (e) => handleTabClick(e, db));
         }
     });
@@ -200,12 +198,11 @@ function setupEventListeners() {
 }
 
 function handleTabClick(e, db) {
+    // This function is now only called for tabs with a `data-section` attribute.
+    e.preventDefault(); 
     const tab = e.currentTarget;
-    if (tab.dataset.section) {
-        e.preventDefault();
-        const targetSectionId = tab.dataset.section;
-        switchTab(targetSectionId, db);
-    }
+    const targetSectionId = tab.dataset.section;
+    switchTab(targetSectionId, db);
 }
 
 function switchTab(sectionId, db) {
@@ -213,9 +210,11 @@ function switchTab(sectionId, db) {
     const targetSection = document.getElementById(sectionId);
 
     if (targetTab && targetSection) {
-        tabItems.forEach(t => t.classList.remove('active'));
+        // Remove 'active' from all tab items and sections
+        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
         mainSections.forEach(s => s.classList.remove('active'));
 
+        // Add 'active' to the clicked tab and its corresponding section
         targetTab.classList.add('active');
         targetSection.classList.add('active');
 
