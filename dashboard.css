@@ -717,7 +717,13 @@ body {
         padding-left: 0;
     }
     
-    .leaderboard-newspaper { padding: 1.5rem 1rem; }
+    .leaderboard-newspaper { 
+        padding: 1.5rem 1rem; 
+        /* Add proper overflow handling for mobile */
+        overflow-x: hidden;
+        width: 100%;
+        box-sizing: border-box;
+    }
 
     .leaderboard-newspaper::after {
         left: 10px;
@@ -730,17 +736,100 @@ body {
 
     .newspaper-title { font-size: 2.5rem; letter-spacing: 1px; }
     .leaderboard-header::after { display: none; }
+    
+    /* FIXED: Mobile leaderboard layout */
     .leaderboard-item {
         font-size: 0.9rem;
-        align-items: flex-start;
+        align-items: center; /* Change back to center for better mobile layout */
+        gap: 0.75rem; /* Reduce gap on mobile */
+        padding: 0.75rem 0; /* Reduce padding */
+        /* Ensure proper overflow handling */
+        width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+        /* Keep border but ensure it doesn't overflow */
+        border-bottom: 1px solid var(--border-color);
+        border-right: none; /* Remove any right border that might cause overflow */
     }
+    
+    /* FIXED: Rank styling for mobile */
+    .leaderboard-rank {
+        font-size: 1.2rem; /* Smaller on mobile */
+        width: 30px; /* Smaller width */
+        text-align: center;
+        flex-shrink: 0; /* Don't let it shrink */
+    }
+    
+    /* FIXED: Avatar styling for mobile */
+    .leaderboard-avatar { 
+        width: 40px; 
+        height: 40px; 
+        filter: none;
+        flex-shrink: 0; /* Don't let it shrink */
+    }
+    
+    /* FIXED: Details section - prevent overflow */
+    .leaderboard-details {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0; /* Important: allows flex item to shrink below content size */
+        overflow: hidden; /* Prevent content from overflowing */
+    }
+    
+    /* FIXED: Name styling */
+    .leaderboard-name {
+        font-size: 1rem; /* Slightly smaller on mobile */
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+    
+    /* FIXED: Bio styling */
+    .leaderboard-bio {
+        font-size: 0.85rem; /* Smaller on mobile */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+    
+    /* FIXED: Streak positioning and sizing */
     .leaderboard-streak {
-        /* THE FIX: Remove auto margin and add padding */
-        margin-left: 0;
-        padding-left: 0.5rem;
-        flex-shrink: 0;
+        font-size: 1rem; /* Smaller on mobile */
+        font-weight: 700;
+        margin-left: 0; /* Remove auto margin */
+        padding-left: 0; /* Remove padding */
+        flex-shrink: 0; /* Don't let it shrink */
+        white-space: nowrap; /* Prevent line breaks */
+        min-width: fit-content; /* Ensure it takes minimum needed space */
+        text-align: right; /* Align text to the right */
     }
-    .leaderboard-avatar { width: 40px; height: 40px; filter: none; }
+    
+    /* FIXED: Special styling for first item */
+    .leaderboard-item:nth-child(1) {
+        grid-column: 1;
+        font-size: 1rem; /* Slightly larger for winner */
+        padding: 1rem 0.5rem; /* Adjust padding */
+        margin-bottom: 1rem;
+    }
+    
+    .leaderboard-item:nth-child(1) .leaderboard-rank {
+        font-size: 1.4rem;
+        width: 35px;
+    }
+    
+    .leaderboard-item:nth-child(1) .leaderboard-avatar {
+        width: 45px;
+        height: 45px;
+    }
+    
+    .leaderboard-item:nth-child(1) .leaderboard-streak {
+        font-size: 1.2rem;
+    }
+    
     .section-headline { font-size: 1.3rem; }
     .map-modal { height: 400px; }
     .bottom-tab-bar { height: 60px; padding: 0 0.5rem; }
