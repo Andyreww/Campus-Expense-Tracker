@@ -9,7 +9,6 @@ import {
     setPersistence,
     browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-// --- FIX: Import initializeFirestore and other necessary functions for the new setup ---
 import { 
     initializeFirestore, 
     doc, 
@@ -31,9 +30,7 @@ export const firebaseReady = new Promise(async (resolve) => {
         const auth = getAuth(app);
         const storage = getStorage(app);
 
-        // --- FIX: Initialize Firestore with multi-tab synchronization enabled ---
-        // This resolves the "Failed to obtain exclusive access" error by allowing
-        // multiple tabs (or instances in a dev environment) to share the database connection.
+        // Initialize Firestore with multi-tab synchronization enabled.
         const db = initializeFirestore(app, {
             cacheSizeBytes: CACHE_SIZE_UNLIMITED,
             synchronizeTabs: true
@@ -81,11 +78,13 @@ firebaseReady.then(({ auth, db }) => {
         const onAuthPage = path.endsWith('/login.html') || path.endsWith('/signup.html');
         const onLandingPage = path === '/' || path.endsWith('/index.html');
         const onQuestionnairePage = path.endsWith('/questionnaire.html');
+        // A page is "protected" if it's NOT the landing, auth, or questionnaire page.
         const onProtectedPage = !onAuthPage && !onLandingPage && !onQuestionnairePage;
 
         if (user) {
             // --- USER IS LOGGED IN ---
             console.log(`Auth Guard: User logged in (${user.uid}). Path: ${path}`);
+            // If a logged-in user is on an auth page, redirect them to their dashboard or questionnaire.
             if (onAuthPage) {
                 try {
                     const userDocRef = doc(db, "users", user.uid);
@@ -102,13 +101,19 @@ firebaseReady.then(({ auth, db }) => {
                     window.location.replace('/dashboard.html');
                 }
             }
+            // If a logged-in user is on any other page (landing, dashboard, etc.), they can stay.
         } else {
             // --- USER IS LOGGED OUT ---
             console.log(`Auth Guard: User is logged out. Path: ${path}`);
+            
+            // --- REVISED LOGIC ---
+            // If a logged-out user tries to access a PROTECTED page (like the dashboard),
+            // redirect them to the login page.
             if (onProtectedPage) {
-                console.log("User on protected page while logged out. Redirecting to landing page.");
-                window.location.replace('/index.html');
+                console.log(`User on protected page "${path}" while logged out. Redirecting to login page.`);
+                window.location.replace('/login.html');
             }
+            // If they are on the landing page (index.html) or an auth page, they can stay. No redirect needed.
         }
     });
 });
