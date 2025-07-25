@@ -125,13 +125,38 @@ function setupEventListeners() {
 function containsProfanity(text) {
     // Comprehensive list of profanity and inappropriate words
     const profanityList = [
-        'fuck', 'shit', 'ass', 'damn', 'hell', 'bitch', 'bastard', 'dick', 'cock', 'pussy', 
-        'cunt', 'piss', 'whore', 'slut', 'fag', 'gay', 'nigger', 'nigga', 'retard', 'rape',
-        'sex', 'porn', 'tits', 'boobs', 'penis', 'vagina', 'anus', 'dildo', 'cum', 'jizz',
-        'motherfucker', 'asshole', 'douche', 'twat', 'prick', 'bollocks', 'bloody', 'bugger',
-        'crap', 'wanker', 'tosser', 'shag', 'suck', 'blow', 'handjob', 'blowjob', 'kike',
-        'spic', 'chink', 'gook', 'wetback', 'beaner', 'cracker', 'honky', 'faggot', 'dyke',
-        'tranny', 'shemale', 'hitler', 'nazi', 'kkk', 'suicide', 'kill', 'murder'
+    // sexual & explicit
+    'fuck','fucking','fucked','shit','shitty','crap','bitch','bastard','dick','cock','pussy',
+    'cunt','asshole','ass','douche','twat','prick','bollocks','bugger','shag','slut','whore',
+    'fag','faggot','dyke','tranny','shemale','kike','spic','chink','gook','beaner','wetback',
+    'nigger','nigga','dyke','retard','idiot','moron','cretin',
+    'jizz','cum','dildo','handjob','blowjob','tits','boobs','penis','vagina','anus',
+    'porn','sex','suck','blow','rape','molest','pedophile','pedo','incest',
+    'motherfucker','mother fucker','motha fucker','cocksucker','cock sucker',
+    'jerkoff','jerk off','clit','titty','twatwaffle','dumbass','asswipe','dumbfuck',
+    'dumb fuck','bullshit','holy shit','holy fuck','fuckedup','fuckup','fuckyou','fuck you',
+    'goddamn','god damn','damn','bloody','frigging','fricking','hell','arse','arsehole',
+    'shite','crikey','crapola','piss','pissed','pissedoff','piss off','shitter','shitface',
+    'shithead','shitshow','shitstorm','pisshead',
+    // hate speech & modern slurs
+    'nazi','hitler','kkk','antisemite','white supremacist','whoreface','slutface',
+    'autistic','autism','schizo','schizophrenic','crazy','insane','lunatic','spastic',
+    'cripple','crip','retard','retarded','gimp','spaz','mong','mongoloid',
+    'feminazi','beanerpede','alfaclan','alien','illegal alien','wetback','raghead',
+    'honky','cracker','coon','coonass','golliwog','raghead','kafir','paki',
+    'jap','chingchong','chink','zipperhead','zipcrow','kraut','polack','slantee',
+    // misc offense, mild abuse, recent slang
+    'wtf','stfu','gtfo','omfg','omg','fml','lmao','rofl','roflmao','suckmydick',
+    'suckmyass','eatmyass','eatmyshit','eatmyshit','kissmyass','kissmyfeet','tosser',
+    'wanker','twatwaffle','clunge','gash','minge','clunge','nudist','nude','pornstar',
+    'escort','stripper','stripclub','cumshot','pearljamer','pearl jammer','gore', 'gory',
+    'neckbeard','incel','simp','stan','wang','dong','meatspin','goatse','lolita',
+    'cp','hentai','lolicon','shota','bestiality','zoophilia','zoophile','beastiality',
+    'beastial','beast','snuff','necrophilia','necrophile','vore','voreplay',
+    'spook','jungle bunny','fried chicken','macaco','macaca',
+    // euphemisms, variants & obfuscations
+    'f u c k','s h i t','s h i t t y','f@ck','sh1t','sh!t','b!tch','c0ck','p!ss','c u n t',
+    'f u c k e d','f u c k i n g','s h i t s h o w','b 1 t c h','grrrrr','damnit','damnit',
     ];
     
     // Convert to lowercase and remove spaces for checking
