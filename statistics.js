@@ -1,49 +1,86 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+// --- IMPORTS ---
+import { firebaseReady, logout } from './auth.js';
+import { doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+import { updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
 // --- DOM Elements ---
 let loadingIndicator, statsContainer, pageTitle, welcomeMessage, userAvatar, avatarButton,
-    historyList, insightsList, spendingChartCanvas;
+    historyList, insightsList, spendingChartCanvas, logoutButton,
+    pfpModalOverlay, pfpPreview, pfpUploadInput, pfpSaveButton,
+    pfpCloseButton, pfpError, userBioInput;
 
 // --- App State ---
 let currentUser = null;
 let firebaseServices = null;
-let spendingChart = null; // To hold the chart instance
+let spendingChart = null;
+let selectedPfpFile = null;
 
 // --- Main App Initialization ---
 async function main() {
     assignDOMElements();
-    
     try {
-        // --- LIVE FIREBASE PATH ---
-        const response = await fetch('/.netlify/functions/getFirebaseConfig');
-        if (!response.ok) {
-            throw new Error('Could not load app configuration. Falling back to mock data.');
+        const services = await firebaseReady;
+        if (!services.auth || !services.db || !services.storage) {
+            throw new Error('Firebase services could not be initialized.');
         }
-        const firebaseConfig = await response.json();
+        firebaseServices = services;
+        
+        currentUser = firebaseServices.auth.currentUser;
+        if (!currentUser) {
+            window.location.replace('/login.html');
+            return;
+        }
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        firebaseServices = { auth, db };
+        checkProfile();
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUser = user;
-                init(); // Initialize with live data
-            } else {
-                window.location.href = "login.html";
-            }
-        });
     } catch (error) {
-        console.warn(error.message);
-        console.warn("Falling back to local mock mode.");
-        initializeWithMockData();
+        console.error("Fatal Error on Statistics:", error);
+        if (loadingIndicator) {
+            loadingIndicator.innerHTML = "Failed to load statistics. Please try again later.";
+        }
     }
 }
 
 // --- App Logic ---
+async function checkProfile() {
+    const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+        const userData = userDoc.data();
+        currentUser.bio = userData.bio || '';
+        renderStatistics(userData);
+    } else {
+        window.location.href = "questionnaire.html";
+    }
+}
+
+async function renderStatistics(userData) {
+    // Fetch purchase history
+    const purchasesRef = collection(firebaseServices.db, "users", currentUser.uid, "purchases");
+    const q = query(purchasesRef, orderBy("purchaseDate", "desc"));
+    const purchasesSnap = await getDocs(q);
+    
+    const purchaseHistory = purchasesSnap.docs.map(doc => {
+        const data = doc.data();
+        return { ...data, purchaseDate: data.purchaseDate.toDate() };
+    });
+
+    // Update bio input if it exists
+    if (userBioInput) {
+        userBioInput.value = userData.bio || '';
+    }
+
+    // Render all components
+    renderAllComponents(userData, purchaseHistory);
+    
+    loadingIndicator.style.display = 'none';
+    statsContainer.style.display = 'block';
+    
+    setupEventListeners();
+    handleBioInput();
+}
 
 function assignDOMElements() {
     loadingIndicator = document.getElementById('loading-indicator');
@@ -55,50 +92,153 @@ function assignDOMElements() {
     historyList = document.getElementById('purchase-history-list');
     insightsList = document.getElementById('insights-list');
     spendingChartCanvas = document.getElementById('spending-chart');
+    logoutButton = document.getElementById('logout-button');
+    pfpModalOverlay = document.getElementById('pfp-modal-overlay');
+    pfpPreview = document.getElementById('pfp-preview');
+    pfpUploadInput = document.getElementById('pfp-upload-input');
+    pfpSaveButton = document.getElementById('pfp-save-button');
+    pfpCloseButton = document.getElementById('pfp-close-button');
+    pfpError = document.getElementById('pfp-error');
+    userBioInput = document.getElementById('user-bio-input');
 }
 
-// Initializes the page with live data from Firebase
-async function init() {
-    const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
-    const purchasesRef = collection(firebaseServices.db, "users", currentUser.uid, "purchases");
-    const q = query(purchasesRef, orderBy("purchaseDate", "desc"));
+function setupEventListeners() {
+    const { db, storage } = firebaseServices;
 
-    const [userDocSnap, purchasesSnap] = await Promise.all([
-        getDoc(userDocRef),
-        getDocs(q)
-    ]);
+    if (avatarButton) avatarButton.addEventListener('click', () => pfpModalOverlay.classList.remove('hidden'));
+    if (pfpCloseButton) pfpCloseButton.addEventListener('click', closeModal);
+    if (pfpModalOverlay) pfpModalOverlay.addEventListener('click', (e) => {
+        if (e.target === pfpModalOverlay) closeModal();
+    });
+    if (pfpUploadInput) pfpUploadInput.addEventListener('change', handlePfpUpload);
+    if (pfpSaveButton) pfpSaveButton.addEventListener('click', () => saveProfile(storage, db));
 
-    if (!userDocSnap.exists()) {
-        console.error("User document not found!");
-        window.location.href = "login.html";
-        return;
+    if (logoutButton) {
+        logoutButton.addEventListener('click', () => {
+            logout();
+        });
     }
 
-    const userData = userDocSnap.data();
-    const purchaseHistory = purchasesSnap.docs.map(doc => {
-        const data = doc.data();
-        return { ...data, purchaseDate: data.purchaseDate.toDate() };
-    });
-
-    renderAllComponents(userData, purchaseHistory);
+    if (userBioInput) userBioInput.addEventListener('input', handleBioInput);
 }
 
-// Initializes the page with local mock data for testing
-function initializeWithMockData() {
-    const mockUser = {
-        displayName: "Test User",
-        photoURL: "",
-        balances: {
-            credits: 42.00,
-            dining: 18.50,
-            swipes: 5,
-            bonus: 12.75
-        }
+function handleBioInput() {
+    if (!userBioInput) return;
+
+    const maxLength = 15;
+    const warningThreshold = 8;
+    let currentLength = userBioInput.value.length;
+
+    // Enforce the max length by trimming the value
+    if (currentLength > maxLength) {
+        userBioInput.value = userBioInput.value.substring(0, maxLength);
+        currentLength = maxLength;
+    }
+
+    userBioInput.classList.remove('bio-warning', 'bio-danger');
+
+    if (currentLength >= maxLength) {
+        userBioInput.classList.add('bio-danger');
+    } else if (currentLength >= warningThreshold) {
+        userBioInput.classList.add('bio-warning');
+    }
+}
+
+function updateAvatar(photoURL, displayName) {
+    if (photoURL) {
+        userAvatar.src = photoURL;
+        pfpPreview.src = photoURL;
+    } else {
+        const initial = displayName ? displayName.charAt(0).toUpperCase() : '?';
+        const svg = `<svg width="56" height="56" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="28" ry="28" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="28" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
+        const svgUrl = `data:image/svg+xml;base64,${btoa(svg)}`;
+        userAvatar.src = svgUrl;
+        pfpPreview.src = svgUrl;
+    }
+}
+
+function closeModal() {
+    pfpModalOverlay.classList.add('hidden');
+    pfpUploadInput.value = '';
+    selectedPfpFile = null;
+    pfpError.classList.add('hidden');
+    if (userBioInput) {
+        userBioInput.value = currentUser.bio || '';
+    }
+}
+
+function handlePfpUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        pfpError.textContent = 'Please select an image file.';
+        pfpError.classList.remove('hidden');
+        return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+        pfpError.textContent = 'File is too large (max 5MB).';
+        pfpError.classList.remove('hidden');
+        return;
+    }
+    
+    pfpError.classList.add('hidden');
+    selectedPfpFile = file;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        pfpPreview.src = event.target.result;
     };
-    const mockHistory = [
-        // Empty history to test the data gates
-    ];
-    renderAllComponents(mockUser, mockHistory);
+    reader.readAsDataURL(file);
+}
+
+async function saveProfile(storage, db) {
+    if (!currentUser) return;
+
+    pfpSaveButton.disabled = true;
+    pfpSaveButton.textContent = 'Saving...';
+    pfpError.classList.add('hidden');
+
+    const newBio = userBioInput.value.trim();
+    const updateData = { bio: newBio };
+
+    try {
+        if (selectedPfpFile) {
+            const storageRef = ref(storage, `profile_pictures/${currentUser.uid}`);
+            const snapshot = await uploadBytes(storageRef, selectedPfpFile);
+            const downloadURL = await getDownloadURL(snapshot.ref);
+            
+            updateData.photoURL = downloadURL;
+            await updateProfile(currentUser, { photoURL: downloadURL });
+            updateAvatar(downloadURL, currentUser.displayName);
+        }
+
+        const userDocRef = doc(db, "users", currentUser.uid);
+        await updateDoc(userDocRef, updateData);
+        currentUser.bio = newBio;
+
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists() && userDocSnap.data().showOnWallOfFame) {
+            const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
+            const { displayName, photoURL, currentStreak } = userDocSnap.data();
+            await setDoc(wallOfFameDocRef, {
+                displayName,
+                photoURL,
+                currentStreak: currentStreak || 0,
+                bio: newBio
+            }, { merge: true });
+        }
+
+        closeModal();
+
+    } catch (error) {
+        console.error("Profile Save Error:", error);
+        pfpError.textContent = 'Save failed. Please try again.';
+        pfpError.classList.remove('hidden');
+    } finally {
+        pfpSaveButton.disabled = false;
+        pfpSaveButton.textContent = 'Save Changes';
+    }
 }
 
 // Renders all parts of the page with whatever data it's given
@@ -106,26 +246,12 @@ function renderAllComponents(userData, purchaseHistory) {
     renderHeader(userData);
     renderHistory(purchaseHistory);
     renderInsights(purchaseHistory);
-    renderChart(userData, purchaseHistory); // Pass both user and purchase data
-
-    loadingIndicator.classList.add('hidden');
-    statsContainer.style.display = 'block';
+    renderChart(userData, purchaseHistory);
 }
-
 
 function renderHeader(userData) {
     welcomeMessage.textContent = `A look at your spending habits, ${userData.displayName || 'friend'}...`;
     updateAvatar(userData.photoURL, userData.displayName);
-}
-
-function updateAvatar(photoURL, displayName) {
-    if (photoURL) {
-        userAvatar.src = photoURL;
-    } else {
-        const initial = displayName ? displayName.charAt(0).toUpperCase() : '?';
-        const svg = `<svg width="56" height="56" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="28" ry="28" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="28" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
-        userAvatar.src = `data:image/svg+xml;base64,${btoa(svg)}`;
-    }
 }
 
 function renderHistory(purchases) {
@@ -219,10 +345,10 @@ function renderInsights(purchases) {
 
     // Insight 3: Most expensive time of day
     const spendingByTime = {
-        "Morning": 0, // 5am - 11am
-        "Afternoon": 0, // 12pm - 4pm
-        "Evening": 0, // 5pm - 9pm
-        "Late Night": 0 // 10pm - 4am
+        "Morning": 0,
+        "Afternoon": 0,
+        "Evening": 0,
+        "Late Night": 0
     };
 
     purchases.forEach(p => {
@@ -239,7 +365,7 @@ function renderInsights(purchases) {
     });
 
     const timeSpendingArray = Object.entries(spendingByTime);
-    if (timeSpendingArray.some(time => time[1] > 0)) { // Check if there's any spending at all
+    if (timeSpendingArray.some(time => time[1] > 0)) {
         const [topTime] = timeSpendingArray.reduce((max, current) =>
             current[1] > max[1] ? current : max
         );
@@ -262,7 +388,7 @@ function renderChart(userData, purchases) {
     // 1. Aggregate purchases by day
     const spendingByDay = {};
     purchases.forEach(p => {
-        const day = p.purchaseDate.toISOString().split('T')[0]; // Group by YYYY-MM-DD
+        const day = p.purchaseDate.toISOString().split('T')[0];
         if (!spendingByDay[day]) {
             spendingByDay[day] = 0;
         }
@@ -296,7 +422,7 @@ function renderChart(userData, purchases) {
 
     uniqueSpendingDays.forEach(day => {
         runningBalance -= spendingByDay[day];
-        labels.push(day); // Use the YYYY-MM-DD string for labels
+        labels.push(day);
         actualData.push(runningBalance);
     });
 
@@ -405,7 +531,6 @@ function renderChart(userData, purchases) {
         }
     });
 }
-
 
 // --- Run the app ---
 document.addEventListener('DOMContentLoaded', main);
