@@ -48,28 +48,39 @@ export const firebaseReady = new Promise(async (resolve) => {
     }
 });
 
-// --- REVISED LOGOUT FUNCTION ---
-// The logout function's ONLY responsibility is to tell Firebase to sign out.
-// The onAuthStateChanged listener will handle all the consequences (clearing data, redirecting).
+// --- FINAL LOGOUT FUNCTION ---
+// This function now handles the entire logout process to ensure proper order of operations.
 export const logout = async () => {
-    console.log("Logout function called. Triggering Firebase sign out.");
+    console.log("Logout function called. Beginning sign out process.");
     const { auth } = await firebaseReady;
     if (!auth) {
         console.error("Auth service not ready, cannot log out.");
         return;
     }
     try {
+        // Step 1: Tell Firebase to sign the user out. Wait for this to complete.
         await firebaseSignOut(auth);
-        console.log("Firebase sign out successful. The auth state listener will now take over.");
+        console.log("Firebase sign out successful.");
+
+        // Step 2: Manually clear all client-side storage to prevent UI flicker.
+        localStorage.clear();
+        sessionStorage.clear();
+        console.log("Cleared client-side storage.");
+
+        // Step 3: Redirect to the login page. This only happens AFTER sign-out and clearing is done.
+        window.location.replace('/login.html');
+
     } catch (error) {
         console.error("Error during sign out:", error);
-        // As a last resort, if signout fails, force a redirect.
+        // As a last resort, if signout fails, still clear everything and force a redirect.
+        localStorage.clear();
+        sessionStorage.clear();
         window.location.replace('/login.html');
     }
 };
 
 
-// --- REVISED AUTH STATE GUARD & ROUTER ---
+// --- AUTH STATE GUARD & ROUTER ---
 // This is the core of the auth system. It's the single source of truth for what happens
 // when a user's login state changes.
 firebaseReady.then(({ auth, db }) => {
@@ -103,14 +114,9 @@ firebaseReady.then(({ auth, db }) => {
             // --- USER IS LOGGED OUT ---
             console.log(`Auth Guard: User is logged out. Path: ${path}`);
             
-            // When the user is logged out, clear all session data.
-            // This is the key to preventing the UI flicker.
-            localStorage.clear();
-            sessionStorage.clear();
-            console.log("Auth state is null. Cleared client-side storage.");
-
+            // The logout() function now handles clearing storage and the initial redirect.
+            // This block's only job is to protect pages if a logged-out user tries to access them directly.
             if (onProtectedPage) {
-                // If the user is on a page they shouldn't be on, redirect them to login.
                 console.log("User on protected page, redirecting to login...");
                 window.location.replace('/login.html');
             }
