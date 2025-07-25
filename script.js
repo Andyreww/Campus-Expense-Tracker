@@ -30,13 +30,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     // This listener ONLY handles updating the UI for this specific page (index.html).
     if (auth) {
         auth.onAuthStateChanged(user => {
-            if (user) {
-                // User is signed in
-                if (desktopLoginBtn) desktopLoginBtn.classList.add('hidden');
-                if (scrolledCtaButton) scrolledCtaButton.classList.add('hidden');
-                if (userAvatarLink) userAvatarLink.classList.remove('hidden');
-                if (heroCtaButton) heroCtaButton.href = 'dashboard.html';
+            const isLoggedIn = !!user; // True if user is not null, false otherwise
+
+            // **THE FIX**: This logic is now simplified and more robust.
+            // It toggles the visibility of all relevant buttons based on a single boolean.
+            desktopLoginBtn?.classList.toggle('hidden', isLoggedIn);
+            scrolledCtaButton?.classList.toggle('hidden', isLoggedIn);
+            userAvatarLink?.classList.toggle('hidden', !isLoggedIn);
+
+            if (isLoggedIn) {
+                // --- UI for LOGGED IN user ---
+                heroCtaButton.href = 'dashboard.html';
                 
+                // Update avatar image
                 if (user.photoURL && userAvatarImg) {
                     userAvatarImg.src = user.photoURL;
                 } else if (userAvatarImg) {
@@ -45,11 +51,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     userAvatarImg.src = `data:image/svg+xml;base64,${btoa(svg)}`;
                 }
             } else {
-                // User is signed out
-                if (desktopLoginBtn) desktopLoginBtn.classList.remove('hidden');
-                if (scrolledCtaButton) scrolledCtaButton.classList.remove('hidden');
-                if (userAvatarLink) userAvatarLink.classList.add('hidden');
-                if (heroCtaButton) heroCtaButton.href = 'login.html';
+                // --- UI for LOGGED OUT user ---
+                heroCtaButton.href = 'login.html';
             }
         });
     }
