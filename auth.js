@@ -1,7 +1,6 @@
 // auth.js - The Single Source of Truth for Firebase
 
 // --- IMPORTS ---
-// Import all necessary functions from the Firebase SDKs.
 // We are now using browserLocalPersistence to keep the user logged in across sessions.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { 
@@ -9,7 +8,7 @@ import {
     onAuthStateChanged, 
     signOut as firebaseSignOut,
     setPersistence,
-    browserLocalPersistence, // CHANGED: This keeps the user signed in across browser sessions.
+    browserLocalPersistence, // This keeps the user signed in across browser sessions.
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
     GoogleAuthProvider,
@@ -20,7 +19,6 @@ import { getStorage } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-s
 
 // --- CENTRAL FIREBASE INITIALIZATION ---
 // This promise ensures Firebase is initialized only ONCE.
-// Other scripts wait for this promise to resolve before using Firebase services.
 export const firebaseReady = new Promise(async (resolve) => {
     try {
         const response = await fetch('/.netlify/functions/getFirebaseConfig');
@@ -37,7 +35,6 @@ export const firebaseReady = new Promise(async (resolve) => {
         // close the tab or browser, fulfilling the user's request.
         await setPersistence(auth, browserLocalPersistence);
         
-        // Enable offline data persistence for Firestore
         await enableIndexedDbPersistence(db).catch(err => console.warn("Firestore persistence error:", err.message));
 
         console.log("Firebase services initialized successfully with LOCAL persistence.");
@@ -46,32 +43,44 @@ export const firebaseReady = new Promise(async (resolve) => {
     } catch (error) {
         console.error("FATAL: Firebase initialization failed.", error);
         document.body.innerHTML = 'Could not connect to application services. Please try again later.';
-        resolve({ auth: null, db: null, storage: null }); // Resolve with null on failure
+        resolve({ auth: null, db: null, storage: null });
     }
 });
 
-// --- REVISED LOGOUT FUNCTION ---
-// The logout function's ONLY responsibility is to tell Firebase to sign out.
-// The onAuthStateChanged listener will handle all the consequences (clearing data, redirecting).
-// This is the most robust pattern and avoids race conditions.
+// --- REBUILT LOGOUT FUNCTION ---
+// This function now handles the entire logout process to ensure the correct order of operations.
 export const logout = async () => {
-    console.log("Logout function called. Triggering Firebase sign out.");
+    console.log("Logout function called. Beginning sign out process.");
     const { auth } = await firebaseReady;
     if (!auth) {
         console.error("Auth service not ready, cannot log out.");
         return;
     }
     try {
+        // Step 1: Tell Firebase to sign the user out. Wait for this to complete.
         await firebaseSignOut(auth);
-        console.log("Firebase sign out successful. The auth state listener will now handle cleanup and redirection.");
-        // We no longer redirect here. The listener will do it.
+        console.log("Firebase sign out successful.");
+
+        // Step 2: Manually clear all client-side storage to prevent UI flicker.
+        localStorage.clear();
+        sessionStorage.clear();
+        console.log("Cleared client-side storage.");
+
+        // Step 3: Redirect to the main landing page (index.html).
+        // Using window.location.href ensures a full, clean page load.
+        window.location.href = '/index.html';
+
     } catch (error) {
         console.error("Error during sign out:", error);
+        // As a last resort, if signout fails, still clear everything and force a redirect.
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = '/index.html';
     }
 };
 
 
-// --- REVISED AUTH STATE GUARD & ROUTER ---
+// --- AUTH STATE GUARD & ROUTER ---
 // This is the core of the auth system. It's the single source of truth for what happens
 // when a user's login state changes.
 firebaseReady.then(({ auth, db }) => {
@@ -105,15 +114,10 @@ firebaseReady.then(({ auth, db }) => {
             // --- USER IS LOGGED OUT ---
             console.log(`Auth Guard: User is logged out. Path: ${path}`);
             
-            // When Firebase confirms the user is logged out, this block runs.
-            // This is the correct place to clear any app-specific storage.
-            localStorage.clear();
-            sessionStorage.clear();
-            console.log("Auth state is null. Cleared client-side storage.");
-
+            // The logout() function now handles clearing storage and the initial redirect.
             // This block's only job is to protect pages if a logged-out user tries to access them directly.
             if (onProtectedPage) {
-                console.log("User on protected page, redirecting to login...");
+                console.log("User on protected page while logged out, redirecting to login...");
                 window.location.replace('/login.html');
             }
         }
