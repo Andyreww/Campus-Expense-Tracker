@@ -505,13 +505,13 @@ async function fetchAndRenderWeather() {
         const response = await fetch(apiUrl);
         const data = await response.json();
 
-        if (!response.ok || !data.current) {
+        if (!response.ok) {
             throw new Error(data.message || 'Error fetching weather');
         }
 
-        const temp = Math.round(data.current.temp);
-        const description = data.current.weather[0].description;
-        const iconCode = data.current.weather[0].icon;
+        const temp = Math.round(data.main.temp);
+        const description = data.weather[0].description;
+        const iconCode = data.weather[0].icon;
 
         weatherWidget.innerHTML = `
             <div class="weather-content">
