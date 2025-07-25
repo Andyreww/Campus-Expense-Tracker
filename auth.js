@@ -64,7 +64,7 @@ export const logout = async () => {
     } catch (error) {
         console.error("Error during sign out:", error);
         // As a fallback, if the sign-out itself fails, we can still try to force a redirect.
-        window.location.replace('/login.html');
+        window.location.replace('/index.html');
     }
 };
 
@@ -110,8 +110,9 @@ firebaseReady.then(({ auth, db }) => {
             console.log("Auth Guard detected logout, cleared all client-side storage.");
 
             if (onProtectedPage) {
-                console.log("User on protected page while logged out, redirecting to login...");
-                window.location.replace('/login.html');
+                console.log("User on protected page while logged out, redirecting to landing page...");
+                // **THE FIX**: Redirect to the main landing page (index.html) instead of the login page.
+                window.location.replace('/index.html');
             }
             // If the user is already on a public page (like login.html or index.html),
             // they will just stay there. No redirect is needed.
