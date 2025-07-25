@@ -90,7 +90,7 @@ function renderDashboard(userData) {
     
     setupEventListeners();
     handleInitialTab();
-    handleBioInput(); // THE FIX: Set initial bio color state
+    handleBioInput();
 }
 
 function assignDOMElements() {
@@ -196,17 +196,21 @@ function setupEventListeners() {
         logCustomPurchase(db);
     });
 
-    // THE FIX: Added event listener for the bio input
     if (userBioInput) userBioInput.addEventListener('input', handleBioInput);
 }
 
-// THE FIX: New function to handle bio character limit feedback
 function handleBioInput() {
     if (!userBioInput) return;
 
     const maxLength = 15;
     const warningThreshold = 8;
-    const currentLength = userBioInput.value.length;
+    let currentLength = userBioInput.value.length;
+
+    // THE FIX: Enforce the max length by trimming the value
+    if (currentLength > maxLength) {
+        userBioInput.value = userBioInput.value.substring(0, maxLength);
+        currentLength = maxLength;
+    }
 
     userBioInput.classList.remove('bio-warning', 'bio-danger');
 

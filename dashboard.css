@@ -8,7 +8,6 @@
     --text-secondary: #856f6f;
     --brand-primary: #4CAF50;
     --brand-secondary: #45a049;
-    /* THE FIX: Added warning and danger colors */
     --brand-warning: #f0a500;
     --brand-danger: #d32f2f;
     --border-color: #DED0B6;
@@ -280,9 +279,8 @@ body {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    min-width: 0; /* Prevents flex items from overflowing */
+    min-width: 0;
 }
-/* THE FIX: Truncate long bio text to prevent layout breaking */
 .leaderboard-bio {
     font-family: 'Patrick Hand', cursive;
     font-size: 1rem;
@@ -658,7 +656,6 @@ body {
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.06), 0 0 0 3px rgba(76, 175, 80, 0.4);
     border-bottom-width: 5px;
 }
-/* THE FIX: Added glowing border styles for character limit */
 .pfp-modal textarea.bio-warning:focus {
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.06), 0 0 0 3px rgba(240, 165, 0, 0.5);
 }
@@ -733,7 +730,15 @@ body {
 
     .newspaper-title { font-size: 2.5rem; letter-spacing: 1px; }
     .leaderboard-header::after { display: none; }
-    .leaderboard-item { font-size: 0.9rem; }
+    /* THE FIX: Mobile leaderboard layout adjustments */
+    .leaderboard-item {
+        font-size: 0.9rem;
+        align-items: flex-start;
+    }
+    .leaderboard-streak {
+        padding-left: 0.5rem;
+        flex-shrink: 0;
+    }
     .leaderboard-avatar { width: 40px; height: 40px; filter: none; }
     .section-headline { font-size: 1.3rem; }
     .map-modal { height: 400px; }
