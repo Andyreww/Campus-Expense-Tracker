@@ -96,11 +96,11 @@ function initializeWithMockData() {
         }
     };
     const mockHistory = [
-        { items: [{ name: 'Iced Coffee', quantity: 1, category: 'Coffee' }], total: 4.50, purchaseDate: new Date('2025-07-24'), store: 'Ross Market' },
-        { items: [{ name: 'Avocado Toast', quantity: 1, category: 'Food' }], total: 8.75, purchaseDate: new Date('2025-07-23'), store: 'The Nest' },
-        { items: [{ name: 'Energy Drink', quantity: 1, category: 'Drinks' }], total: 3.25, purchaseDate: new Date('2025-07-22'), store: 'Ross Market' },
-        { items: [{ name: 'Bagel & Cream Cheese', quantity: 1, category: 'Food' }], total: 3.50, purchaseDate: new Date('2025-07-21'), store: 'Curtis Dining' },
-        { items: [{ name: 'Iced Coffee', quantity: 1, category: 'Coffee' }], total: 4.50, purchaseDate: new Date('2025-07-20'), store: 'Ross Market' },
+        { items: [{ name: 'Iced Coffee', quantity: 1, category: 'Coffee', price: 4.50 }], total: 4.50, purchaseDate: new Date('2025-07-24 08:30:00'), store: 'Ross Market' },
+        { items: [{ name: 'Avocado Toast', quantity: 1, category: 'Food', price: 8.75 }], total: 8.75, purchaseDate: new Date('2025-07-23 13:00:00'), store: 'The Nest' },
+        { items: [{ name: 'Energy Drink', quantity: 1, category: 'Drinks', price: 3.25 }], total: 3.25, purchaseDate: new Date('2025-07-22 21:00:00'), store: 'Ross Market' },
+        { items: [{ name: 'Bagel & Cream Cheese', quantity: 1, category: 'Food', price: 3.50 }], total: 3.50, purchaseDate: new Date('2025-07-21 09:00:00'), store: 'Curtis Dining' },
+        { items: [{ name: 'Iced Coffee', quantity: 1, category: 'Coffee', price: 4.50 }], total: 4.50, purchaseDate: new Date('2025-07-20 10:00:00'), store: 'Ross Market' },
     ];
     renderAllComponents(mockUser, mockHistory);
 }
@@ -169,8 +169,9 @@ function renderInsights(purchases) {
 
     if (purchases.length === 0) return;
 
-    // Insight 1: Most frequent purchase (Corrected Logic)
     const allItems = purchases.flatMap(p => p.items);
+
+    // Insight 1: Most frequent purchase
     const purchaseCounts = allItems.reduce((acc, item) => {
         acc[item.name] = (acc[item.name] || 0) + item.quantity;
         return acc;
@@ -178,7 +179,6 @@ function renderInsights(purchases) {
 
     const countsArray = Object.entries(purchaseCounts);
     if (countsArray.length > 0) {
-        // Find the item with the highest count
         const [mostFrequentItem] = countsArray.reduce((max, current) => 
             current[1] > max[1] ? current : max, 
             countsArray[0]
@@ -189,7 +189,6 @@ function renderInsights(purchases) {
         insight1.textContent = `Your usual seems to be the ${mostFrequentItem}.`;
         insightsList.appendChild(insight1);
     }
-
 
     // Insight 2: Total spending this week
     const oneWeekAgo = new Date();
@@ -202,6 +201,39 @@ function renderInsights(purchases) {
     insight2.className = 'insight-item';
     insight2.textContent = `You've spent $${weeklySpending.toFixed(2)} in the last 7 days.`;
     insightsList.appendChild(insight2);
+
+    // Insight 3: Most expensive time of day
+    const spendingByTime = {
+        "Morning": 0, // 5am - 11am
+        "Afternoon": 0, // 12pm - 4pm
+        "Evening": 0, // 5pm - 9pm
+        "Late Night": 0 // 10pm - 4am
+    };
+
+    purchases.forEach(p => {
+        const hour = p.purchaseDate.getHours();
+        if (hour >= 5 && hour <= 11) {
+            spendingByTime["Morning"] += p.total;
+        } else if (hour >= 12 && hour <= 16) {
+            spendingByTime["Afternoon"] += p.total;
+        } else if (hour >= 17 && hour <= 21) {
+            spendingByTime["Evening"] += p.total;
+        } else {
+            spendingByTime["Late Night"] += p.total;
+        }
+    });
+
+    const timeSpendingArray = Object.entries(spendingByTime);
+    if (timeSpendingArray.some(time => time[1] > 0)) { // Check if there's any spending at all
+        const [topTime] = timeSpendingArray.reduce((max, current) =>
+            current[1] > max[1] ? current : max
+        );
+
+        const insight3 = document.createElement('li');
+        insight3.className = 'insight-item';
+        insight3.textContent = `${topTime} seems to be your prime spending time.`;
+        insightsList.appendChild(insight3);
+    }
 }
 
 function renderChart(userData, purchases) {
