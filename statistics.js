@@ -122,6 +122,44 @@ function setupEventListeners() {
     if (userBioInput) userBioInput.addEventListener('input', handleBioInput);
 }
 
+function containsProfanity(text) {
+    // Comprehensive list of profanity and inappropriate words
+    const profanityList = [
+        'fuck', 'shit', 'ass', 'damn', 'hell', 'bitch', 'bastard', 'dick', 'cock', 'pussy', 
+        'cunt', 'piss', 'whore', 'slut', 'fag', 'gay', 'nigger', 'nigga', 'retard', 'rape',
+        'sex', 'porn', 'tits', 'boobs', 'penis', 'vagina', 'anus', 'dildo', 'cum', 'jizz',
+        'motherfucker', 'asshole', 'douche', 'twat', 'prick', 'bollocks', 'bloody', 'bugger',
+        'crap', 'wanker', 'tosser', 'shag', 'suck', 'blow', 'handjob', 'blowjob', 'kike',
+        'spic', 'chink', 'gook', 'wetback', 'beaner', 'cracker', 'honky', 'faggot', 'dyke',
+        'tranny', 'shemale', 'hitler', 'nazi', 'kkk', 'suicide', 'kill', 'murder'
+    ];
+    
+    // Convert to lowercase and remove spaces for checking
+    const cleanText = text.toLowerCase().replace(/\s/g, '');
+    
+    // Check for exact matches and l33t speak variations
+    for (const word of profanityList) {
+        // Create pattern for l33t speak (common substitutions)
+        const l33tPattern = word
+            .replace(/a/g, '[a@4]')
+            .replace(/e/g, '[e3]')
+            .replace(/i/g, '[i1!]')
+            .replace(/o/g, '[o0]')
+            .replace(/s/g, '[s5$]')
+            .replace(/t/g, '[t7]')
+            .replace(/g/g, '[g9]')
+            .replace(/l/g, '[l1]')
+            .replace(/z/g, '[z2]');
+        
+        const regex = new RegExp(l33tPattern, 'i');
+        if (regex.test(cleanText) || cleanText.includes(word)) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
 function handleBioInput() {
     if (!userBioInput) return;
 
@@ -133,6 +171,23 @@ function handleBioInput() {
     if (currentLength > maxLength) {
         userBioInput.value = userBioInput.value.substring(0, maxLength);
         currentLength = maxLength;
+    }
+
+    // Check for profanity
+    if (containsProfanity(userBioInput.value)) {
+        userBioInput.classList.add('bio-danger');
+        if (!document.getElementById('bio-profanity-warning')) {
+            const warning = document.createElement('div');
+            warning.id = 'bio-profanity-warning';
+            warning.style.cssText = 'color: var(--brand-danger); font-size: 0.85rem; margin-top: 0.25rem; font-weight: 600;';
+            warning.textContent = 'Please keep your status appropriate!';
+            userBioInput.parentElement.appendChild(warning);
+        }
+        return;
+    } else {
+        // Remove profanity warning if it exists
+        const warning = document.getElementById('bio-profanity-warning');
+        if (warning) warning.remove();
     }
 
     userBioInput.classList.remove('bio-warning', 'bio-danger');
@@ -200,6 +255,16 @@ async function saveProfile(storage, db) {
     pfpError.classList.add('hidden');
 
     const newBio = userBioInput.value.trim();
+    
+    // Check for profanity before saving
+    if (containsProfanity(newBio)) {
+        pfpError.textContent = 'Please use appropriate language in your status.';
+        pfpError.classList.remove('hidden');
+        pfpSaveButton.disabled = false;
+        pfpSaveButton.textContent = 'Save Changes';
+        return;
+    }
+    
     const updateData = { bio: newBio };
 
     try {
