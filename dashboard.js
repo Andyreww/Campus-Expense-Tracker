@@ -90,6 +90,7 @@ function renderDashboard(userData) {
     
     setupEventListeners();
     handleInitialTab();
+    handleBioInput(); // THE FIX: Set initial bio color state
 }
 
 function assignDOMElements() {
@@ -194,6 +195,26 @@ function setupEventListeners() {
         e.preventDefault();
         logCustomPurchase(db);
     });
+
+    // THE FIX: Added event listener for the bio input
+    if (userBioInput) userBioInput.addEventListener('input', handleBioInput);
+}
+
+// THE FIX: New function to handle bio character limit feedback
+function handleBioInput() {
+    if (!userBioInput) return;
+
+    const maxLength = 15;
+    const warningThreshold = 8;
+    const currentLength = userBioInput.value.length;
+
+    userBioInput.classList.remove('bio-warning', 'bio-danger');
+
+    if (currentLength >= maxLength) {
+        userBioInput.classList.add('bio-danger');
+    } else if (currentLength >= warningThreshold) {
+        userBioInput.classList.add('bio-warning');
+    }
 }
 
 function handleTabClick(e, db) {
@@ -466,7 +487,6 @@ async function fetchAndRenderLeaderboard(db) {
 
         leaderboardList.innerHTML = '';
         users.forEach((user, index) => {
-            // THE FIX: Removed the filter. This leaderboard now shows everyone.
             const item = document.createElement('div');
             item.className = 'leaderboard-item';
             if (user.id === currentUser.uid) {
@@ -505,10 +525,8 @@ async function handlePublicToggle(e, db) {
     const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
 
     try {
-        // This part is correct. It updates the user's preference in their main doc.
         await updateDoc(userDocRef, { showOnWallOfFame: isChecked });
         
-        // This part correctly adds/removes them from the public collection.
         if (isChecked) {
             const userDoc = await getDoc(userDocRef);
             if (userDoc.exists()) {
@@ -523,7 +541,6 @@ async function handlePublicToggle(e, db) {
         } else {
             await deleteDoc(wallOfFameDocRef);
         }
-        // THE FIX: No longer need to refresh the dashboard leaderboard, as it's not affected by this toggle.
     } catch (error) {
         console.error("Error updating Top of the Grind status:", error);
     }
