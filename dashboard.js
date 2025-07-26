@@ -173,19 +173,20 @@ function setupEventListeners() {
         if(e.target === mapModalOverlay) closeMapModal();
     });
 
-    // --- FAB LOGIC (RE-FIXED) ---
+    // FAB Logic - Fixed for both mobile and desktop
     if (mainFab && fabContainer) {
-        mainFab.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevents the document click listener from firing
-            fabContainer.classList.toggle('expanded');
-        });
-
-        document.addEventListener('click', (e) => {
-            // If the container is expanded and the click was NOT inside the container, close it
-            if (fabContainer.classList.contains('expanded') && !fabContainer.contains(e.target)) {
-                fabContainer.classList.remove('expanded');
-            }
-        });
+        const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if (isMobile) {
+            mainFab.addEventListener('click', (e) => {
+                e.preventDefault();
+                fabContainer.classList.toggle('expanded');
+            });
+            document.addEventListener('click', (e) => {
+                if (!fabContainer.contains(e.target)) {
+                    fabContainer.classList.remove('expanded');
+                }
+            });
+        }
     }
 
     if (customLogBtn) customLogBtn.addEventListener('click', async () => {
@@ -221,6 +222,117 @@ function setupEventListeners() {
             toggleDeleteMode(false);
         }
     }, true); // Use capture to catch clicks anywhere
+}
+
+function containsProfanity(text) {
+    // Comprehensive list of profanity and inappropriate words
+    const profanityList = [
+        // sexual & explicit
+        'fuck','fucking','fucked','shit','shitty','crap','bitch','bastard','dick','cock','pussy',
+        'cunt','asshole','ass','douche','twat','prick','bollocks','bugger','shag','slut','whore',
+        'fag','faggot','dyke','tranny','shemale','kike','spic','chink','gook','beaner','wetback',
+        'nigger','nigga','dyke','retard','idiot','moron','cretin',
+        'jizz','cum','dildo','handjob','blowjob','tits','boobs','penis','vagina','anus',
+        'porn','sex','suck','blow','rape','molest','pedophile','pedo','incest',
+        'motherfucker','mother fucker','motha fucker','cocksucker','cock sucker',
+        'jerkoff','jerk off','clit','titty','twatwaffle','dumbass','asswipe','dumbfuck',
+        'dumb fuck','bullshit','holy shit','holy fuck','fuckedup','fuckup','fuckyou','fuck you',
+        'goddamn','god damn','damn','bloody','frigging','fricking','hell','arse','arsehole',
+        'shite','crikey','crapola','piss','pissed','pissedoff','piss off','shitter','shitface',
+        'shithead','shitshow','shitstorm','pisshead',
+        // hate speech & modern slurs
+        'nazi','hitler','kkk','antisemite','white supremacist','whoreface','slutface',
+        'autistic','autism','schizo','schizophrenic','crazy','insane','lunatic','spastic',
+        'cripple','crip','retard','retarded','gimp','spaz','mong','mongoloid',
+        'feminazi','beanerpede','alfaclan','alien','illegal alien','wetback','raghead',
+        'honky','cracker','coon','coonass','golliwog','raghead','kafir','paki',
+        'jap','chingchong','chink','zipperhead','zipcrow','kraut','polack','slantee',
+        // misc offense, mild abuse, recent slang
+        'wtf','stfu','gtfo','omfg','omg','fml','lmao','rofl','roflmao','suckmydick',
+        'suckmyass','eatmyass','eatmyshit','eatmyshit','kissmyass','kissmyfeet','tosser',
+        'wanker','twatwaffle','clunge','gash','minge','clunge','nudist','nude','pornstar',
+        'escort','stripper','stripclub','cumshot','pearljamer','pearl jammer','gore', 'gory',
+        'neckbeard','incel','simp','stan','wang','dong','meatspin','goatse','lolita',
+        'cp','hentai','lolicon','shota','bestiality','zoophilia','zoophile','beastiality',
+        'beastial','beast','snuff','necrophilia','necrophile','vore','voreplay',
+        'spook','jungle bunny','fried chicken','macaco','macaca',
+        // euphemisms, variants & obfuscations
+        'f u c k','s h i t','s h i t t y','f@ck','sh1t','sh!t','b!tch','c0ck','p!ss','c u n t',
+        'f u c k e d','f u c k i n g','s h i t s h o w','b 1 t c h','grrrrr','damnit','damnit',
+    ];
+    
+    // Convert to lowercase and remove spaces for checking
+    const cleanText = text.toLowerCase().replace(/\s/g, '');
+    
+    // Check for exact matches and l33t speak variations
+    for (const word of profanityList) {
+        // Create pattern for l33t speak (common substitutions)
+        const l33tPattern = word
+            .replace(/a/g, '[a@4]')
+            .replace(/e/g, '[e3]')
+            .replace(/i/g, '[i1!]')
+            .replace(/o/g, '[o0]')
+            .replace(/s/g, '[s5$]')
+            .replace(/t/g, '[t7]')
+            .replace(/g/g, '[g9]')
+            .replace(/l/g, '[l1]')
+            .replace(/z/g, '[z2]');
+        
+        const regex = new RegExp(l33tPattern, 'i');
+        if (regex.test(cleanText) || cleanText.includes(word)) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+function handleBioInput() {
+    if (!userBioInput) return;
+
+    const maxLength = 15;
+    const warningThreshold = 8;
+    let currentLength = userBioInput.value.length;
+
+    // THE FIX: Enforce the max length by trimming the value
+    if (currentLength > maxLength) {
+        userBioInput.value = userBioInput.value.substring(0, maxLength);
+        currentLength = maxLength;
+    }
+
+    // Check for profanity
+    if (containsProfanity(userBioInput.value)) {
+        userBioInput.classList.add('bio-danger');
+        if (!document.getElementById('bio-profanity-warning')) {
+            const warning = document.createElement('div');
+            warning.id = 'bio-profanity-warning';
+            warning.className = 'profanity-warning-note';
+            warning.innerHTML = `
+                <div class="warning-paper">
+                    <div class="warning-tape"></div>
+                    <div class="warning-content">
+                        <span class="warning-emoji">🙊</span>
+                        <span class="warning-text">Whoa there, friend!</span>
+                        <span class="warning-subtext">Let's keep it family-friendly</span>
+                    </div>
+                </div>
+            `;
+            userBioInput.parentElement.appendChild(warning);
+        }
+        return;
+    } else {
+        // Remove profanity warning if it exists
+        const warning = document.getElementById('bio-profanity-warning');
+        if (warning) warning.remove();
+    }
+
+    userBioInput.classList.remove('bio-warning', 'bio-danger');
+
+    if (currentLength >= maxLength) {
+        userBioInput.classList.add('bio-danger');
+    } else if (currentLength >= warningThreshold) {
+        userBioInput.classList.add('bio-warning');
+    }
 }
 
 function handleTabClick(e, db) {
@@ -268,6 +380,22 @@ function handleInitialTab() {
     }
 }
 
+function openMapModal() {
+    if (!map) {
+        initializeMap();
+    }
+    mapModalOverlay.classList.remove('hidden');
+    setTimeout(() => {
+        if (map) {
+            map.invalidateSize();
+        }
+    }, 300);
+}
+
+function closeMapModal() {
+    mapModalOverlay.classList.add('hidden');
+}
+
 function updateAvatar(photoURL, displayName) {
     if (photoURL) {
         userAvatar.src = photoURL;
@@ -289,6 +417,9 @@ function closeModal() {
     if (userBioInput) {
         userBioInput.value = currentUser.bio || '';
     }
+    // Remove any profanity warnings when closing
+    const warning = document.getElementById('bio-profanity-warning');
+    if (warning) warning.remove();
 }
 
 function closeCustomLogModal() {
@@ -330,6 +461,15 @@ async function saveProfile(storage, db) {
     pfpError.classList.add('hidden');
 
     const newBio = userBioInput.value.trim();
+    
+    // Check for profanity before saving
+    if (containsProfanity(newBio)) {
+        pfpError.textContent = 'Please use appropriate language in your status.';
+        pfpError.classList.remove('hidden');
+        pfpSaveButton.disabled = false;
+        pfpSaveButton.textContent = 'Save Changes';
+        return;
+    }
     
     const updateData = { bio: newBio };
 
@@ -899,6 +1039,101 @@ style.textContent = `
     }
     .leaflet-popup-content-wrapper {
         border-radius: 8px !important;
+    }
+    
+    /* Profanity Warning Styles */
+    .profanity-warning-note {
+        position: relative;
+        margin-top: 0.75rem;
+        animation: wobbleIn 0.5s ease-out;
+    }
+    
+    .warning-paper {
+        background: #FFE4B5;
+        background-image: 
+            repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 20px,
+                rgba(139, 69, 19, 0.03) 20px,
+                rgba(139, 69, 19, 0.03) 21px
+            );
+        border: 2px solid #D2691E;
+        border-radius: 4px;
+        padding: 0.75rem 1rem;
+        position: relative;
+        transform: rotate(-2deg);
+        box-shadow: 
+            2px 2px 8px rgba(0,0,0,0.1),
+            inset 0 0 20px rgba(139, 69, 19, 0.05);
+        font-family: 'Patrick Hand', cursive;
+    }
+    
+    .warning-tape {
+        position: absolute;
+        top: -12px;
+        left: 50%;
+        transform: translateX(-50%) rotate(3deg);
+        width: 60px;
+        height: 24px;
+        background: rgba(255, 255, 255, 0.6);
+        border: 1px dashed rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .warning-tape::before {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        right: 3px;
+        bottom: 3px;
+        background: repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 4px,
+            rgba(0,0,0,0.03) 4px,
+            rgba(0,0,0,0.03) 8px
+        );
+    }
+    
+    .warning-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .warning-emoji {
+        font-size: 1.8rem;
+        filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.2));
+    }
+    
+    .warning-text {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #8B4513;
+        text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
+    }
+    
+    .warning-subtext {
+        font-size: 0.9rem;
+        color: #A0522D;
+        font-style: italic;
+    }
+    
+    @keyframes wobbleIn {
+        0% {
+            opacity: 0;
+            transform: scale(0.8) rotate(-8deg);
+        }
+        50% {
+            transform: scale(1.05) rotate(3deg);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1) rotate(-2deg);
+        }
     }
 `;
 document.head.appendChild(style);
