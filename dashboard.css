@@ -888,6 +888,46 @@ body {
     box-shadow: inset 0 1px 1px rgba(0,0,0,0.2);
 }
 
+/* Delete Account Button in Modal */
+.delete-account-btn {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    color: white;
+    cursor: pointer;
+    transition: all 0.15s ease-out;
+    background: linear-gradient(180deg, #e57373 0%, #d32f2f 100%);
+    border: 2px solid #a02424;
+    border-radius: 12px;
+    border-bottom: 5px solid #a02424;
+    box-shadow: inset 0 -2px 1px rgba(0,0,0,0.2);
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.delete-account-btn:hover {
+    background: linear-gradient(180deg, #ef9a9a 0%, #e57373 100%);
+    transform: translateY(-2px);
+    border-bottom-width: 7px;
+}
+.delete-account-btn:active {
+    transform: translateY(2px);
+    border-bottom-width: 2px;
+    box-shadow: inset 0 1px 1px rgba(0,0,0,0.3);
+    transition-duration: 0.05s;
+}
+
+/* Confirmation Modal Delete Button */
+#delete-confirm-button {
+    background-color: var(--brand-danger) !important; /* Use important to override existing styles */
+}
+#delete-confirm-button:hover {
+    background-color: #e57373 !important;
+}
+
 
 /* ========================================
    RESPONSIVE STYLES

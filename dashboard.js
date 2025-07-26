@@ -1,8 +1,8 @@
 // --- IMPORTS ---
 import { firebaseReady, logout } from './auth.js';
 import { doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc, addDoc, Timestamp, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
-import { updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+import { updateProfile, deleteUser } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
 
 // --- DOM Elements ---
@@ -14,7 +14,8 @@ let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar,
     pfpCloseButton, pfpError, mapOpener, mapModalOverlay, mapModal, mapCloseButton, mapRenderTarget,
     newspaperDate, fabContainer, mainFab, customLogBtn, customLogModal, customLogForm,
     customItemName, customItemPrice, customItemStore, customLogCancel, customLogClose, userBioInput,
-    quickLogWidgetsContainer, saveAsWidgetCheckbox;
+    quickLogWidgetsContainer, saveAsWidgetCheckbox, openDeleteAccountBtn, deleteConfirmModalOverlay,
+    deleteCancelBtn, deleteConfirmBtn, deleteErrorMessage;
 
 // --- App State ---
 let map = null;
@@ -142,6 +143,12 @@ function assignDOMElements() {
     customLogClose = document.getElementById('custom-log-close');
     quickLogWidgetsContainer = document.getElementById('quick-log-widgets-container');
     saveAsWidgetCheckbox = document.getElementById('save-as-widget-checkbox');
+    // New elements for delete functionality
+    openDeleteAccountBtn = document.getElementById('open-delete-account-button');
+    deleteConfirmModalOverlay = document.getElementById('delete-confirm-modal-overlay');
+    deleteCancelBtn = document.getElementById('delete-cancel-button');
+    deleteConfirmBtn = document.getElementById('delete-confirm-button');
+    deleteErrorMessage = document.getElementById('delete-error-message');
 }
 
 function setupEventListeners() {
@@ -222,7 +229,111 @@ function setupEventListeners() {
             toggleDeleteMode(false);
         }
     }, true); // Use capture to catch clicks anywhere
+
+    // Event listeners for delete account functionality
+    if (openDeleteAccountBtn) openDeleteAccountBtn.addEventListener('click', () => deleteConfirmModalOverlay.classList.remove('hidden'));
+    if (deleteCancelBtn) deleteCancelBtn.addEventListener('click', () => deleteConfirmModalOverlay.classList.add('hidden'));
+    if (deleteConfirmModalOverlay) deleteConfirmModalOverlay.addEventListener('click', (e) => {
+        if (e.target === deleteConfirmModalOverlay) deleteConfirmModalOverlay.classList.add('hidden');
+    });
+    if (deleteConfirmBtn) deleteConfirmBtn.addEventListener('click', deleteUserAccount);
 }
+
+/**
+ * Deletes a user's account and all associated data.
+ * This is a destructive and irreversible action.
+ */
+async function deleteUserAccount() {
+    if (!currentUser || !firebaseServices) return;
+
+    const { db, storage } = firebaseServices;
+
+    deleteConfirmBtn.disabled = true;
+    deleteConfirmBtn.textContent = 'Deleting...';
+    deleteErrorMessage.classList.add('hidden');
+
+    try {
+        const userId = currentUser.uid;
+
+        // Paths to all user data
+        const purchasesPath = `users/${userId}/purchases`;
+        const widgetsPath = `users/${userId}/quickLogWidgets`;
+        const userDocRef = doc(db, "users", userId);
+        const wallOfFameDocRef = doc(db, "wallOfFame", userId);
+        const storageRef = ref(storage, `profile_pictures/${userId}`);
+
+        // 1. Delete all subcollections first.
+        // Firestore does not delete subcollections automatically when a document is deleted.
+        await deleteSubcollection(db, purchasesPath);
+        await deleteSubcollection(db, widgetsPath);
+
+        // 2. Delete Wall of Fame document (if it exists)
+        await deleteDoc(wallOfFameDocRef).catch(err => console.log("No Wall of Fame doc to delete or permission issue:", err.message));
+
+        // 3. Delete the main user document from Firestore.
+        // IMPORTANT: Your security rules for `/users/{userId}` must allow `delete`.
+        // e.g., `allow get, create, update, delete: if request.auth.uid == userId;`
+        await deleteDoc(userDocRef);
+
+        // 4. Delete profile picture from Storage (if it exists)
+        await deleteObject(storageRef).catch(err => {
+            // It's okay if the object doesn't exist, we just ignore that error.
+            if (err.code !== 'storage/object-not-found') {
+                console.error("Error deleting profile picture:", err);
+            } else {
+                console.log("No profile picture to delete.");
+            }
+        });
+
+        // 5. Finally, delete the user from Firebase Authentication. This is the last step.
+        await deleteUser(currentUser);
+
+        // 6. The onAuthStateChanged listener in auth.js will handle the redirect to the login page.
+        // We can force it here as a fallback.
+        window.location.replace('/login.html');
+
+    } catch (error) {
+        console.error("Account Deletion Failed:", error);
+        
+        let errorMessage = 'Failed to delete account. Please try again.';
+        // Re-authentication might be required for security-sensitive operations like this.
+        if (error.code === 'auth/requires-recent-login') {
+            errorMessage = 'This is a sensitive action. Please log out and log back in before deleting your account.';
+        } else if (error.code === 'permission-denied') {
+            errorMessage = 'Could not delete user data. Please check Firestore security rules.';
+        }
+        
+        deleteErrorMessage.textContent = errorMessage;
+        deleteErrorMessage.classList.remove('hidden');
+
+        deleteConfirmBtn.disabled = false;
+        deleteConfirmBtn.textContent = 'Yes, Delete It';
+    }
+}
+
+/**
+ * Helper function to recursively delete all documents in a subcollection.
+ * @param {Firestore} db - The Firestore database instance.
+ * @param {string} collectionPath - The path to the subcollection to delete.
+ */
+async function deleteSubcollection(db, collectionPath) {
+    const collectionRef = collection(db, collectionPath);
+    const q = query(collectionRef);
+    const snapshot = await getDocs(q);
+
+    if (snapshot.size === 0) {
+        return; // Nothing to delete
+    }
+
+    const deletePromises = [];
+    snapshot.forEach(docSnapshot => {
+        deletePromises.push(deleteDoc(docSnapshot.ref));
+    });
+
+    await Promise.all(deletePromises);
+    console.log(`All documents in '${collectionPath}' have been deleted.`);
+}
+
 
 function containsProfanity(text) {
     // Comprehensive list of profanity and inappropriate words
