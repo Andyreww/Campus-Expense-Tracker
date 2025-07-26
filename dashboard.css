@@ -205,6 +205,14 @@ body {
     border-radius: 12px;
     border-bottom: 5px solid var(--wood-dark);
     box-shadow: inset 0 -2px 1px rgba(0,0,0,0.1);
+    
+    /* Prevent text selection */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .quick-log-widget-btn:hover {
@@ -222,26 +230,32 @@ body {
 
 .delete-widget-btn {
     position: absolute;
-    top: -10px;
-    right: -10px;
-    width: 22px;
-    height: 22px;
+    top: -12px;
+    right: -12px;
+    width: 26px;
+    height: 26px;
     background: var(--brand-danger);
     color: white;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: bold;
     line-height: 1;
-    border: 2px solid var(--bg-primary);
+    border: 3px solid var(--bg-primary);
     cursor: pointer;
     opacity: 0;
     transform: scale(0.5);
     transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    z-index: 5;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    z-index: 10;
+    
+    /* Prevent text selection on delete button too */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
 
 /* Desktop hover effect for delete button */
@@ -286,6 +300,12 @@ body {
 .quick-log-widgets-container.delete-mode .delete-widget-btn {
     opacity: 1;
     transform: scale(1);
+}
+
+/* Add more space between buttons in delete mode */
+.quick-log-widgets-container.delete-mode .quick-log-buttons {
+    gap: 1.5rem;
+    padding: 0.5rem;
 }
 
 
@@ -1063,10 +1083,39 @@ body {
     }
 }
 
-@media (max-width: 380px) {
-    .tab-item {
-        padding: 0.5rem 0.75rem;
+@media (max-width: 640px) {
+    .quick-log-widget-btn {
+        padding: 0.6rem 0.5rem;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex-grow: 1;
+        flex-basis: 0;
+        
+        /* Extra mobile protection against text selection */
+        -webkit-tap-highlight-color: rgba(0,0,0,0);
+        -webkit-touch-callout: none;
     }
-    .tab-item span { display: none; }
-    .tab-item svg { width: 24px; height: 24px; margin-bottom: 0; }
+    
+    /* Slightly smaller delete button on mobile but still outside */
+    .delete-widget-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 16px;
+        top: -10px;
+        right: -10px;
+    }
+    
+    /* More spacing in delete mode on mobile */
+    .quick-log-widgets-container.delete-mode .quick-log-buttons {
+        gap: 1rem;
+        padding: 0.25rem;
+    }
+    
+    /* Ensure widgets don't overflow container */
+    .quick-log-widgets-container.delete-mode {
+        overflow: visible;
+        padding: 0.5rem;
+    }
 }
