@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, getDocs, query, Timestamp, deleteDoc, orderBy, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, getDocs, query, Timestamp, deleteDoc, orderBy, getDoc, setDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // --- Main App Initialization ---
 async function main() {
@@ -204,7 +204,21 @@ async function main() {
             try {
                 const itemsRef = collection(db, "users", currentUser.uid, "customStores", storeId, "items");
                 const q = query(itemsRef, orderBy("name"));
-                const querySnapshot = await getDocs(q);
+                
+                let querySnapshot;
+                try {
+                    querySnapshot = await getDocs(q);
+                } catch (orderError) {
+                    // If ordering fails (might happen with empty collection), try without ordering
+                    console.log("Order query failed, trying without order:", orderError);
+                    querySnapshot = await getDocs(itemsRef);
+                }
+                
+                if (querySnapshot.empty) {
+                    allItems = [];
+                    itemListContainer.innerHTML = '<p class="empty-message">No items yet. Click "Add New Item" to get started!</p>';
+                    return;
+                }
                 
                 const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 allItems = items.map(item => ({
@@ -215,7 +229,9 @@ async function main() {
                 renderItems();
             } catch (error) {
                 console.error("Error loading custom store items:", error);
-                itemListContainer.innerHTML = '<p class="empty-message">No items yet. Add some items to get started!</p>';
+                console.error("Error details:", error.code, error.message);
+                allItems = [];
+                itemListContainer.innerHTML = '<p class="empty-message">No items yet. Click "Add New Item" to get started!</p>';
             }
         }
 
@@ -466,17 +482,26 @@ async function main() {
 
         async function deleteCustomStore(storeId) {
             try {
-                // Delete all items in the store first
+                // First check if items subcollection exists and delete all items
                 const itemsRef = collection(db, "users", currentUser.uid, "customStores", storeId, "items");
-                const itemsSnapshot = await getDocs(itemsRef);
-                const deletePromises = [];
-                itemsSnapshot.forEach(doc => {
-                    deletePromises.push(deleteDoc(doc.ref));
-                });
-                await Promise.all(deletePromises);
+                try {
+                    const itemsSnapshot = await getDocs(itemsRef);
+                    if (!itemsSnapshot.empty) {
+                        const deletePromises = [];
+                        itemsSnapshot.forEach(docSnapshot => {
+                            deletePromises.push(deleteDoc(docSnapshot.ref));
+                        });
+                        await Promise.all(deletePromises);
+                        console.log(`Deleted ${deletePromises.length} items from store ${storeId}`);
+                    }
+                } catch (itemsError) {
+                    console.log("No items to delete or error accessing items:", itemsError);
+                }
 
                 // Delete the store document
-                await deleteDoc(doc(db, "users", currentUser.uid, "customStores", storeId));
+                const storeDocRef = doc(db, "users", currentUser.uid, "customStores", storeId);
+                await deleteDoc(storeDocRef);
+                console.log(`Deleted store ${storeId}`);
 
                 // Reset to Ross Market
                 storeSelect.value = 'ross';
@@ -488,7 +513,8 @@ async function main() {
                 
             } catch (error) {
                 console.error("Error deleting custom store:", error);
-                alert("Failed to delete store. Please try again.");
+                console.error("Error details:", error.code, error.message);
+                alert(`Failed to delete store: ${error.message || 'Unknown error'}`);
             }
         }
 
@@ -749,8 +775,20 @@ async function main() {
                 createStoreBtn.textContent = 'Creating...';
                 
                 try {
-                    const newStoreRef = await addDoc(collection(db, "users", currentUser.uid, "customStores"), { name, currency });
+                    // Create the custom store document
+                    const storeData = { 
+                        name: name, 
+                        currency: currency,
+                        createdAt: Timestamp.now() // Add timestamp
+                    };
+                    
+                    const customStoresRef = collection(db, "users", currentUser.uid, "customStores");
+                    const newStoreRef = await addDoc(customStoresRef, storeData);
+                    
+                    console.log(`Created store ${name} with ID: ${newStoreRef.id}`);
+                    
                     newStoreNameInput.value = '';
+                    newStoreCurrencyInput.value = 'dollars';
                     createStoreModal.classList.add('hidden');
                     
                     await loadCustomStores();
@@ -759,7 +797,8 @@ async function main() {
                     rebuildCustomOptions();
                 } catch (error) {
                     console.error("Error creating store:", error);
-                    alert("Failed to create store. Please try again.");
+                    console.error("Error details:", error.code, error.message);
+                    alert(`Failed to create store: ${error.message || 'Unknown error'}`);
                 } finally {
                     createStoreBtn.disabled = false;
                     createStoreBtn.textContent = 'Create Store';
@@ -779,7 +818,12 @@ async function main() {
             
             deleteStoreConfirmBtn.addEventListener('click', async () => {
                 const storeId = deleteStoreModal.dataset.storeId;
-                if (!storeId) return;
+                if (!storeId) {
+                    console.error("No store ID found for deletion");
+                    return;
+                }
+                
+                console.log(`Attempting to delete store with ID: ${storeId}`);
                 
                 deleteStoreConfirmBtn.disabled = true;
                 deleteStoreConfirmBtn.textContent = 'Deleting...';
@@ -787,8 +831,9 @@ async function main() {
                 try {
                     await deleteCustomStore(storeId);
                     deleteStoreModal.classList.add('hidden');
+                    delete deleteStoreModal.dataset.storeId; // Clear the stored ID
                 } catch (error) {
-                    alert("Failed to delete store. Please try again.");
+                    console.error("Delete failed:", error);
                 } finally {
                     deleteStoreConfirmBtn.disabled = false;
                     deleteStoreConfirmBtn.textContent = 'Delete Store';
@@ -825,14 +870,26 @@ async function main() {
                 addItemBtn.textContent = 'Adding...';
                 
                 try {
-                    await addDoc(collection(db, "users", currentUser.uid, "customStores", currentStoreId, "items"), { name, price });
+                    // Ensure the store exists and get reference to items subcollection
+                    const itemsCollectionRef = collection(db, "users", currentUser.uid, "customStores", currentStoreId, "items");
+                    
+                    // Add the new item
+                    const newItemRef = await addDoc(itemsCollectionRef, { 
+                        name: name, 
+                        price: price,
+                        createdAt: Timestamp.now() // Add timestamp for ordering
+                    });
+                    
+                    console.log(`Added item ${name} with ID: ${newItemRef.id}`);
+                    
                     newItemNameInput.value = ''; 
                     newItemPriceInput.value = '';
                     addItemModal.classList.add('hidden');
                     await loadCustomStoreItems(currentStoreId);
                 } catch (error) {
                     console.error("Error adding item:", error);
-                    alert("Failed to add item. Please try again.");
+                    console.error("Error details:", error.code, error.message);
+                    alert(`Failed to add item: ${error.message || 'Unknown error'}`);
                 } finally {
                     addItemBtn.disabled = false;
                     addItemBtn.textContent = 'Add Item';
