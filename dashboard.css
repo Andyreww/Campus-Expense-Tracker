@@ -167,6 +167,129 @@ body {
 }
 
 /* ========================================
+   QUICK LOG WIDGETS
+   ======================================== */
+.quick-log-widgets-container {
+    padding: 0 1rem 1.5rem 1rem;
+    max-width: 1000px;
+    margin: -1rem auto 0 auto;
+    text-align: center;
+}
+
+.quick-log-title {
+    font-family: 'Patrick Hand', cursive;
+    font-size: 1.5rem;
+    color: var(--bg-secondary);
+    margin-bottom: 1rem;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+}
+
+.quick-log-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.quick-log-widget-btn {
+    position: relative;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.15s ease-out;
+    background: var(--bg-secondary);
+    border: 2px solid var(--wood-dark);
+    border-radius: 12px;
+    border-bottom: 5px solid var(--wood-dark);
+    box-shadow: inset 0 -2px 1px rgba(0,0,0,0.1);
+}
+
+.quick-log-widget-btn:hover {
+    background-color: #f7f2e5; /* Slightly lighter */
+    transform: translateY(-2px);
+    border-bottom-width: 7px;
+}
+
+.quick-log-widget-btn:active {
+    transform: translateY(2px);
+    border-bottom-width: 2px;
+    box-shadow: inset 0 1px 1px rgba(0,0,0,0.2);
+    transition-duration: 0.05s;
+}
+
+.delete-widget-btn {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 22px;
+    height: 22px;
+    background: var(--brand-danger);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: bold;
+    line-height: 1;
+    border: 2px solid var(--bg-primary);
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 5;
+}
+
+/* Desktop hover effect for delete button */
+@media (hover: hover) and (pointer: fine) {
+    .quick-log-widget-btn:hover .delete-widget-btn {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.delete-widget-btn:hover {
+    background: #e57373;
+    transform: scale(1.1) rotate(90deg);
+}
+
+.quick-log-error {
+    background-color: var(--brand-danger);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-weight: 700;
+    animation: fadeInOut 3s ease forwards;
+}
+
+@keyframes fadeInOut {
+    0%, 100% { opacity: 0; transform: translateY(10px); }
+    10%, 90% { opacity: 1; transform: translateY(0); }
+}
+
+/* Jiggle animation for delete mode */
+@keyframes jiggle {
+  0%, 100% { transform: rotate(-1deg); }
+  50% { transform: rotate(1deg); }
+}
+
+/* Mobile delete mode styles */
+.quick-log-widgets-container.delete-mode .quick-log-widget-btn {
+    animation: jiggle 0.2s infinite;
+}
+
+.quick-log-widgets-container.delete-mode .delete-widget-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+
+/* ========================================
    TABLETOP GRID
    ======================================== */
 .tabletop {
@@ -464,8 +587,55 @@ body {
 .price-input-wrapper input {
     padding-left: 2.5rem;
 }
+
+/* Save as Widget Checkbox */
+.form-group-inline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding: 0.75rem;
+    background-color: var(--bg-secondary);
+    border-radius: 8px;
+}
+.form-group-inline label {
+    font-weight: 700;
+    color: var(--text-primary);
+    cursor: pointer;
+    margin: 0;
+}
+.custom-checkbox {
+    appearance: none;
+    background-color: var(--bg-primary);
+    margin: 0;
+    font: inherit;
+    color: currentColor;
+    width: 1.25em;
+    height: 1.25em;
+    border: 2px solid var(--wood-dark);
+    border-radius: 4px;
+    transform: translateY(-0.075em);
+    display: grid;
+    place-content: center;
+    cursor: pointer;
+}
+.custom-checkbox::before {
+    content: "";
+    width: 0.65em;
+    height: 0.65em;
+    transform: scale(0);
+    transition: 120ms transform ease-in-out;
+    box-shadow: inset 1em 1em var(--brand-primary);
+    transform-origin: bottom left;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+.custom-checkbox:checked::before {
+    transform: scale(1);
+}
+
 .custom-log-actions {
-    display: flex; gap: 1rem; margin-top: 2rem;
+    display: flex; gap: 1rem; margin-top: 1rem;
 }
 .custom-log-btn {
     flex: 1;
@@ -712,6 +882,24 @@ body {
     .weather-note { padding: 1rem; }
     .folded-map { width: 140px; height: 90px; }
     .map-label { font-size: 1.2rem; }
+
+    /* NEW: Mobile Quick Log Styles */
+    .quick-log-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0;
+    }
+
+    .quick-log-widget-btn {
+        padding: 0.6rem 0.5rem;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex-grow: 1;
+        flex-basis: 0;
+    }
 
     #leaderboard-section {
         padding-left: 0;

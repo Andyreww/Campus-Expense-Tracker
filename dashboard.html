@@ -65,6 +65,11 @@
             </button>
         </header>
 
+        <!-- Quick Log Widgets -->
+        <div id="quick-log-widgets-container" class="quick-log-widgets-container" style="display: none;">
+            <!-- Widgets will be injected here by JS -->
+        </div>
+
         <!-- Main Content Area -->
         <div id="main-content-wrapper">
             <main id="home-section" class="main-section active">
@@ -211,6 +216,11 @@
                         <option value="Student Cafe">Student Cafe</option>
                         <option value="Other">Other Location</option>
                     </select>
+                </div>
+                <!-- Save as Widget Checkbox -->
+                <div class="form-group-inline">
+                    <input type="checkbox" id="save-as-widget-checkbox" class="custom-checkbox">
+                    <label for="save-as-widget-checkbox">Save as a Quick Log button</label>
                 </div>
                 <div class="custom-log-actions">
                     <button type="button" id="custom-log-cancel" class="custom-log-btn cancel">Cancel</button>

@@ -1,6 +1,6 @@
 // --- IMPORTS ---
 import { firebaseReady, logout } from './auth.js';
-import { doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc, addDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc, addDoc, Timestamp, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 import { updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
@@ -13,13 +13,16 @@ let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar,
     weatherWidget, pfpModalOverlay, pfpPreview, pfpUploadInput, pfpSaveButton,
     pfpCloseButton, pfpError, mapOpener, mapModalOverlay, mapModal, mapCloseButton, mapRenderTarget,
     newspaperDate, fabContainer, mainFab, customLogBtn, customLogModal, customLogForm,
-    customItemName, customItemPrice, customItemStore, customLogCancel, customLogClose, userBioInput;
+    customItemName, customItemPrice, customItemStore, customLogCancel, customLogClose, userBioInput,
+    quickLogWidgetsContainer, saveAsWidgetCheckbox;
 
 // --- App State ---
 let map = null;
 let currentUser = null;
 let selectedPfpFile = null;
 let firebaseServices = null;
+let isDeleteModeActive = false;
+let pressTimer = null;
 
 // --- Main App Initialization ---
 async function main() {
@@ -74,6 +77,7 @@ function renderDashboard(userData) {
     
     updateBalancesUI(balances);
     fetchAndRenderWeather();
+    renderQuickLogWidgets(firebaseServices.db);
     
     const today = new Date();
     if (newspaperDate) {
@@ -136,6 +140,8 @@ function assignDOMElements() {
     customItemStore = document.getElementById('custom-item-store');
     customLogCancel = document.getElementById('custom-log-cancel');
     customLogClose = document.getElementById('custom-log-close');
+    quickLogWidgetsContainer = document.getElementById('quick-log-widgets-container');
+    saveAsWidgetCheckbox = document.getElementById('save-as-widget-checkbox');
 }
 
 function setupEventListeners() {
@@ -182,9 +188,20 @@ function setupEventListeners() {
         }
     }
 
-    if (customLogBtn) customLogBtn.addEventListener('click', () => {
+    if (customLogBtn) customLogBtn.addEventListener('click', async () => {
         customLogModal.classList.remove('hidden');
         customItemName.focus();
+        const saveWidgetContainer = saveAsWidgetCheckbox.closest('.form-group-inline');
+        if (saveWidgetContainer) {
+            const widgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
+            const snapshot = await getDocs(widgetsRef);
+            if (snapshot.size >= 3) {
+                saveWidgetContainer.style.display = 'none';
+                saveAsWidgetCheckbox.checked = false;
+            } else {
+                saveWidgetContainer.style.display = 'flex';
+            }
+        }
     });
     if (customLogCancel) customLogCancel.addEventListener('click', closeCustomLogModal);
     if (customLogClose) customLogClose.addEventListener('click', closeCustomLogModal);
@@ -197,117 +214,13 @@ function setupEventListeners() {
     });
 
     if (userBioInput) userBioInput.addEventListener('input', handleBioInput);
-}
-
-function containsProfanity(text) {
-    // Comprehensive list of profanity and inappropriate words
-    const profanityList = [
-        // sexual & explicit
-        'fuck','fucking','fucked','shit','shitty','crap','bitch','bastard','dick','cock','pussy',
-        'cunt','asshole','ass','douche','twat','prick','bollocks','bugger','shag','slut','whore',
-        'fag','faggot','dyke','tranny','shemale','kike','spic','chink','gook','beaner','wetback',
-        'nigger','nigga','dyke','retard','idiot','moron','cretin',
-        'jizz','cum','dildo','handjob','blowjob','tits','boobs','penis','vagina','anus',
-        'porn','sex','suck','blow','rape','molest','pedophile','pedo','incest',
-        'motherfucker','mother fucker','motha fucker','cocksucker','cock sucker',
-        'jerkoff','jerk off','clit','titty','twatwaffle','dumbass','asswipe','dumbfuck',
-        'dumb fuck','bullshit','holy shit','holy fuck','fuckedup','fuckup','fuckyou','fuck you',
-        'goddamn','god damn','damn','bloody','frigging','fricking','hell','arse','arsehole',
-        'shite','crikey','crapola','piss','pissed','pissedoff','piss off','shitter','shitface',
-        'shithead','shitshow','shitstorm','pisshead',
-        // hate speech & modern slurs
-        'nazi','hitler','kkk','antisemite','white supremacist','whoreface','slutface',
-        'autistic','autism','schizo','schizophrenic','crazy','insane','lunatic','spastic',
-        'cripple','crip','retard','retarded','gimp','spaz','mong','mongoloid',
-        'feminazi','beanerpede','alfaclan','alien','illegal alien','wetback','raghead',
-        'honky','cracker','coon','coonass','golliwog','raghead','kafir','paki',
-        'jap','chingchong','chink','zipperhead','zipcrow','kraut','polack','slantee',
-        // misc offense, mild abuse, recent slang
-        'wtf','stfu','gtfo','omfg','omg','fml','lmao','rofl','roflmao','suckmydick',
-        'suckmyass','eatmyass','eatmyshit','eatmyshit','kissmyass','kissmyfeet','tosser',
-        'wanker','twatwaffle','clunge','gash','minge','clunge','nudist','nude','pornstar',
-        'escort','stripper','stripclub','cumshot','pearljamer','pearl jammer','gore', 'gory',
-        'neckbeard','incel','simp','stan','wang','dong','meatspin','goatse','lolita',
-        'cp','hentai','lolicon','shota','bestiality','zoophilia','zoophile','beastiality',
-        'beastial','beast','snuff','necrophilia','necrophile','vore','voreplay',
-        'spook','jungle bunny','fried chicken','macaco','macaca',
-        // euphemisms, variants & obfuscations
-        'f u c k','s h i t','s h i t t y','f@ck','sh1t','sh!t','b!tch','c0ck','p!ss','c u n t',
-        'f u c k e d','f u c k i n g','s h i t s h o w','b 1 t c h','grrrrr','damnit','damnit',
-    ];
     
-    // Convert to lowercase and remove spaces for checking
-    const cleanText = text.toLowerCase().replace(/\s/g, '');
-    
-    // Check for exact matches and l33t speak variations
-    for (const word of profanityList) {
-        // Create pattern for l33t speak (common substitutions)
-        const l33tPattern = word
-            .replace(/a/g, '[a@4]')
-            .replace(/e/g, '[e3]')
-            .replace(/i/g, '[i1!]')
-            .replace(/o/g, '[o0]')
-            .replace(/s/g, '[s5$]')
-            .replace(/t/g, '[t7]')
-            .replace(/g/g, '[g9]')
-            .replace(/l/g, '[l1]')
-            .replace(/z/g, '[z2]');
-        
-        const regex = new RegExp(l33tPattern, 'i');
-        if (regex.test(cleanText) || cleanText.includes(word)) {
-            return true;
+    // Listener to exit delete mode on mobile
+    document.body.addEventListener('click', (e) => {
+        if (isDeleteModeActive && !quickLogWidgetsContainer.contains(e.target)) {
+            toggleDeleteMode(false);
         }
-    }
-    
-    return false;
-}
-
-function handleBioInput() {
-    if (!userBioInput) return;
-
-    const maxLength = 15;
-    const warningThreshold = 8;
-    let currentLength = userBioInput.value.length;
-
-    // THE FIX: Enforce the max length by trimming the value
-    if (currentLength > maxLength) {
-        userBioInput.value = userBioInput.value.substring(0, maxLength);
-        currentLength = maxLength;
-    }
-
-    // Check for profanity
-    if (containsProfanity(userBioInput.value)) {
-        userBioInput.classList.add('bio-danger');
-        if (!document.getElementById('bio-profanity-warning')) {
-            const warning = document.createElement('div');
-            warning.id = 'bio-profanity-warning';
-            warning.className = 'profanity-warning-note';
-            warning.innerHTML = `
-                <div class="warning-paper">
-                    <div class="warning-tape"></div>
-                    <div class="warning-content">
-                        <span class="warning-emoji">🙊</span>
-                        <span class="warning-text">Whoa there, friend!</span>
-                        <span class="warning-subtext">Let's keep it family-friendly</span>
-                    </div>
-                </div>
-            `;
-            userBioInput.parentElement.appendChild(warning);
-        }
-        return;
-    } else {
-        // Remove profanity warning if it exists
-        const warning = document.getElementById('bio-profanity-warning');
-        if (warning) warning.remove();
-    }
-
-    userBioInput.classList.remove('bio-warning', 'bio-danger');
-
-    if (currentLength >= maxLength) {
-        userBioInput.classList.add('bio-danger');
-    } else if (currentLength >= warningThreshold) {
-        userBioInput.classList.add('bio-warning');
-    }
+    }, true); // Use capture to catch clicks anywhere
 }
 
 function handleTabClick(e, db) {
@@ -328,6 +241,12 @@ function switchTab(sectionId, db) {
         targetTab.classList.add('active');
         targetSection.classList.add('active');
 
+        if (sectionId === 'home-section' && quickLogWidgetsContainer.querySelector('.quick-log-widget-btn')) {
+            quickLogWidgetsContainer.style.display = 'block';
+        } else {
+            quickLogWidgetsContainer.style.display = 'none';
+        }
+
         if (sectionId === 'leaderboard-section') {
             publicLeaderboardContainer.classList.remove('hidden');
             if (db) {
@@ -344,23 +263,9 @@ function handleInitialTab() {
     if (hash) {
         const sectionId = hash.substring(1);
         switchTab(sectionId, firebaseServices?.db);
+    } else {
+        switchTab('home-section', firebaseServices?.db);
     }
-}
-
-function openMapModal() {
-    if (!map) {
-        initializeMap();
-    }
-    mapModalOverlay.classList.remove('hidden');
-    setTimeout(() => {
-        if (map) {
-            map.invalidateSize();
-        }
-    }, 300);
-}
-
-function closeMapModal() {
-    mapModalOverlay.classList.add('hidden');
 }
 
 function updateAvatar(photoURL, displayName) {
@@ -384,14 +289,12 @@ function closeModal() {
     if (userBioInput) {
         userBioInput.value = currentUser.bio || '';
     }
-    // Remove any profanity warnings when closing
-    const warning = document.getElementById('bio-profanity-warning');
-    if (warning) warning.remove();
 }
 
 function closeCustomLogModal() {
     customLogModal.classList.add('hidden');
     customLogForm.reset();
+    if(saveAsWidgetCheckbox) saveAsWidgetCheckbox.checked = false;
 }
 
 function handlePfpUpload(e) {
@@ -427,15 +330,6 @@ async function saveProfile(storage, db) {
     pfpError.classList.add('hidden');
 
     const newBio = userBioInput.value.trim();
-    
-    // Check for profanity before saving
-    if (containsProfanity(newBio)) {
-        pfpError.textContent = 'Please use appropriate language in your status.';
-        pfpError.classList.remove('hidden');
-        pfpSaveButton.disabled = false;
-        pfpSaveButton.textContent = 'Save Changes';
-        return;
-    }
     
     const updateData = { bio: newBio };
 
@@ -485,6 +379,7 @@ async function logCustomPurchase(db) {
     const itemName = customItemName.value.trim();
     const itemPrice = parseFloat(customItemPrice.value);
     const storeName = customItemStore.value;
+    const shouldSaveWidget = saveAsWidgetCheckbox.checked;
 
     if (!itemName || isNaN(itemPrice) || itemPrice <= 0) {
         alert('Please fill in all fields correctly');
@@ -545,6 +440,24 @@ async function logCustomPurchase(db) {
             longestStreak: longestStreak,
             lastLogDate: Timestamp.now()
         });
+        
+        if (shouldSaveWidget) {
+            const quickLogWidgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
+            const snapshot = await getDocs(quickLogWidgetsRef);
+            if (snapshot.size < 3) {
+                const q = query(quickLogWidgetsRef, where("itemName", "==", itemName));
+                const existingWidgets = await getDocs(q);
+                if (existingWidgets.empty) {
+                    await addDoc(quickLogWidgetsRef, {
+                        itemName,
+                        itemPrice,
+                        storeName,
+                        createdAt: Timestamp.now()
+                    });
+                    await renderQuickLogWidgets(db);
+                }
+            }
+        }
 
         if (userData.showOnWallOfFame && currentUser?.uid) {
             const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
@@ -564,12 +477,7 @@ async function logCustomPurchase(db) {
         }
 
         closeCustomLogModal();
-        
-        const successMsg = document.createElement('div');
-        successMsg.className = 'custom-log-success';
-        successMsg.textContent = `✓ Logged: ${itemName}`;
-        document.body.appendChild(successMsg);
-        setTimeout(() => successMsg.remove(), 3000);
+        showSuccessMessage(`✓ Logged: ${itemName}`);
 
     } catch (error) {
         console.error("Error logging custom purchase:", error);
@@ -579,6 +487,203 @@ async function logCustomPurchase(db) {
         submitBtn.innerHTML = '<span>Log Purchase</span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
     }
 }
+
+async function renderQuickLogWidgets(db) {
+    if (!currentUser || !quickLogWidgetsContainer) return;
+
+    const widgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
+    const q = query(widgetsRef, orderBy("createdAt", "desc"));
+    const querySnapshot = await getDocs(q);
+
+    quickLogWidgetsContainer.innerHTML = ''; // Clear existing
+
+    if (querySnapshot.empty) {
+        quickLogWidgetsContainer.style.display = 'none';
+        return;
+    }
+
+    const isHomeActive = document.getElementById('home-section')?.classList.contains('active');
+    quickLogWidgetsContainer.style.display = isHomeActive ? 'block' : 'none';
+    
+    const title = document.createElement('h3');
+    title.className = 'quick-log-title';
+    title.textContent = 'Quick Logs';
+    quickLogWidgetsContainer.appendChild(title);
+
+    const buttonWrapper = document.createElement('div');
+    buttonWrapper.className = 'quick-log-buttons';
+    quickLogWidgetsContainer.appendChild(buttonWrapper);
+
+    querySnapshot.forEach(docSnapshot => {
+        const widgetData = docSnapshot.data();
+        const button = document.createElement('button');
+        button.className = 'quick-log-widget-btn';
+        button.textContent = widgetData.itemName;
+        button.title = `Log ${widgetData.itemName} ($${widgetData.itemPrice.toFixed(2)})`;
+        
+        button.addEventListener('click', (e) => {
+            if (isDeleteModeActive) {
+                e.preventDefault();
+                return;
+            }
+            logFromWidget(db, widgetData, button);
+        });
+        
+        // Mobile Press and Hold Logic
+        button.addEventListener('touchstart', (e) => {
+            if (isDeleteModeActive) return;
+            pressTimer = setTimeout(() => {
+                e.preventDefault();
+                toggleDeleteMode(true);
+            }, 500); // 500ms for a long press
+        }, { passive: true });
+
+        button.addEventListener('touchend', () => clearTimeout(pressTimer));
+        button.addEventListener('touchmove', () => clearTimeout(pressTimer));
+        
+        const deleteBtn = document.createElement('span');
+        deleteBtn.className = 'delete-widget-btn';
+        deleteBtn.innerHTML = '&times;';
+        deleteBtn.title = 'Remove this Quick Log';
+        
+        const deleteHandler = async (e) => {
+            e.stopPropagation();
+            button.disabled = true;
+            await deleteDoc(docSnapshot.ref);
+            button.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            button.style.opacity = '0';
+            button.style.transform = 'scale(0.8)';
+            setTimeout(() => {
+                button.remove();
+                const remainingButtons = buttonWrapper.querySelectorAll('.quick-log-widget-btn');
+                if (remainingButtons.length === 0) {
+                    quickLogWidgetsContainer.style.display = 'none';
+                }
+            }, 300);
+        };
+        
+        deleteBtn.addEventListener('click', deleteHandler);
+        // Also listen for touchend on mobile to ensure it fires reliably
+        deleteBtn.addEventListener('touchend', (e) => {
+             if (isDeleteModeActive) {
+                e.preventDefault();
+                deleteHandler(e);
+             }
+        });
+
+        button.appendChild(deleteBtn);
+        buttonWrapper.appendChild(button);
+    });
+}
+
+function toggleDeleteMode(enable) {
+    isDeleteModeActive = enable;
+    if (enable) {
+        quickLogWidgetsContainer.classList.add('delete-mode');
+    } else {
+        quickLogWidgetsContainer.classList.remove('delete-mode');
+    }
+}
+
+async function logFromWidget(db, widgetData, buttonEl) {
+    if (!currentUser) return;
+
+    const { itemName, itemPrice } = widgetData;
+
+    const userDocRef = doc(db, "users", currentUser.uid);
+    const userDoc = await getDoc(userDocRef);
+    const userData = userDoc.data();
+    const currentBalance = userData.balances.credits;
+
+    if (itemPrice > currentBalance) {
+        showQuickLogError('Not enough credits!');
+        return;
+    }
+    
+    if(buttonEl) buttonEl.disabled = true;
+
+    try {
+        let { currentStreak = 0, longestStreak = 0, lastLogDate = null } = userData;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (lastLogDate) {
+            const lastDate = lastLogDate.toDate();
+            lastDate.setHours(0, 0, 0, 0);
+            const diffTime = today - lastDate;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 1) { currentStreak++; }
+            else if (diffDays > 1) { currentStreak = 1; }
+        } else {
+            currentStreak = 1;
+        }
+        if (currentStreak > longestStreak) { longestStreak = currentStreak; }
+
+        const purchaseRef = collection(db, "users", currentUser.uid, "purchases");
+        await addDoc(purchaseRef, {
+            items: [{ name: itemName, price: itemPrice, quantity: 1 }],
+            total: itemPrice,
+            store: widgetData.storeName,
+            purchaseDate: Timestamp.now(),
+            isFromWidget: true
+        });
+
+        const newBalance = currentBalance - itemPrice;
+        await updateDoc(userDocRef, {
+            "balances.credits": newBalance,
+            currentStreak: currentStreak,
+            longestStreak: longestStreak,
+            lastLogDate: Timestamp.now()
+        });
+
+        if (userData.showOnWallOfFame) {
+            const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
+            await setDoc(wallOfFameDocRef, { currentStreak }, { merge: true });
+        }
+
+        updateBalancesUI({ ...userData.balances, credits: newBalance });
+        const creditsCard = document.getElementById('credits-card');
+        if (creditsCard) {
+            creditsCard.classList.add('hit');
+            setTimeout(() => creditsCard.classList.remove('hit'), 600);
+        }
+        
+        showSuccessMessage(`✓ Logged: ${itemName}`);
+
+    } catch (error) {
+        console.error("Error logging from widget:", error);
+        showQuickLogError('Logging failed. Try again.');
+    } finally {
+        if(buttonEl) buttonEl.disabled = false;
+    }
+}
+
+function showSuccessMessage(message) {
+    const successMsg = document.createElement('div');
+    successMsg.className = 'custom-log-success';
+    successMsg.textContent = message;
+    document.body.appendChild(successMsg);
+    setTimeout(() => successMsg.remove(), 3000);
+}
+
+function showQuickLogError(message) {
+    let errorEl = document.getElementById('quick-log-error');
+    if (errorEl) errorEl.remove(); 
+    
+    errorEl = document.createElement('div');
+    errorEl.id = 'quick-log-error';
+    errorEl.className = 'quick-log-error';
+    errorEl.textContent = message;
+    
+    if (quickLogWidgetsContainer) {
+        quickLogWidgetsContainer.insertBefore(errorEl, quickLogWidgetsContainer.firstChild);
+        setTimeout(() => {
+            if (errorEl) errorEl.remove();
+        }, 3000);
+    }
+}
+
 
 async function fetchAndRenderLeaderboard(db) {
     if (!leaderboardList) return;
@@ -794,101 +899,6 @@ style.textContent = `
     }
     .leaflet-popup-content-wrapper {
         border-radius: 8px !important;
-    }
-    
-    /* Profanity Warning Styles */
-    .profanity-warning-note {
-        position: relative;
-        margin-top: 0.75rem;
-        animation: wobbleIn 0.5s ease-out;
-    }
-    
-    .warning-paper {
-        background: #FFE4B5;
-        background-image: 
-            repeating-linear-gradient(
-                0deg,
-                transparent,
-                transparent 20px,
-                rgba(139, 69, 19, 0.03) 20px,
-                rgba(139, 69, 19, 0.03) 21px
-            );
-        border: 2px solid #D2691E;
-        border-radius: 4px;
-        padding: 0.75rem 1rem;
-        position: relative;
-        transform: rotate(-2deg);
-        box-shadow: 
-            2px 2px 8px rgba(0,0,0,0.1),
-            inset 0 0 20px rgba(139, 69, 19, 0.05);
-        font-family: 'Patrick Hand', cursive;
-    }
-    
-    .warning-tape {
-        position: absolute;
-        top: -12px;
-        left: 50%;
-        transform: translateX(-50%) rotate(3deg);
-        width: 60px;
-        height: 24px;
-        background: rgba(255, 255, 255, 0.6);
-        border: 1px dashed rgba(0,0,0,0.1);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .warning-tape::before {
-        content: '';
-        position: absolute;
-        top: 3px;
-        left: 3px;
-        right: 3px;
-        bottom: 3px;
-        background: repeating-linear-gradient(
-            45deg,
-            transparent,
-            transparent 4px,
-            rgba(0,0,0,0.03) 4px,
-            rgba(0,0,0,0.03) 8px
-        );
-    }
-    
-    .warning-content {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.25rem;
-    }
-    
-    .warning-emoji {
-        font-size: 1.8rem;
-        filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.2));
-    }
-    
-    .warning-text {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #8B4513;
-        text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
-    }
-    
-    .warning-subtext {
-        font-size: 0.9rem;
-        color: #A0522D;
-        font-style: italic;
-    }
-    
-    @keyframes wobbleIn {
-        0% {
-            opacity: 0;
-            transform: scale(0.8) rotate(-8deg);
-        }
-        50% {
-            transform: scale(1.05) rotate(3deg);
-        }
-        100% {
-            opacity: 1;
-            transform: scale(1) rotate(-2deg);
-        }
     }
 `;
 document.head.appendChild(style);
