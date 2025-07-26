@@ -647,7 +647,7 @@ async function renderQuickLogWidgets(db) {
     
     const title = document.createElement('h3');
     title.className = 'quick-log-title';
-    title.textContent = 'Quick Logs';
+    title.textContent = 'Favie Log';
     quickLogWidgetsContainer.appendChild(title);
 
     const buttonWrapper = document.createElement('div');
