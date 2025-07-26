@@ -267,24 +267,23 @@ async function deleteUserAccount() {
         const wallOfFameDocRef = doc(db, "wallOfFame", userId);
         const storageRef = ref(storage, `profile_pictures/${userId}`);
 
-        // Delete subcollections
-        await deleteSubcollection(db, purchasesPath);
-        await deleteSubcollection(db, widgetsPath);
-
-        // Delete Wall of Fame document
-        await deleteDoc(wallOfFameDocRef).catch(err => console.log("No Wall of Fame doc to delete or permission issue:", err.message));
-
-        // Delete the main user document
-        await deleteDoc(userDocRef);
-
-        // Delete profile picture from Storage
-        await deleteObject(storageRef).catch(err => {
-            if (err.code !== 'storage/object-not-found') {
-                console.error("Error deleting profile picture:", err);
-            } else {
-                console.log("No profile picture to delete.");
-            }
-        });
+        // Use Promise.all to run deletions in parallel for efficiency
+        await Promise.all([
+            deleteSubcollection(db, purchasesPath),
+            deleteSubcollection(db, widgetsPath),
+            deleteDoc(wallOfFameDocRef).catch(err => console.log("No Wall of Fame doc to delete:", err.message)),
+            deleteDoc(userDocRef),
+            deleteObject(storageRef).catch(err => {
+                // This catch is important. If the user has no profile picture,
+                // deleteObject will throw an error. We want to catch it and continue.
+                // The CORS error in your logs also suggests a potential issue with Storage permissions/setup.
+                if (err.code !== 'storage/object-not-found') {
+                    console.error("Error deleting profile picture (might be a CORS issue):", err);
+                } else {
+                    console.log("No profile picture to delete.");
+                }
+            })
+        ]);
         
         console.log(`Successfully deleted data for user ${userId}.`);
 
@@ -293,7 +292,7 @@ async function deleteUserAccount() {
         console.log(`Successfully deleted user ${userId} from Auth.`);
 
 
-        // STEP 3: Redirect the user. The onAuthStateChanged listener will also catch this.
+        // STEP 3: Redirect the user.
         window.location.replace('/login.html');
 
     } catch (error) {
@@ -309,6 +308,10 @@ async function deleteUserAccount() {
         deleteErrorMessage.textContent = errorMessage;
         deleteErrorMessage.classList.remove('hidden');
 
+    } finally {
+        // This 'finally' block ensures the button is ALWAYS reset if the process fails,
+        // preventing it from getting stuck on "Deleting...".
+        // If successful, the page redirects before this matters.
         deleteConfirmBtn.disabled = false;
         deleteConfirmBtn.textContent = 'Yes, Delete It';
     }
