@@ -242,7 +242,7 @@ function setupEventListeners() {
 /**
  * Deletes a user's account and all associated data.
  * This is a destructive and irreversible action.
- * It now attempts to delete the Auth user FIRST to prevent orphaned data.
+ * It now deletes all data from Firestore/Storage BEFORE deleting the Auth user.
  */
 async function deleteUserAccount() {
     if (!currentUser || !firebaseServices) return;
@@ -257,13 +257,9 @@ async function deleteUserAccount() {
     const userToDelete = currentUser; // Keep a reference to the user object
 
     try {
-        // STEP 1: Attempt to delete the user from Firebase Authentication FIRST.
-        // This is the most likely step to fail (e.g., requires recent login),
-        // so we do it before deleting any data.
-        await deleteUser(userToDelete);
-
-        // STEP 2: If Auth deletion is successful, proceed with deleting all associated data.
-        console.log(`Successfully deleted user ${userId} from Auth. Now deleting data.`);
+        // STEP 1: Delete all associated data from Firestore and Storage first.
+        // This must be done while the user is still authenticated.
+        console.log(`User ${userId} initiated deletion. Deleting data first...`);
 
         const purchasesPath = `users/${userId}/purchases`;
         const widgetsPath = `users/${userId}/quickLogWidgets`;
@@ -279,7 +275,7 @@ async function deleteUserAccount() {
         await deleteDoc(wallOfFameDocRef).catch(err => console.log("No Wall of Fame doc to delete or permission issue:", err.message));
 
         // Delete the main user document
-        await deleteDoc(userDocRef).catch(err => console.error("Could not delete user document:", err.message));
+        await deleteDoc(userDocRef);
 
         // Delete profile picture from Storage
         await deleteObject(storageRef).catch(err => {
@@ -289,6 +285,13 @@ async function deleteUserAccount() {
                 console.log("No profile picture to delete.");
             }
         });
+        
+        console.log(`Successfully deleted data for user ${userId}.`);
+
+        // STEP 2: Now that all data is gone, delete the user from Firebase Authentication.
+        await deleteUser(userToDelete);
+        console.log(`Successfully deleted user ${userId} from Auth.`);
+
 
         // STEP 3: Redirect the user. The onAuthStateChanged listener will also catch this.
         window.location.replace('/login.html');
