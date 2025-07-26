@@ -255,7 +255,6 @@ async function main() {
             if (!walletWrapper) return;
             walletWrapper.innerHTML = '';
 
-            // Fix: Use correct balance property name 'dining' not 'dining_dollars'
             const diningDollars = userBalances.dining || 0;
             const diningWallet = document.createElement('div');
             diningWallet.className = 'wallet-container';
@@ -521,19 +520,25 @@ async function main() {
         async function logPurchase() {
             if (cart.length === 0) return;
             const totalCost = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            
-            if (currentStoreId === 'ross' && totalCost > userBalances.credits) {
-                alert("Not enough funds!");
+        
+            // Balance Check
+            if (currentStoreId === 'ross' && totalCost > (userBalances.credits || 0)) {
+                alert("Not enough Campus Credits!");
                 return;
             }
-
+            if (currentStoreId !== 'ross' && currentStoreCurrency === 'dollars' && totalCost > (userBalances.dining || 0)) {
+                alert("Not enough Dining Dollars!");
+                return;
+            }
+        
             logPurchaseBtn.disabled = true;
             logPurchaseBtn.innerHTML = `<span class="loading-spinner" style="display: inline-block; width: 16px; height: 16px; margin-right: 0.5rem;"></span> Processing...`;
-
+        
             try {
                 const userDocRef = doc(db, "users", currentUser.uid);
                 const storeName = storeSelect.options[storeSelect.selectedIndex].text;
-
+        
+                // Add to purchase history
                 await addDoc(collection(db, "users", currentUser.uid, "purchases"), {
                     items: cart.map(({ emoji, category, ...rest }) => rest),
                     total: totalCost,
@@ -541,14 +546,16 @@ async function main() {
                     currency: currentStoreCurrency,
                     purchaseDate: Timestamp.now()
                 });
-
+        
+                // Update Balances
                 if (currentStoreId === 'ross') {
-                    const newBalance = userBalances.credits - totalCost;
-                    const userDoc = await getDoc(userDocRef);
-                    const { currentStreak = 0, longestStreak = 0, lastLogDate = null } = userDoc.data() || {};
+                    // This is for Campus Credits
+                    const newBalance = (userBalances.credits || 0) - totalCost;
+                    const userDocSnap = await getDoc(userDocRef);
+                    const { currentStreak = 0, longestStreak = 0, lastLogDate = null } = userDocSnap.data() || {};
                     const today = new Date(); today.setHours(0, 0, 0, 0);
                     let newCurrentStreak = currentStreak;
-
+        
                     if (lastLogDate) {
                         const lastDate = lastLogDate.toDate(); lastDate.setHours(0, 0, 0, 0);
                         const diffDays = Math.ceil((today - lastDate) / (1000 * 60 * 60 * 24));
@@ -557,21 +564,29 @@ async function main() {
                     } else {
                         newCurrentStreak = 1;
                     }
-
+        
                     await updateDoc(userDocRef, {
                         'balances.credits': newBalance,
                         currentStreak: newCurrentStreak,
                         longestStreak: Math.max(longestStreak, newCurrentStreak),
                         lastLogDate: Timestamp.now()
                     });
-                    renderAllWallets(true);
+                } else {
+                    // This is for custom stores (Dining Dollars, Swipes, etc.)
+                    if (currentStoreCurrency === 'dollars') {
+                        const newDiningBalance = (userBalances.dining || 0) - totalCost;
+                        await updateDoc(userDocRef, {
+                            'balances.dining': newDiningBalance
+                        });
+                    }
+                    // No balance update needed for 'swipes' or 'bonus_swipes'
                 }
                 
                 cart = [];
                 await loadPurchaseHistory();
                 renderCart();
                 renderHistory();
-
+        
             } catch (error) {
                 console.error("Error logging purchase:", error);
                 alert("Failed to log purchase. Please try again.");
