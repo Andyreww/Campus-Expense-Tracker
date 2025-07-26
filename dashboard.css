@@ -920,13 +920,13 @@ body {
     }
 
     .quick-log-widget-btn {
-        padding: 0.6rem 0.5rem;
+        padding: 0.6rem 1.2rem; /* Adjusted padding for better scaling */
         font-size: 0.8rem;
         white-space: nowrap;
         /* overflow: hidden; */ /* <-- FIX: This was clipping the absolutely positioned delete button. Removing it allows the 'x' to appear outside the button's bounds. */
-        text-overflow: ellipsis;
-        flex-grow: 1;
-        flex-basis: 0;
+        /* text-overflow: ellipsis; */ /* No longer needed as button scales */
+        flex-grow: 0; /* FIX: Prevents button from stretching to fill space */
+        flex-basis: auto; /* FIX: Allows button to size based on content */
         
         /* Extra mobile protection against text selection */
         -webkit-tap-highlight-color: rgba(0,0,0,0);
