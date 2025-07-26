@@ -923,7 +923,7 @@ body {
         padding: 0.6rem 0.5rem;
         font-size: 0.8rem;
         white-space: nowrap;
-        overflow: hidden;
+        /* overflow: hidden; */ /* <-- FIX: This was clipping the absolutely positioned delete button. Removing it allows the 'x' to appear outside the button's bounds. */
         text-overflow: ellipsis;
         flex-grow: 1;
         flex-basis: 0;
