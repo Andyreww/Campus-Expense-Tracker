@@ -512,6 +512,69 @@ async function saveProfile(storage, db) {
     }
 }
 
+/**
+ * Checks if an item is purchased frequently and creates a widget if it is.
+ * @param {Firestore} db - The Firestore database instance.
+ * @param {string} itemName - The name of the item purchased.
+ * @param {number} itemPrice - The price of the item.
+ * @param {string} storeName - The name of the store.
+ * @returns {Promise<boolean>} - True if a widget was created, false otherwise.
+ */
+async function checkAndCreateFrequentWidget(db, itemName, itemPrice, storeName) {
+    if (!currentUser) return false;
+
+    try {
+        const widgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
+        const widgetsSnapshot = await getDocs(widgetsRef);
+        
+        // 1. Check if we have reached the max number of widgets (3)
+        if (widgetsSnapshot.size >= 3) {
+            return false;
+        }
+
+        // 2. Check if a widget for this item already exists
+        let widgetExists = false;
+        widgetsSnapshot.forEach(doc => {
+            if (doc.data().itemName === itemName) {
+                widgetExists = true;
+            }
+        });
+        if (widgetExists) {
+            return false;
+        }
+
+        // 3. Count past purchases of this specific item
+        const purchasesRef = collection(db, "users", currentUser.uid, "purchases");
+        const allPurchasesSnapshot = await getDocs(purchasesRef);
+        
+        let purchaseCount = 0;
+        allPurchasesSnapshot.forEach(doc => {
+            const purchase = doc.data();
+            // Check if the purchase has an items array and the first item's name matches
+            if (purchase.items && purchase.items.length > 0 && purchase.items[0].name === itemName) {
+                purchaseCount++;
+            }
+        });
+
+        // 4. If the item has been purchased enough times, create the widget
+        const FREQUENCY_THRESHOLD = 3;
+        if (purchaseCount >= FREQUENCY_THRESHOLD) {
+            await addDoc(widgetsRef, {
+                itemName,
+                itemPrice,
+                storeName,
+                createdAt: Timestamp.now()
+            });
+            return true; // Indicate that a widget was created
+        }
+
+    } catch (error) {
+        console.error("Error checking/creating frequent widget:", error);
+    }
+    
+    return false; // No widget was created
+}
+
 
 async function logCustomPurchase(db) {
     if (!currentUser) return;
@@ -539,6 +602,8 @@ async function logCustomPurchase(db) {
     const submitBtn = customLogForm.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="loading-spinner" style="display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite;"></span> Logging...';
+
+    let widgetCreated = false;
 
     try {
         let { currentStreak = 0, longestStreak = 0, lastLogDate = null } = userData;
@@ -594,9 +659,12 @@ async function logCustomPurchase(db) {
                         storeName,
                         createdAt: Timestamp.now()
                     });
-                    await renderQuickLogWidgets(db);
+                    widgetCreated = true;
                 }
             }
+        } else {
+            // If user didn't manually save, check if it's a frequent purchase
+            widgetCreated = await checkAndCreateFrequentWidget(db, itemName, itemPrice, storeName);
         }
 
         if (userData.showOnWallOfFame && currentUser?.uid) {
@@ -614,6 +682,10 @@ async function logCustomPurchase(db) {
         if (walletContainer) {
             walletContainer.classList.add('hit');
             setTimeout(() => walletContainer.classList.remove('hit'), 600);
+        }
+
+        if (widgetCreated) {
+            await renderQuickLogWidgets(db);
         }
 
         closeCustomLogModal();
@@ -659,14 +731,11 @@ async function renderQuickLogWidgets(db) {
         const button = document.createElement('button');
         button.className = 'quick-log-widget-btn';
         
-        // --- THIS IS THE ONLY PART I CHANGED ---
-        // It now creates the two lines of text (name and price) inside the button
         button.innerHTML = `
             <span class="widget-name">${widgetData.itemName}</span>
             <span class="widget-price">$${widgetData.itemPrice.toFixed(2)}</span>
         `;
-        // --- END OF CHANGE ---
-
+        
         button.title = `Log ${widgetData.itemName} ($${widgetData.itemPrice.toFixed(2)})`;
         
         button.addEventListener('click', (e) => {
