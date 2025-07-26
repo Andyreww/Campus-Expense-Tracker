@@ -167,13 +167,14 @@ body {
 }
 
 /* ========================================
-   QUICK LOG WIDGETS
+   QUICK LOG WIDGETS - FIXED DELETE BUTTON
    ======================================== */
 .quick-log-widgets-container {
     padding: 0 1rem 1.5rem 1rem;
     max-width: 1000px;
     margin: -1rem auto 0 auto;
     text-align: center;
+    overflow: visible; /* CRITICAL: Allow delete buttons to show outside */
 }
 
 .quick-log-title {
@@ -189,6 +190,8 @@ body {
     flex-wrap: wrap;
     gap: 1rem;
     justify-content: center;
+    padding: 15px; /* Add padding to ensure delete buttons have space */
+    overflow: visible; /* Allow overflow */
 }
 
 .quick-log-widget-btn {
@@ -232,8 +235,8 @@ body {
     position: absolute;
     top: -12px;
     right: -12px;
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     background: var(--brand-danger);
     color: white;
     border-radius: 50%;
@@ -248,10 +251,10 @@ body {
     opacity: 0;
     transform: scale(0.5);
     transition: all 0.2s ease;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    z-index: 20; /* Higher z-index */
     
-    /* Prevent text selection on delete button too */
+    /* Prevent text selection on delete button */
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
@@ -293,6 +296,10 @@ body {
 }
 
 /* Mobile delete mode styles */
+.quick-log-widgets-container.delete-mode {
+    overflow: visible; /* Ensure container allows overflow in delete mode */
+}
+
 .quick-log-widgets-container.delete-mode .quick-log-widget-btn {
     animation: jiggle 0.2s infinite;
 }
@@ -302,10 +309,10 @@ body {
     transform: scale(1);
 }
 
-/* Add more space between buttons in delete mode */
+/* Extra spacing in delete mode to prevent overlap */
 .quick-log-widgets-container.delete-mode .quick-log-buttons {
     gap: 1.5rem;
-    padding: 0.5rem;
+    padding: 20px; /* More padding in delete mode */
 }
 
 
@@ -903,12 +910,13 @@ body {
     .folded-map { width: 140px; height: 90px; }
     .map-label { font-size: 1.2rem; }
 
-    /* NEW: Mobile Quick Log Styles */
+    /* Mobile Quick Log Styles - FIXED */
     .quick-log-buttons {
         display: flex;
         justify-content: center;
-        gap: 0.5rem;
-        padding: 0;
+        gap: 0.75rem;
+        padding: 15px; /* Ensure delete buttons have space */
+        overflow: visible;
     }
 
     .quick-log-widget-btn {
@@ -919,6 +927,32 @@ body {
         text-overflow: ellipsis;
         flex-grow: 1;
         flex-basis: 0;
+        
+        /* Extra mobile protection against text selection */
+        -webkit-tap-highlight-color: rgba(0,0,0,0);
+        -webkit-touch-callout: none;
+    }
+    
+    /* Slightly smaller delete button on mobile but still outside */
+    .delete-widget-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 16px;
+        top: -10px;
+        right: -10px;
+        border: 2px solid var(--bg-primary);
+    }
+    
+    /* More spacing in delete mode on mobile */
+    .quick-log-widgets-container.delete-mode .quick-log-buttons {
+        gap: 1.25rem;
+        padding: 20px;
+    }
+    
+    /* Ensure container allows overflow on mobile */
+    .quick-log-widgets-container {
+        overflow: visible;
+        padding: 0.5rem;
     }
 
     #leaderboard-section {
@@ -1083,39 +1117,10 @@ body {
     }
 }
 
-@media (max-width: 640px) {
-    .quick-log-widget-btn {
-        padding: 0.6rem 0.5rem;
-        font-size: 0.8rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        flex-grow: 1;
-        flex-basis: 0;
-        
-        /* Extra mobile protection against text selection */
-        -webkit-tap-highlight-color: rgba(0,0,0,0);
-        -webkit-touch-callout: none;
+@media (max-width: 380px) {
+    .tab-item {
+        padding: 0.5rem 0.75rem;
     }
-    
-    /* Slightly smaller delete button on mobile but still outside */
-    .delete-widget-btn {
-        width: 24px;
-        height: 24px;
-        font-size: 16px;
-        top: -10px;
-        right: -10px;
-    }
-    
-    /* More spacing in delete mode on mobile */
-    .quick-log-widgets-container.delete-mode .quick-log-buttons {
-        gap: 1rem;
-        padding: 0.25rem;
-    }
-    
-    /* Ensure widgets don't overflow container */
-    .quick-log-widgets-container.delete-mode {
-        overflow: visible;
-        padding: 0.5rem;
-    }
+    .tab-item span { display: none; }
+    .tab-item svg { width: 24px; height: 24px; margin-bottom: 0; }
 }
