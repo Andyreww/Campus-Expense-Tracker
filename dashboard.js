@@ -242,6 +242,7 @@ function setupEventListeners() {
 /**
  * Deletes a user's account and all associated data.
  * This is a destructive and irreversible action.
+ * It now attempts to delete the Auth user FIRST to prevent orphaned data.
  */
 async function deleteUserAccount() {
     if (!currentUser || !firebaseServices) return;
@@ -252,32 +253,36 @@ async function deleteUserAccount() {
     deleteConfirmBtn.textContent = 'Deleting...';
     deleteErrorMessage.classList.add('hidden');
 
-    try {
-        const userId = currentUser.uid;
+    const userId = currentUser.uid;
+    const userToDelete = currentUser; // Keep a reference to the user object
 
-        // Paths to all user data
+    try {
+        // STEP 1: Attempt to delete the user from Firebase Authentication FIRST.
+        // This is the most likely step to fail (e.g., requires recent login),
+        // so we do it before deleting any data.
+        await deleteUser(userToDelete);
+
+        // STEP 2: If Auth deletion is successful, proceed with deleting all associated data.
+        console.log(`Successfully deleted user ${userId} from Auth. Now deleting data.`);
+
         const purchasesPath = `users/${userId}/purchases`;
         const widgetsPath = `users/${userId}/quickLogWidgets`;
         const userDocRef = doc(db, "users", userId);
         const wallOfFameDocRef = doc(db, "wallOfFame", userId);
         const storageRef = ref(storage, `profile_pictures/${userId}`);
 
-        // 1. Delete all subcollections first.
-        // Firestore does not delete subcollections automatically when a document is deleted.
+        // Delete subcollections
         await deleteSubcollection(db, purchasesPath);
         await deleteSubcollection(db, widgetsPath);
 
-        // 2. Delete Wall of Fame document (if it exists)
+        // Delete Wall of Fame document
         await deleteDoc(wallOfFameDocRef).catch(err => console.log("No Wall of Fame doc to delete or permission issue:", err.message));
 
-        // 3. Delete the main user document from Firestore.
-        // IMPORTANT: Your security rules for `/users/{userId}` must allow `delete`.
-        // e.g., `allow get, create, update, delete: if request.auth.uid == userId;`
-        await deleteDoc(userDocRef);
+        // Delete the main user document
+        await deleteDoc(userDocRef).catch(err => console.error("Could not delete user document:", err.message));
 
-        // 4. Delete profile picture from Storage (if it exists)
+        // Delete profile picture from Storage
         await deleteObject(storageRef).catch(err => {
-            // It's okay if the object doesn't exist, we just ignore that error.
             if (err.code !== 'storage/object-not-found') {
                 console.error("Error deleting profile picture:", err);
             } else {
@@ -285,20 +290,15 @@ async function deleteUserAccount() {
             }
         });
 
-        // 5. Finally, delete the user from Firebase Authentication. This is the last step.
-        await deleteUser(currentUser);
-
-        // 6. The onAuthStateChanged listener in auth.js will handle the redirect to the login page.
-        // We can force it here as a fallback.
+        // STEP 3: Redirect the user. The onAuthStateChanged listener will also catch this.
         window.location.replace('/login.html');
 
     } catch (error) {
         console.error("Account Deletion Failed:", error);
         
         let errorMessage = 'Failed to delete account. Please try again.';
-        // Re-authentication might be required for security-sensitive operations like this.
         if (error.code === 'auth/requires-recent-login') {
-            errorMessage = 'This is a sensitive action. Please log out and log back in before deleting your account.';
+            errorMessage = 'This is a sensitive action. Please log out and log back in before trying to delete your account.';
         } else if (error.code === 'permission-denied') {
             errorMessage = 'Could not delete user data. Please check Firestore security rules.';
         }
@@ -310,6 +310,7 @@ async function deleteUserAccount() {
         deleteConfirmBtn.textContent = 'Yes, Delete It';
     }
 }
+
 
 /**
  * Helper function to recursively delete all documents in a subcollection.
