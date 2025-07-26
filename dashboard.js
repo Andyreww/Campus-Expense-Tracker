@@ -658,7 +658,15 @@ async function renderQuickLogWidgets(db) {
         const widgetData = docSnapshot.data();
         const button = document.createElement('button');
         button.className = 'quick-log-widget-btn';
-        button.textContent = widgetData.itemName;
+        
+        // --- THIS IS THE ONLY PART I CHANGED ---
+        // It now creates the two lines of text (name and price) inside the button
+        button.innerHTML = `
+            <span class="widget-name">${widgetData.itemName}</span>
+            <span class="widget-price">$${widgetData.itemPrice.toFixed(2)}</span>
+        `;
+        // --- END OF CHANGE ---
+
         button.title = `Log ${widgetData.itemName} ($${widgetData.itemPrice.toFixed(2)})`;
         
         button.addEventListener('click', (e) => {
