@@ -173,30 +173,18 @@ function setupEventListeners() {
         if(e.target === mapModalOverlay) closeMapModal();
     });
 
-    // --- FAB LOGIC (FIXED) ---
+    // --- FAB LOGIC (RE-FIXED) ---
     if (mainFab && fabContainer) {
         mainFab.addEventListener('click', (e) => {
-            // Stop the click from bubbling up to the document listener,
-            // which would immediately close the FAB again.
-            e.stopPropagation();
+            e.stopPropagation(); // Prevents the document click listener from firing
             fabContainer.classList.toggle('expanded');
         });
 
-        // Add a listener to the whole document to close the FAB when clicking anywhere else.
-        document.addEventListener('click', () => {
-            if (fabContainer.classList.contains('expanded')) {
+        document.addEventListener('click', (e) => {
+            // If the container is expanded and the click was NOT inside the container, close it
+            if (fabContainer.classList.contains('expanded') && !fabContainer.contains(e.target)) {
                 fabContainer.classList.remove('expanded');
             }
-        });
-
-        // When a secondary button is clicked, we also need to close the FAB.
-        const secondaryButtons = fabContainer.querySelectorAll('.fab-secondary');
-        secondaryButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                if (fabContainer.classList.contains('expanded')) {
-                    fabContainer.classList.remove('expanded');
-                }
-            });
         });
     }
 
