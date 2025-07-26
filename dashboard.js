@@ -173,19 +173,31 @@ function setupEventListeners() {
         if(e.target === mapModalOverlay) closeMapModal();
     });
 
+    // --- FAB LOGIC (FIXED) ---
     if (mainFab && fabContainer) {
-        const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        if (isMobile) {
-            mainFab.addEventListener('click', (e) => {
-                e.preventDefault();
-                fabContainer.classList.toggle('expanded');
-            });
-            document.addEventListener('click', (e) => {
-                if (!fabContainer.contains(e.target)) {
+        mainFab.addEventListener('click', (e) => {
+            // Stop the click from bubbling up to the document listener,
+            // which would immediately close the FAB again.
+            e.stopPropagation();
+            fabContainer.classList.toggle('expanded');
+        });
+
+        // Add a listener to the whole document to close the FAB when clicking anywhere else.
+        document.addEventListener('click', () => {
+            if (fabContainer.classList.contains('expanded')) {
+                fabContainer.classList.remove('expanded');
+            }
+        });
+
+        // When a secondary button is clicked, we also need to close the FAB.
+        const secondaryButtons = fabContainer.querySelectorAll('.fab-secondary');
+        secondaryButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                if (fabContainer.classList.contains('expanded')) {
                     fabContainer.classList.remove('expanded');
                 }
             });
-        }
+        });
     }
 
     if (customLogBtn) customLogBtn.addEventListener('click', async () => {
