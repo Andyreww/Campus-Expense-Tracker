@@ -227,6 +227,20 @@
         </div>
     </div>
 
+    <!-- Delete Store Confirmation Modal -->
+    <div id="delete-store-modal" class="modal-overlay hidden">
+        <div class="modal-paper">
+            <div class="modal-pin"></div>
+            <h2 class="modal-title">Delete Store?</h2>
+            <p>Are you sure you want to delete <strong id="delete-store-name">Store Name</strong>?</p>
+            <p class="delete-warning">This will permanently delete the store and all its items.</p>
+            <div class="modal-actions">
+                <button id="delete-store-cancel-btn" class="modal-btn cancel">Cancel</button>
+                <button id="delete-store-confirm-btn" class="modal-btn danger">Delete Store</button>
+            </div>
+        </div>
+    </div>
+
     <script src="log_purchase.js" type="module"></script>
 </body>
 </html>

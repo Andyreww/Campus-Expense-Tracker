@@ -227,9 +227,14 @@ body {
     cursor: pointer;
     transition: all 0.3s ease;
     display: flex;
-    justify-content: space-between;
+    justify-content: center; /* FIX: Center the text */
     align-items: center;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    position: relative;
+}
+.select-trigger span {
+    flex: 1;
+    text-align: center; /* FIX: Center the text within the span */
 }
 .select-trigger:hover {
     background: var(--bg-secondary);
@@ -240,10 +245,10 @@ body {
     box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
 }
 .arrow {
-    position: relative;
+    position: absolute; /* FIX: Make arrow absolute positioned */
+    right: 1.5rem; /* Position it on the right */
     height: 10px;
     width: 10px;
-    margin-left: 20px;
 }
 .arrow::before, .arrow::after {
     content: '';
@@ -297,6 +302,9 @@ body {
     padding: 0.75rem 1.5rem;
     cursor: pointer;
     transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 .custom-option:hover {
     background-color: var(--bg-secondary);
@@ -309,6 +317,28 @@ body {
     color: var(--brand-primary);
     font-weight: 700;
     border-top: 2px dashed var(--border-color);
+}
+
+/* Delete Store Button in Dropdown */
+.delete-store-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.4rem;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.delete-store-btn:hover {
+    background: rgba(231, 76, 60, 0.1);
+    color: var(--price-red);
+}
+.delete-store-btn svg {
+    width: 16px;
+    height: 16px;
 }
 
 /* Custom Store Actions */
@@ -1065,6 +1095,23 @@ body {
     outline: none;
     border-color: var(--brand-primary);
     box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+}
+
+/* Delete confirmation text */
+.delete-warning {
+    color: var(--price-red);
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+.modal-btn.danger {
+    background: linear-gradient(180deg, var(--price-red) 0%, #c0392b 100%);
+    color: white;
+    border-bottom: 3px solid #a02923;
+}
+.modal-btn.danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(231, 76, 60, 0.3);
 }
 
 

@@ -71,6 +71,12 @@ async function main() {
 
         const customStoreActions = document.getElementById('custom-store-actions');
         const addNewItemBtn = document.getElementById('add-new-item-btn');
+        
+        // Delete Store Modal
+        const deleteStoreModal = document.getElementById('delete-store-modal');
+        const deleteStoreNameEl = document.getElementById('delete-store-name');
+        const deleteStoreCancelBtn = document.getElementById('delete-store-cancel-btn');
+        const deleteStoreConfirmBtn = document.getElementById('delete-store-confirm-btn');
 
         // --- AUTH ---
         onAuthStateChanged(auth, (user) => {
@@ -194,17 +200,23 @@ async function main() {
 
         async function loadCustomStoreItems(storeId) {
             itemListContainer.innerHTML = `<div class="loading-message"><div class="loading-spinner"></div><p>Loading your items...</p></div>`;
-            const itemsRef = collection(db, "users", currentUser.uid, "customStores", storeId, "items");
-            const q = query(itemsRef, orderBy("name"));
-            const querySnapshot = await getDocs(q);
             
-            const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            allItems = items.map(item => ({
-                ...item,
-                emoji: getEmojiForItem(item.name)
-            }));
-            
-            renderItems();
+            try {
+                const itemsRef = collection(db, "users", currentUser.uid, "customStores", storeId, "items");
+                const q = query(itemsRef, orderBy("name"));
+                const querySnapshot = await getDocs(q);
+                
+                const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                allItems = items.map(item => ({
+                    ...item,
+                    emoji: getEmojiForItem(item.name)
+                }));
+                
+                renderItems();
+            } catch (error) {
+                console.error("Error loading custom store items:", error);
+                itemListContainer.innerHTML = '<p class="empty-message">No items yet. Add some items to get started!</p>';
+            }
         }
 
         async function loadSubscriptions() {
@@ -227,7 +239,8 @@ async function main() {
             if (!walletWrapper) return;
             walletWrapper.innerHTML = '';
 
-            const diningDollars = userBalances.dining_dollars || 0;
+            // Fix: Use correct balance property name 'dining' not 'dining_dollars'
+            const diningDollars = userBalances.dining || 0;
             const diningWallet = document.createElement('div');
             diningWallet.className = 'wallet-container';
             diningWallet.innerHTML = `<div class="wallet-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="6" width="18" height="12" rx="2" fill="#4CAF50" /><circle cx="12" cy="12" r="3" fill="#FFFDF7"/><path d="M12 10.5V13.5M13 11.5H11" stroke="#4A2C2A" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="wallet-details"><div class="wallet-label">Dining Dollars</div><div class="wallet-amount">$${diningDollars.toFixed(2)}</div></div>`;
@@ -451,6 +464,34 @@ async function main() {
             calculateProjection();
         }
 
+        async function deleteCustomStore(storeId) {
+            try {
+                // Delete all items in the store first
+                const itemsRef = collection(db, "users", currentUser.uid, "customStores", storeId, "items");
+                const itemsSnapshot = await getDocs(itemsRef);
+                const deletePromises = [];
+                itemsSnapshot.forEach(doc => {
+                    deletePromises.push(deleteDoc(doc.ref));
+                });
+                await Promise.all(deletePromises);
+
+                // Delete the store document
+                await deleteDoc(doc(db, "users", currentUser.uid, "customStores", storeId));
+
+                // Reset to Ross Market
+                storeSelect.value = 'ross';
+                currentStoreId = 'ross';
+                
+                // Reload custom stores and switch to Ross
+                await loadCustomStores();
+                await handleStoreChange();
+                
+            } catch (error) {
+                console.error("Error deleting custom store:", error);
+                alert("Failed to delete store. Please try again.");
+            }
+        }
+
         async function logPurchase() {
             if (cart.length === 0) return;
             const totalCost = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -584,30 +625,61 @@ async function main() {
             const triggerSpan = customSelectWrapper.querySelector('.select-trigger span');
             optionsContainer.innerHTML = '';
 
-            Array.from(storeSelect.options).forEach(option => {
+            Array.from(storeSelect.options).forEach((option, index) => {
                 const optionDiv = document.createElement('div');
                 optionDiv.className = 'custom-option';
-                optionDiv.textContent = option.textContent;
+                
+                if (option.value === 'create-new') {
+                    optionDiv.classList.add('create-new-option');
+                    optionDiv.innerHTML = option.textContent;
+                } else if (index > 0 && option.value !== 'create-new') {
+                    // Custom store with delete button
+                    optionDiv.innerHTML = `
+                        <span class="option-text">${option.textContent}</span>
+                        <button class="delete-store-btn" data-store-id="${option.value}" data-store-name="${option.textContent}" title="Delete store">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
+                    `;
+                } else {
+                    optionDiv.textContent = option.textContent;
+                }
+                
                 optionDiv.dataset.value = option.value;
                 
                 if (option.value === storeSelect.value) {
                     optionDiv.classList.add('selected');
                     triggerSpan.textContent = option.textContent;
                 }
-                if (option.value === 'create-new') {
-                    optionDiv.classList.add('create-new-option');
-                }
 
-                optionDiv.addEventListener('click', () => {
-                    storeSelect.value = option.value;
-                    storeSelect.dispatchEvent(new Event('change'));
+                // Click handler for the option (not delete button)
+                const clickHandler = (e) => {
+                    if (!e.target.closest('.delete-store-btn')) {
+                        storeSelect.value = option.value;
+                        storeSelect.dispatchEvent(new Event('change'));
+                        
+                        triggerSpan.textContent = option.textContent;
+                        customSelectWrapper.querySelector('.custom-option.selected')?.classList.remove('selected');
+                        optionDiv.classList.add('selected');
+                        customSelectWrapper.classList.remove('open');
+                    }
+                };
+                
+                optionDiv.addEventListener('click', clickHandler);
+                optionsContainer.appendChild(optionDiv);
+            });
+
+            // Add event listeners for delete buttons
+            optionsContainer.querySelectorAll('.delete-store-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const storeId = btn.dataset.storeId;
+                    const storeName = btn.dataset.storeName;
                     
-                    triggerSpan.textContent = option.textContent;
-                    customSelectWrapper.querySelector('.custom-option.selected')?.classList.remove('selected');
-                    optionDiv.classList.add('selected');
+                    deleteStoreNameEl.textContent = storeName;
+                    deleteStoreModal.classList.remove('hidden');
+                    deleteStoreModal.dataset.storeId = storeId;
                     customSelectWrapper.classList.remove('open');
                 });
-                optionsContainer.appendChild(optionDiv);
             });
         }
 
@@ -648,6 +720,8 @@ async function main() {
             // Modal Listeners
             const closeCreateStoreModal = () => {
                 createStoreModal.classList.add('hidden');
+                newStoreNameInput.value = '';
+                newStoreCurrencyInput.value = 'dollars';
                 rebuildCustomOptions();
             };
 
@@ -671,14 +745,54 @@ async function main() {
                 const currency = newStoreCurrencyInput.value;
                 if (!name) return alert("Please enter a store name.");
                 
-                const newStoreRef = await addDoc(collection(db, "users", currentUser.uid, "customStores"), { name, currency });
-                newStoreNameInput.value = '';
-                createStoreModal.classList.add('hidden');
+                createStoreBtn.disabled = true;
+                createStoreBtn.textContent = 'Creating...';
                 
-                await loadCustomStores();
-                storeSelect.value = newStoreRef.id;
-                storeSelect.dispatchEvent(new Event('change'));
-                rebuildCustomOptions();
+                try {
+                    const newStoreRef = await addDoc(collection(db, "users", currentUser.uid, "customStores"), { name, currency });
+                    newStoreNameInput.value = '';
+                    createStoreModal.classList.add('hidden');
+                    
+                    await loadCustomStores();
+                    storeSelect.value = newStoreRef.id;
+                    storeSelect.dispatchEvent(new Event('change'));
+                    rebuildCustomOptions();
+                } catch (error) {
+                    console.error("Error creating store:", error);
+                    alert("Failed to create store. Please try again.");
+                } finally {
+                    createStoreBtn.disabled = false;
+                    createStoreBtn.textContent = 'Create Store';
+                }
+            });
+            
+            // Delete Store Modal Listeners
+            deleteStoreCancelBtn.addEventListener('click', () => {
+                deleteStoreModal.classList.add('hidden');
+            });
+            
+            deleteStoreModal.addEventListener('click', (e) => {
+                if (e.target === deleteStoreModal) {
+                    deleteStoreModal.classList.add('hidden');
+                }
+            });
+            
+            deleteStoreConfirmBtn.addEventListener('click', async () => {
+                const storeId = deleteStoreModal.dataset.storeId;
+                if (!storeId) return;
+                
+                deleteStoreConfirmBtn.disabled = true;
+                deleteStoreConfirmBtn.textContent = 'Deleting...';
+                
+                try {
+                    await deleteCustomStore(storeId);
+                    deleteStoreModal.classList.add('hidden');
+                } catch (error) {
+                    alert("Failed to delete store. Please try again.");
+                } finally {
+                    deleteStoreConfirmBtn.disabled = false;
+                    deleteStoreConfirmBtn.textContent = 'Delete Store';
+                }
             });
             
             addNewItemBtn.addEventListener('click', () => {
@@ -689,18 +803,40 @@ async function main() {
                 addItemModal.classList.remove('hidden');
                 newItemNameInput.focus();
             });
-            cancelItemBtn.addEventListener('click', () => addItemModal.classList.add('hidden'));
-            addItemModal.addEventListener('click', (e) => { if (e.target === addItemModal) addItemModal.classList.add('hidden'); });
+            cancelItemBtn.addEventListener('click', () => {
+                addItemModal.classList.add('hidden');
+                newItemNameInput.value = '';
+                newItemPriceInput.value = '';
+            });
+            addItemModal.addEventListener('click', (e) => { 
+                if (e.target === addItemModal) {
+                    addItemModal.classList.add('hidden');
+                    newItemNameInput.value = '';
+                    newItemPriceInput.value = '';
+                }
+            });
             addItemBtn.addEventListener('click', async () => {
                 const name = newItemNameInput.value.trim();
                 let price = parseFloat(newItemPriceInput.value);
                 if (!name || isNaN(price) || price <= 0) return alert("Please enter a valid name and positive price.");
                 if (currentStoreCurrency.includes('swipes') && price % 1 !== 0) return alert("Swipes must be whole numbers.");
                 
-                await addDoc(collection(db, "users", currentUser.uid, "customStores", currentStoreId, "items"), { name, price });
-                newItemNameInput.value = ''; newItemPriceInput.value = '';
-                addItemModal.classList.add('hidden');
-                await loadCustomStoreItems(currentStoreId);
+                addItemBtn.disabled = true;
+                addItemBtn.textContent = 'Adding...';
+                
+                try {
+                    await addDoc(collection(db, "users", currentUser.uid, "customStores", currentStoreId, "items"), { name, price });
+                    newItemNameInput.value = ''; 
+                    newItemPriceInput.value = '';
+                    addItemModal.classList.add('hidden');
+                    await loadCustomStoreItems(currentStoreId);
+                } catch (error) {
+                    console.error("Error adding item:", error);
+                    alert("Failed to add item. Please try again.");
+                } finally {
+                    addItemBtn.disabled = false;
+                    addItemBtn.textContent = 'Add Item';
+                }
             });
         }
 
