@@ -435,6 +435,58 @@ async function main() {
             renderSubscriptions();
             calculateProjection();
         }
+        
+        // --- NEW FUNCTION: Copied from dashboard.js ---
+        /**
+         * Checks if an item is purchased frequently and creates a widget if it is.
+         * @param {Firestore} db - The Firestore database instance.
+         * @param {string} itemName - The name of the item purchased.
+         * @param {number} itemPrice - The price of the item.
+         * @param {string} storeName - The name of the store.
+         * @returns {Promise<boolean>} - True if a widget was created, false otherwise.
+         */
+        async function checkAndCreateFrequentWidget(db, itemName, itemPrice, storeName) {
+            if (!currentUser) return false;
+
+            try {
+                const widgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
+                const widgetsSnapshot = await getDocs(widgetsRef);
+                
+                if (widgetsSnapshot.size >= 3) return false;
+
+                let widgetExists = false;
+                widgetsSnapshot.forEach(doc => {
+                    if (doc.data().itemName === itemName) widgetExists = true;
+                });
+                if (widgetExists) return false;
+
+                const purchasesRef = collection(db, "users", currentUser.uid, "purchases");
+                const allPurchasesSnapshot = await getDocs(purchasesRef);
+                
+                let purchaseCount = 0;
+                allPurchasesSnapshot.forEach(doc => {
+                    const purchase = doc.data();
+                    if (purchase.items && purchase.items.find(item => item.name === itemName)) {
+                        purchaseCount++;
+                    }
+                });
+
+                const FREQUENCY_THRESHOLD = 3;
+                if (purchaseCount >= FREQUENCY_THRESHOLD) {
+                    await addDoc(widgetsRef, {
+                        itemName,
+                        itemPrice,
+                        storeName,
+                        createdAt: Timestamp.now()
+                    });
+                    return true;
+                }
+            } catch (error) {
+                console.error("Error checking/creating frequent widget:", error);
+            }
+            
+            return false;
+        }
 
         async function logPurchase() {
             if (cart.length === 0) return;
@@ -493,6 +545,12 @@ async function main() {
                     longestStreak: longestStreak,
                     lastLogDate: Timestamp.now()
                 });
+                
+                // --- MODIFICATION: Check each item in the cart for widget creation ---
+                for (const item of cart) {
+                    await checkAndCreateFrequentWidget(db, item.name, item.price, storeName);
+                }
+                // --- END OF MODIFICATION ---
 
                 userBalance = newBalance;
                 updateBalanceDisplay(true);
@@ -556,7 +614,7 @@ async function main() {
             if (lowerCat.includes('meal')) return '🍱';
 
             const keywords = {
-                '☕': ['coffee', 'latte', 'espresso', 'cappuccino', 'mocha'],'🍵': ['tea', 'chai'],'🥤': ['soda', 'coke', 'pepsi', 'sprite', 'fanta'],'🧃': ['juice', 'smoothie'],'💧': ['water', 'aqua', 'dasani', 'evian', 'fiji'],'🥛': ['milk'],'🍺': ['beer'],'🍷': ['wine'],'🍾': ['champagne', 'prosecco'],'⚡': ['energy', 'monster', 'red bull', 'rockstar'],'🏃': ['gatorade', 'powerade', 'sport'],'🍔': ['burger'],'🍟': ['fries', 'french fry'],'🍕': ['pizza'],'🥪': ['sandwich', 'sub', 'wrap', 'panini'],'🌮': ['taco', 'burrito', 'quesadilla'],'🍝': ['pasta', 'spaghetti', 'noodle'],'🍜': ['soup', 'ramen', 'pho'],'🥗': ['salad'],'🍗': ['chicken', 'wing'],'🍖': ['meat', 'steak', 'beef', 'pork'],'🐟': ['fish', 'salmon', 'tuna', 'seafood'],'🍞': ['bread', 'toast'],'🥐': ['croissant', 'pastry'],'🥯': ['bagel'],'🧁': ['cupcake', 'muffin'],'🍰': ['cake'],'🍪': ['cookie', 'oreo', 'biscuit'],'🍩': ['donut', 'doughnut'],'🍫': ['chocolate', 'hershey', 'snickers', 'kit kat', 'twix'],'🍬': ['candy', 'sweet', 'lollipop', 'gummy'],'🍭': ['lollipop', 'sucker'],'🍿': ['popcorn', 'pop corn'],'🥨': ['pretzel'],'🥜': ['nut', 'peanut', 'almond', 'cashew'],'🌰': ['chestnut'],'🥔': ['potato', 'chip'],'🧀': ['cheese', 'cheddar', 'mozzarella'],'🥚': ['egg'],'🥓': ['bacon'],'🥞': ['pancake', 'waffle'],'🍦': ['ice cream', 'gelato'],'🧊': ['ice', 'frozen'],'🍎': ['apple'],'🍊': ['orange', 'citrus'],'🍌': ['banana'],'�': ['strawberry', 'berry'],'🍇': ['grape'],'🥕': ['carrot'],'🥦': ['broccoli'],'🌽': ['corn'],'🥒': ['cucumber', 'pickle'],'🍅': ['tomato'],'🥑': ['avocado', 'guac'],'🌶️': ['pepper', 'spicy', 'hot'],'🧂': ['salt', 'seasoning'],'🍯': ['honey'],'🥫': ['can', 'soup', 'beans'],'🍱': ['bento', 'meal', 'lunch'],'🥡': ['takeout', 'chinese'],'🧋': ['boba', 'bubble tea'],
+                '☕': ['coffee', 'latte', 'espresso', 'cappuccino', 'mocha'],'🍵': ['tea', 'chai'],'🥤': ['soda', 'coke', 'pepsi', 'sprite', 'fanta'],'🧃': ['juice', 'smoothie'],'💧': ['water', 'aqua', 'dasani', 'evian', 'fiji'],'🥛': ['milk'],'🍺': ['beer'],'🍷': ['wine'],'🍾': ['champagne', 'prosecco'],'⚡': ['energy', 'monster', 'red bull', 'rockstar'],'🏃': ['gatorade', 'powerade', 'sport'],'🍔': ['burger'],'🍟': ['fries', 'french fry'],'🍕': ['pizza'],'🥪': ['sandwich', 'sub', 'wrap', 'panini'],'🌮': ['taco', 'burrito', 'quesadilla'],'🍝': ['pasta', 'spaghetti', 'noodle'],'🍜': ['soup', 'ramen', 'pho'],'🥗': ['salad'],'🍗': ['chicken', 'wing'],'🍖': ['meat', 'steak', 'beef', 'pork'],'🐟': ['fish', 'salmon', 'tuna', 'seafood'],'🍞': ['bread', 'toast'],'🥐': ['croissant', 'pastry'],'🥯': ['bagel'],'🧁': ['cupcake', 'muffin'],'�': ['cake'],'🍪': ['cookie', 'oreo', 'biscuit'],'🍩': ['donut', 'doughnut'],'🍫': ['chocolate', 'hershey', 'snickers', 'kit kat', 'twix'],'🍬': ['candy', 'sweet', 'lollipop', 'gummy'],'🍭': ['lollipop', 'sucker'],'🍿': ['popcorn', 'pop corn'],'🥨': ['pretzel'],'🥜': ['nut', 'peanut', 'almond', 'cashew'],'🌰': ['chestnut'],'🥔': ['potato', 'chip'],'🧀': ['cheese', 'cheddar', 'mozzarella'],'🥚': ['egg'],'🥓': ['bacon'],'🥞': ['pancake', 'waffle'],'🍦': ['ice cream', 'gelato'],'🧊': ['ice', 'frozen'],'🍎': ['apple'],'🍊': ['orange', 'citrus'],'🍌': ['banana'],'🍓': ['strawberry', 'berry'],'🍇': ['grape'],'🥕': ['carrot'],'🥦': ['broccoli'],'🌽': ['corn'],'🥒': ['cucumber', 'pickle'],'🍅': ['tomato'],'🥑': ['avocado', 'guac'],'🌶️': ['pepper', 'spicy', 'hot'],'🧂': ['salt', 'seasoning'],'🍯': ['honey'],'🥫': ['can', 'soup', 'beans'],'🍱': ['bento', 'meal', 'lunch'],'🥡': ['takeout', 'chinese'],'🧋': ['boba', 'bubble tea'],
             };
 
             for (const emoji in keywords) {
