@@ -822,11 +822,50 @@ body {
 .pfp-modal h2 { margin-top: 0; font-family: 'Patrick Hand', cursive; font-size: 2rem; }
 .pfp-preview { width: 128px; height: 128px; border-radius: 50%; border: 3px solid var(--border-color); margin: 1rem auto; object-fit: cover; }
 .pfp-buttons { display: flex; gap: 1rem; margin-top: 1.5rem; }
-.pfp-button { flex: 1; padding: 0.75rem 1rem; border-radius: 50px; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s ease; }
-.upload-button { background-color: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); }
-.upload-button:hover { background-color: var(--border-color); }
-.save-button { background-color: var(--brand-secondary); color: white; }
-.save-button:hover { background-color: var(--brand-primary); }
+
+.pfp-button {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    border-radius: 12px;
+    font-weight: 700;
+    border-style: solid;
+    border-width: 2px;
+    cursor: pointer;
+    transition: all 0.15s ease-out;
+    font-size: 0.9rem;
+    border-bottom-width: 5px;
+}
+
+.pfp-button:hover {
+    transform: translateY(-2px);
+    border-bottom-width: 7px;
+}
+
+.pfp-button:active {
+    transform: translateY(1px);
+    border-bottom-width: 2px;
+    transition-duration: 0.05s;
+}
+
+.upload-button {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border-color: var(--wood-dark);
+}
+
+.upload-button:hover {
+    background-color: #f7f2e5;
+}
+
+.save-button {
+    background-color: var(--brand-secondary);
+    color: white;
+    border-color: #388E3C;
+}
+.save-button:hover {
+    background-color: var(--brand-primary);
+}
+
 #pfp-upload-input { display: none; }
 .close-button { position: absolute; top: 10px; right: 15px; background: none; border: none; color: var(--text-secondary); font-size: 2rem; cursor: pointer; }
 .error-message { color: #c0392b; font-weight: 500; margin-top: 1rem; min-height: 1.2em; }
@@ -888,38 +927,43 @@ body {
     box-shadow: inset 0 1px 1px rgba(0,0,0,0.2);
 }
 
-/* Delete Account Button in Modal - NEW SUBTLE STYLE */
+/* Delete Account Button in Modal - Back to 3D but more subtle */
 .delete-account-btn {
     width: 100%;
-    padding: 0.75rem 1rem;
-    font-size: 1rem;
+    padding: 0.6rem 1rem; /* Slightly smaller padding */
+    font-size: 0.9rem; /* Slightly smaller font */
     font-family: 'Nunito', sans-serif;
     font-weight: 700;
-    color: var(--brand-danger); /* Red text */
+    color: white;
     cursor: pointer;
-    transition: all 0.2s ease-out;
-    background-color: transparent; /* Transparent background */
-    border: 2px solid var(--brand-danger); /* Red border */
-    border-radius: 50px; /* Match other modal buttons */
+    transition: all 0.15s ease-out;
+    background: linear-gradient(180deg, #e57373 0%, #d32f2f 100%);
+    border: 2px solid #a02424;
+    border-radius: 12px;
+    border-bottom: 5px solid #a02424;
+    box-shadow: inset 0 -2px 1px rgba(0,0,0,0.2);
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     display: flex;
     align-items: center;
     justify-content: center;
 }
 .delete-account-btn:hover {
-    background-color: var(--brand-danger); /* Fill with red on hover */
-    color: white; /* White text on hover */
-    box-shadow: 0 4px 15px rgba(211, 47, 47, 0.3);
+    background: linear-gradient(180deg, #ef9a9a 0%, #e57373 100%);
     transform: translateY(-2px);
+    border-bottom-width: 7px;
 }
 .delete-account-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 8px rgba(211, 47, 47, 0.2);
+    transform: translateY(2px);
+    border-bottom-width: 2px;
+    box-shadow: inset 0 1px 1px rgba(0,0,0,0.3);
+    transition-duration: 0.05s;
 }
 
 
 /* Confirmation Modal Delete Button */
 #delete-confirm-button {
     background-color: var(--brand-danger) !important; /* Use important to override existing styles */
+    border-color: #a02424 !important;
 }
 #delete-confirm-button:hover {
     background-color: #e57373 !important;
