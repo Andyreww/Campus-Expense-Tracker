@@ -30,6 +30,7 @@ async function main() {
         let customStores = [];
         let currentStoreId = 'ross'; // 'ross' for the default market
         let currentStoreCurrency = 'dollars'; // Default currency
+        let walletToAnimate = null; // Used to trigger wallet shake animation
 
         // --- DOM ELEMENTS ---
         const header = document.querySelector('.shop-header');
@@ -110,7 +111,8 @@ async function main() {
             unsubscribeUserDoc = onSnapshot(userDocRef, (docSnap) => {
                 if (docSnap.exists()) {
                     userBalances = docSnap.data().balances || {};
-                    renderAllWallets(false);
+                    renderAllWallets(walletToAnimate); // Pass animation trigger
+                    walletToAnimate = null; // Reset trigger after use
                     calculateProjection();
                 }
             });
@@ -250,7 +252,7 @@ async function main() {
         }
 
         // --- RENDERING ---
-        function renderAllWallets(animate = false) {
+        function renderAllWallets(animatedWallet = null) {
             const walletWrapper = document.getElementById('wallets-group');
             if (!walletWrapper) return;
             walletWrapper.innerHTML = '';
@@ -258,16 +260,20 @@ async function main() {
             const diningDollars = userBalances.dining || 0;
             const diningWallet = document.createElement('div');
             diningWallet.className = 'wallet-container';
+            diningWallet.id = 'dining-dollars-wallet';
             diningWallet.innerHTML = `<div class="wallet-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="6" width="18" height="12" rx="2" fill="#4CAF50" /><circle cx="12" cy="12" r="3" fill="#FFFDF7"/><path d="M12 10.5V13.5M13 11.5H11" stroke="#4A2C2A" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="wallet-details"><div class="wallet-label">Dining Dollars</div><div class="wallet-amount">$${diningDollars.toFixed(2)}</div></div>`;
             walletWrapper.appendChild(diningWallet);
 
             const credits = userBalances.credits || 0;
             const creditsWallet = document.createElement('div');
             creditsWallet.className = 'wallet-container';
+            creditsWallet.id = 'campus-credits-wallet';
             creditsWallet.innerHTML = `<div class="wallet-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8.5C18 5.46243 15.3137 3 12 3C8.68629 3 6 5.46243 6 8.5C6 10.4462 6.94878 12.1643 8.40993 13.2218C8.43542 13.2403 8.46154 13.2579 8.48828 13.2747L9 13.5858V16.5C9 17.0523 9.44772 17.5 10 17.5H14C14.5523 17.5 15 17.0523 15 16.5V13.5858L15.5117 13.2747C15.5385 13.2579 15.5646 13.2403 15.5901 13.2218C17.0512 12.1643 18 10.4462 18 8.5Z" fill="#D97706"/><path d="M12 21C13.1046 21 14 20.1046 14 19H10C10 20.1046 10.8954 21 12 21Z" fill="#FBBF24"/><path d="M12 5.5L13.5 8.5L16.5 9L14.5 11L15 14L12 12.5L9 14L9.5 11L7.5 9L10.5 8.5L12 5.5Z" fill="#FBBF24"/></svg></div><div class="wallet-details"><div class="wallet-label">Campus Credits</div><div class="wallet-amount">$${credits.toFixed(2)}</div></div>`;
             walletWrapper.appendChild(creditsWallet);
 
-            if (animate) {
+            if (animatedWallet === 'dining') {
+                diningWallet.classList.add('hit');
+            } else if (animatedWallet === 'credits') {
                 creditsWallet.classList.add('hit');
             }
         }
@@ -550,6 +556,7 @@ async function main() {
                 // Update Balances
                 if (currentStoreId === 'ross') {
                     // This is for Campus Credits
+                    walletToAnimate = 'credits';
                     const newBalance = (userBalances.credits || 0) - totalCost;
                     const userDocSnap = await getDoc(userDocRef);
                     const { currentStreak = 0, longestStreak = 0, lastLogDate = null } = userDocSnap.data() || {};
@@ -574,6 +581,7 @@ async function main() {
                 } else {
                     // This is for custom stores (Dining Dollars, Swipes, etc.)
                     if (currentStoreCurrency === 'dollars') {
+                        walletToAnimate = 'dining';
                         const newDiningBalance = (userBalances.dining || 0) - totalCost;
                         await updateDoc(userDocRef, {
                             'balances.dining': newDiningBalance
@@ -639,11 +647,70 @@ async function main() {
 
         function getEmojiForItem(name) {
             const lowerName = name.toLowerCase();
-            const keywords = { '☕': ['coffee', 'latte'], '🥤': ['soda', 'coke', 'juice'], '💧': ['water'], '🍔': ['burger'], '🍕': ['pizza'], '🥪': ['sandwich', 'sub', 'wrap'], '🥗': ['salad'], '🍪': ['cookie'], '🍫': ['chocolate', 'candy'], '🥨': ['pretzel', 'chip'], '🍎': ['apple'], '🍌': ['banana'], '🍦': ['ice cream'], '🍱': ['meal', 'bento'] };
+            const keywords = {
+                // Drinks
+                '☕': ['coffee', 'latte', 'espresso', 'cappuccino', 'mocha'],
+                '🍵': ['tea', 'matcha'],
+                '🥤': ['soda', 'coke', 'pepsi', 'sprite', 'fanta', 'dr pepper'],
+                '🧃': ['juice', 'lemonade', 'smoothie'],
+                '💧': ['water', 'dasani', 'fiji', 'smartwater'],
+                '🥛': ['milk', 'cream'],
+                '🍺': ['beer'],
+                '🍷': ['wine'],
+                '🍹': ['cocktail'],
+        
+                // Meals & Main Courses
+                '🍔': ['burger', 'cheeseburger'],
+                '🍕': ['pizza', 'calzone'],
+                '🥪': ['sandwich', 'sub', 'wrap', 'panini', 'blt'],
+                '🥙': ['gyro', 'kebab', 'shawarma'],
+                '🌮': ['taco', 'burrito', 'quesadilla'],
+                '🌭': ['hot dog', 'sausage'],
+                '🍜': ['ramen', 'pho', 'noodle', 'pasta', 'spaghetti'],
+                '🍣': ['sushi', 'sashimi', 'nigiri'],
+                '🥗': ['salad', 'caesar', 'cobb'],
+                '🍲': ['soup', 'stew', 'chili'],
+                '🍗': ['chicken wing', 'fried chicken', 'nugget'],
+                '🍳': ['egg', 'omelette', 'breakfast'],
+        
+                // Snacks
+                '🍪': ['cookie', 'biscuit'],
+                '🍫': ['chocolate', 'candy', 'snickers', 'm&m', 'kitkat', 'hershey'],
+                '🥨': ['pretzel', 'chip', 'doritos', 'lays', 'cheetos', 'fritos'],
+                '🍿': ['popcorn'],
+                '🍩': ['donut', 'doughnut'],
+                '🍰': ['cake', 'cupcake', 'cheesecake'],
+                '🍦': ['ice cream', 'gelato', 'sorbet', 'froyo'],
+                '🥜': ['nut', 'peanut', 'almond', 'cashew'],
+                '🧀': ['cheese', 'cheez-it'],
+                '🥣': ['cereal', 'oatmeal'],
+                '🥖': ['bread', 'baguette', 'croissant'],
+                '🥯': ['bagel'],
+        
+                // Fruits & Veggies
+                '🍎': ['apple'],
+                '🍌': ['banana'],
+                '🍇': ['grape'],
+                '🍓': ['strawberry', 'berry'],
+                '🍊': ['orange', 'mandarin'],
+                '🍉': ['watermelon'],
+                '🥑': ['avocado', 'guacamole'],
+                '🥕': ['carrot'],
+                '�': ['broccoli'],
+                '🍅': ['tomato'],
+        
+                // Misc
+                '💊': ['medicine', 'advil', 'tylenol', 'pill'],
+                '🍬': ['mint', 'gum'],
+                '🍱': ['meal', 'bento', 'combo']
+            };
+        
             for (const emoji in keywords) {
-                if (keywords[emoji].some(keyword => lowerName.includes(keyword))) return emoji;
+                if (keywords[emoji].some(keyword => lowerName.includes(keyword))) {
+                    return emoji;
+                }
             }
-            return '📦';
+            return '📦'; // Default emoji
         }
         
         // --- NEW DROPDOWN LOGIC ---
