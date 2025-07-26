@@ -236,82 +236,56 @@ function setupEventListeners() {
     if (deleteConfirmModalOverlay) deleteConfirmModalOverlay.addEventListener('click', (e) => {
         if (e.target === deleteConfirmModalOverlay) deleteConfirmModalOverlay.classList.add('hidden');
     });
-    if (deleteConfirmBtn) deleteConfirmBtn.addEventListener('click', deleteUserAccount);
+    if (deleteConfirmBtn) deleteConfirmBtn.addEventListener('click', deleteUserDataAndLogout);
 }
 
 /**
- * Deletes a user's account and all associated data.
- * This is a destructive and irreversible action.
- * It now deletes all data from Firestore/Storage BEFORE deleting the Auth user.
+ * Deletes a user's Firestore data and then logs them out.
+ * This is a "soft delete" - it removes their data but leaves their Auth account.
  */
-async function deleteUserAccount() {
+async function deleteUserDataAndLogout() {
     if (!currentUser || !firebaseServices) return;
 
-    const { db, storage } = firebaseServices;
+    const { db } = firebaseServices;
 
     deleteConfirmBtn.disabled = true;
     deleteConfirmBtn.textContent = 'Deleting...';
     deleteErrorMessage.classList.add('hidden');
 
-    const userId = currentUser.uid;
-    const userToDelete = currentUser; // Keep a reference to the user object
-
     try {
-        // STEP 1: Delete all associated data from Firestore and Storage first.
-        // This must be done while the user is still authenticated.
-        console.log(`User ${userId} initiated deletion. Deleting data first...`);
+        const userId = currentUser.uid;
+        console.log(`User ${userId} initiated data deletion...`);
 
+        // Paths to user's Firestore data
         const purchasesPath = `users/${userId}/purchases`;
         const widgetsPath = `users/${userId}/quickLogWidgets`;
         const userDocRef = doc(db, "users", userId);
         const wallOfFameDocRef = doc(db, "wallOfFame", userId);
-        const storageRef = ref(storage, `profile_pictures/${userId}`);
 
-        // Use Promise.all to run deletions in parallel for efficiency
+        // Delete all Firestore data in parallel
         await Promise.all([
             deleteSubcollection(db, purchasesPath),
             deleteSubcollection(db, widgetsPath),
             deleteDoc(wallOfFameDocRef).catch(err => console.log("No Wall of Fame doc to delete:", err.message)),
-            deleteDoc(userDocRef),
-            deleteObject(storageRef).catch(err => {
-                // This catch is important. If the user has no profile picture,
-                // deleteObject will throw an error. We want to catch it and continue.
-                // The CORS error in your logs also suggests a potential issue with Storage permissions/setup.
-                if (err.code !== 'storage/object-not-found') {
-                    console.error("Error deleting profile picture (might be a CORS issue):", err);
-                } else {
-                    console.log("No profile picture to delete.");
-                }
-            })
+            deleteDoc(userDocRef)
         ]);
         
-        console.log(`Successfully deleted data for user ${userId}.`);
+        console.log(`Successfully deleted Firestore data for user ${userId}.`);
 
-        // STEP 2: Now that all data is gone, delete the user from Firebase Authentication.
-        await deleteUser(userToDelete);
-        console.log(`Successfully deleted user ${userId} from Auth.`);
-
-
-        // STEP 3: Redirect the user.
-        window.location.replace('/login.html');
+        // Now, log the user out. The onAuthStateChanged listener in auth.js will handle the redirect.
+        logout();
 
     } catch (error) {
-        console.error("Account Deletion Failed:", error);
-        
-        let errorMessage = 'Failed to delete account. Please try again.';
-        if (error.code === 'auth/requires-recent-login') {
-            errorMessage = 'This is a sensitive action. Please log out and log back in before trying to delete your account.';
-        } else if (error.code === 'permission-denied') {
-            errorMessage = 'Could not delete user data. Please check Firestore security rules.';
+        console.error("Data Deletion Failed:", error);
+        let errorMessage = 'Failed to delete your data. Please try again.';
+        if (error.code === 'permission-denied') {
+            errorMessage = 'Could not delete user data due to a permissions issue.';
         }
-        
         deleteErrorMessage.textContent = errorMessage;
         deleteErrorMessage.classList.remove('hidden');
-
     } finally {
-        // This 'finally' block ensures the button is ALWAYS reset if the process fails,
-        // preventing it from getting stuck on "Deleting...".
-        // If successful, the page redirects before this matters.
+        // Reset button state in case of failure. On success, the user is logged out
+        // so they won't see this anyway.
         deleteConfirmBtn.disabled = false;
         deleteConfirmBtn.textContent = 'Yes, Delete It';
     }
