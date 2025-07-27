@@ -251,6 +251,76 @@ async function main() {
             purchaseHistory = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         }
 
+        // --- FREQUENT PURCHASE WIDGET ---
+        async function checkAndCreateFrequentWidget(db, storeName) {
+            if (!currentUser || cart.length === 0) return;
+
+            try {
+                const widgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
+                const widgetsSnapshot = await getDocs(widgetsRef);
+                
+                // Check if we have reached the max number of widgets (3)
+                if (widgetsSnapshot.size >= 3) {
+                    return;
+                }
+
+                // For each item in the cart, check if it should become a widget
+                for (const cartItem of cart) {
+                    // Check if a widget for this item already exists
+                    let widgetExists = false;
+                    widgetsSnapshot.forEach(doc => {
+                        if (doc.data().itemName === cartItem.name) {
+                            widgetExists = true;
+                        }
+                    });
+                    
+                    if (widgetExists) {
+                        continue; // Skip this item
+                    }
+
+                    // Count past purchases of this specific item
+                    const purchasesRef = collection(db, "users", currentUser.uid, "purchases");
+                    const allPurchasesSnapshot = await getDocs(purchasesRef);
+                    
+                    let purchaseCount = 0;
+                    allPurchasesSnapshot.forEach(doc => {
+                        const purchase = doc.data();
+                        // Check if this purchase contains the item
+                        if (purchase.items && Array.isArray(purchase.items)) {
+                            purchase.items.forEach(item => {
+                                if (item.name === cartItem.name) {
+                                    purchaseCount += item.quantity || 1;
+                                }
+                            });
+                        }
+                    });
+
+                    // Add current purchase quantity
+                    purchaseCount += cartItem.quantity;
+
+                    // If the item has been purchased enough times, create the widget
+                    const FREQUENCY_THRESHOLD = 3;
+                    if (purchaseCount >= FREQUENCY_THRESHOLD) {
+                        await addDoc(widgetsRef, {
+                            itemName: cartItem.name,
+                            itemPrice: cartItem.price,
+                            storeName: storeName,
+                            createdAt: Timestamp.now()
+                        });
+                        console.log(`Created frequent widget for ${cartItem.name} after ${purchaseCount} purchases`);
+                        
+                        // Check if we've reached the limit
+                        const updatedSnapshot = await getDocs(widgetsRef);
+                        if (updatedSnapshot.size >= 3) {
+                            break;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("Error checking/creating frequent widget:", error);
+            }
+        }
+
         // --- RENDERING ---
         function renderAllWallets(animatedWallet = null) {
             const walletWrapper = document.getElementById('wallets-group');
@@ -536,6 +606,14 @@ async function main() {
                 alert("Not enough Dining Dollars!");
                 return;
             }
+            if (currentStoreCurrency === 'swipes' && totalCost > (userBalances.swipes || 0)) {
+                alert("Not enough Meal Swipes!");
+                return;
+            }
+            if (currentStoreCurrency === 'bonus_swipes' && totalCost > (userBalances.bonus || 0)) {
+                alert("Not enough Bonus Swipes!");
+                return;
+            }
         
             logPurchaseBtn.disabled = true;
             logPurchaseBtn.innerHTML = `<span class="loading-spinner" style="display: inline-block; width: 16px; height: 16px; margin-right: 0.5rem;"></span> Processing...`;
@@ -553,7 +631,7 @@ async function main() {
                     purchaseDate: Timestamp.now()
                 });
         
-                // Update Balances
+                // Update Balances based on currency type
                 if (currentStoreId === 'ross') {
                     // This is for Campus Credits
                     walletToAnimate = 'credits';
@@ -579,16 +657,26 @@ async function main() {
                         lastLogDate: Timestamp.now()
                     });
                 } else {
-                    // This is for custom stores (Dining Dollars, Swipes, etc.)
+                    // This is for custom stores
+                    let updateData = {};
+                    
                     if (currentStoreCurrency === 'dollars') {
                         walletToAnimate = 'dining';
                         const newDiningBalance = (userBalances.dining || 0) - totalCost;
-                        await updateDoc(userDocRef, {
-                            'balances.dining': newDiningBalance
-                        });
+                        updateData['balances.dining'] = newDiningBalance;
+                    } else if (currentStoreCurrency === 'swipes') {
+                        const newSwipesBalance = (userBalances.swipes || 0) - totalCost;
+                        updateData['balances.swipes'] = newSwipesBalance;
+                    } else if (currentStoreCurrency === 'bonus_swipes') {
+                        const newBonusBalance = (userBalances.bonus || 0) - totalCost;
+                        updateData['balances.bonus'] = newBonusBalance;
                     }
-                    // No balance update needed for 'swipes' or 'bonus_swipes'
+                    
+                    await updateDoc(userDocRef, updateData);
                 }
+                
+                // Check for frequent purchases and create widgets
+                await checkAndCreateFrequentWidget(db, storeName);
                 
                 cart = [];
                 await loadPurchaseHistory();
@@ -696,7 +784,7 @@ async function main() {
                 '🍉': ['watermelon'],
                 '🥑': ['avocado', 'guacamole'],
                 '🥕': ['carrot'],
-                '�': ['broccoli'],
+                '🥦': ['broccoli'],
                 '🍅': ['tomato'],
         
                 // Misc

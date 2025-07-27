@@ -285,12 +285,29 @@ body {
     border-radius: 0.5rem;
     z-index: 10;
     box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    max-height: 250px;
+    max-height: 300px; /* Increased default height */
     overflow-y: auto;
+    overflow-x: hidden;
     opacity: 0;
     visibility: hidden;
     transform: translateY(-10px);
     transition: all 0.3s ease;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+/* Custom scrollbar for dropdown */
+.custom-options::-webkit-scrollbar {
+    width: 8px;
+}
+.custom-options::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 4px;
+}
+.custom-options::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+.custom-options::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
 }
 .custom-select-wrapper.open .custom-options {
     opacity: 1;
@@ -1179,24 +1196,33 @@ body {
     
     .shop-container {
         padding: 0.75rem;
+        height: calc(100vh - 80px); /* Fixed height */
+        display: flex;
+        flex-direction: column;
     }
     
     .shop-layout {
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 80px);
+        height: 100%;
+        gap: 0.75rem;
+        overflow: hidden;
     }
     
     .store-section {
         padding: 1rem;
         flex: 1;
         min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
     }
     
     .basket-section {
         flex: 0 0 auto;
-        max-height: 50vh;
-        min-height: 300px;
+        height: 40vh;
+        min-height: 250px;
+        max-height: 350px;
     }
     
     .custom-select-wrapper {
@@ -1206,9 +1232,25 @@ body {
         font-size: 1.5rem;
     }
     
+    /* Fix dropdown scrolling on mobile */
+    .custom-options {
+        max-height: 40vh !important; /* Limit height on mobile */
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Ensure item shelves are scrollable */
+    .item-shelves {
+        flex: 1;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        min-height: 0; /* Important for flex scrolling */
+    }
+    
     .item-shelves:not(.loading-message) {
-        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        gap: 0.5rem;
+        padding-bottom: 1rem; /* Add some padding at bottom */
     }
     
     .item-card {
@@ -1226,6 +1268,12 @@ body {
     
     .item-price {
         font-size: 1rem;
+    }
+    
+    /* Ensure categories don't take too much space */
+    .category-tabs {
+        flex-shrink: 0;
+        max-height: 45px;
     }
     
     .basket-tabs {
