@@ -712,24 +712,27 @@ async function renderQuickLogWidgets(db) {
     const q = query(widgetsRef, orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
 
-    quickLogWidgetsContainer.innerHTML = '';
+    const buttonWrapper = quickLogWidgetsContainer.querySelector('.quick-log-buttons') || document.createElement('div');
+    if (!buttonWrapper.parentElement) {
+        buttonWrapper.className = 'quick-log-buttons';
+        quickLogWidgetsContainer.innerHTML = ''; // Clear previous content
+        const title = document.createElement('h3');
+        title.className = 'quick-log-title';
+        title.textContent = 'Favie Log';
+        quickLogWidgetsContainer.appendChild(title);
+        quickLogWidgetsContainer.appendChild(buttonWrapper);
+    } else {
+        buttonWrapper.innerHTML = ''; // Clear only buttons
+    }
 
     if (querySnapshot.empty) {
         quickLogWidgetsContainer.style.display = 'none';
+        quickLogWidgetsContainer.style.setProperty('--shelf-width', '0px');
         return;
     }
 
     const isHomeActive = document.getElementById('home-section')?.classList.contains('active');
     quickLogWidgetsContainer.style.display = isHomeActive ? 'block' : 'none';
-    
-    const title = document.createElement('h3');
-    title.className = 'quick-log-title';
-    title.textContent = 'Favie Log';
-    quickLogWidgetsContainer.appendChild(title);
-
-    const buttonWrapper = document.createElement('div');
-    buttonWrapper.className = 'quick-log-buttons';
-    quickLogWidgetsContainer.appendChild(buttonWrapper);
 
     querySnapshot.forEach(docSnapshot => {
         const widgetData = docSnapshot.data();
@@ -780,6 +783,7 @@ async function renderQuickLogWidgets(db) {
             button.style.transform = 'scale(0.8)';
             setTimeout(() => {
                 button.remove();
+                updateShelfWidth();
                 if (buttonWrapper.querySelectorAll('.quick-log-widget-btn').length === 0) {
                     quickLogWidgetsContainer.style.display = 'none';
                 }
@@ -794,6 +798,23 @@ async function renderQuickLogWidgets(db) {
         button.appendChild(deleteBtn);
         buttonWrapper.appendChild(button);
     });
+
+    // New function to calculate and set shelf width
+    function updateShelfWidth() {
+        // Use a timeout to allow the DOM to update after adding/removing buttons
+        setTimeout(() => {
+            const buttonsWidth = buttonWrapper.offsetWidth;
+            if (buttonsWidth > 0) {
+                // Add some padding to the shelf width
+                const shelfWidth = Math.min(buttonsWidth + 40, quickLogWidgetsContainer.offsetWidth * 0.9);
+                quickLogWidgetsContainer.style.setProperty('--shelf-width', `${shelfWidth}px`);
+            } else {
+                quickLogWidgetsContainer.style.setProperty('--shelf-width', '0px');
+            }
+        }, 50);
+    }
+
+    updateShelfWidth();
 }
 
 function toggleDeleteMode(enable) {
