@@ -179,15 +179,22 @@ body {
     margin-bottom: 3rem; /* Space for divider line */
 }
 
-/* NEW: Divider line */
+/* NEW: Shelf Divider */
 .quick-log-widgets-container::after {
     content: '';
     position: absolute;
-    bottom: -1.5rem; /* Position it below the container */
-    left: 10%;
-    width: 80%;
-    height: 0;
-    border-bottom: 3px dashed rgba(58, 36, 34, 0.2); /* Dashed wood color */
+    bottom: -1.5rem;
+    left: 5%;
+    width: 90%;
+    height: 12px;
+    background: linear-gradient(to bottom, var(--wood-light) 0%, var(--wood-dark) 100%);
+    border-radius: 4px;
+    border: 1px solid #2a1a18;
+    box-shadow: 
+        0 2px 0 rgba(255, 255, 255, 0.1) inset,
+        0 -2px 2px rgba(0, 0, 0, 0.3) inset,
+        0 2px 4px rgba(0, 0, 0, 0.4);
+    z-index: 1;
 }
 
 
