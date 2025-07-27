@@ -15,7 +15,7 @@ let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar,
     newspaperDate, fabContainer, mainFab, customLogBtn, customLogModal, customLogForm,
     customItemName, customItemPrice, customItemStore, customLogCancel, customLogClose, userBioInput,
     quickLogWidgetsContainer, saveAsWidgetCheckbox, openDeleteAccountBtn, deleteConfirmModalOverlay,
-    deleteCancelBtn, deleteConfirmBtn, deleteErrorMessage;
+    deleteCancelBtn, deleteConfirmBtn, deleteErrorMessage, customPaymentType, pricePrefix;
 
 // --- App State ---
 let map = null;
@@ -139,11 +139,12 @@ function assignDOMElements() {
     customItemName = document.getElementById('custom-item-name');
     customItemPrice = document.getElementById('custom-item-price');
     customItemStore = document.getElementById('custom-item-store');
+    customPaymentType = document.getElementById('custom-payment-type');
+    pricePrefix = document.querySelector('.price-prefix');
     customLogCancel = document.getElementById('custom-log-cancel');
     customLogClose = document.getElementById('custom-log-close');
     quickLogWidgetsContainer = document.getElementById('quick-log-widgets-container');
     saveAsWidgetCheckbox = document.getElementById('save-as-widget-checkbox');
-    // New elements for delete functionality
     openDeleteAccountBtn = document.getElementById('open-delete-account-button');
     deleteConfirmModalOverlay = document.getElementById('delete-confirm-modal-overlay');
     deleteCancelBtn = document.getElementById('delete-cancel-button');
@@ -180,7 +181,7 @@ function setupEventListeners() {
         if(e.target === mapModalOverlay) closeMapModal();
     });
 
-    // FAB Logic - Fixed for both mobile and desktop
+    // FAB Logic
     if (mainFab && fabContainer) {
         const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         if (isMobile) {
@@ -197,6 +198,8 @@ function setupEventListeners() {
     }
 
     if (customLogBtn) customLogBtn.addEventListener('click', async () => {
+        await populateLocationsDropdown(db);
+        handlePaymentTypeChange();
         customLogModal.classList.remove('hidden');
         customItemName.focus();
         const saveWidgetContainer = saveAsWidgetCheckbox.closest('.form-group-inline');
@@ -220,17 +223,16 @@ function setupEventListeners() {
         e.preventDefault();
         logCustomPurchase(db);
     });
+    if (customPaymentType) customPaymentType.addEventListener('change', handlePaymentTypeChange);
 
     if (userBioInput) userBioInput.addEventListener('input', handleBioInput);
     
-    // Listener to exit delete mode on mobile
     document.body.addEventListener('click', (e) => {
         if (isDeleteModeActive && !quickLogWidgetsContainer.contains(e.target)) {
             toggleDeleteMode(false);
         }
-    }, true); // Use capture to catch clicks anywhere
+    }, true);
 
-    // Event listeners for delete account functionality
     if (openDeleteAccountBtn) openDeleteAccountBtn.addEventListener('click', () => deleteConfirmModalOverlay.classList.remove('hidden'));
     if (deleteCancelBtn) deleteCancelBtn.addEventListener('click', () => deleteConfirmModalOverlay.classList.add('hidden'));
     if (deleteConfirmModalOverlay) deleteConfirmModalOverlay.addEventListener('click', (e) => {
@@ -239,10 +241,6 @@ function setupEventListeners() {
     if (deleteConfirmBtn) deleteConfirmBtn.addEventListener('click', deleteUserDataAndLogout);
 }
 
-/**
- * Deletes a user's Firestore data and then logs them out.
- * This is a "soft delete" - it removes their data but leaves their Auth account.
- */
 async function deleteUserDataAndLogout() {
     if (!currentUser || !firebaseServices) return;
 
@@ -254,15 +252,11 @@ async function deleteUserDataAndLogout() {
 
     try {
         const userId = currentUser.uid;
-        console.log(`User ${userId} initiated data deletion...`);
-
-        // Paths to user's Firestore data
         const purchasesPath = `users/${userId}/purchases`;
         const widgetsPath = `users/${userId}/quickLogWidgets`;
         const userDocRef = doc(db, "users", userId);
         const wallOfFameDocRef = doc(db, "wallOfFame", userId);
 
-        // Delete all Firestore data in parallel
         await Promise.all([
             deleteSubcollection(db, purchasesPath),
             deleteSubcollection(db, widgetsPath),
@@ -270,9 +264,6 @@ async function deleteUserDataAndLogout() {
             deleteDoc(userDocRef)
         ]);
         
-        console.log(`Successfully deleted Firestore data for user ${userId}.`);
-
-        // Now, log the user out. The onAuthStateChanged listener in auth.js will handle the redirect.
         logout();
 
     } catch (error) {
@@ -284,27 +275,17 @@ async function deleteUserDataAndLogout() {
         deleteErrorMessage.textContent = errorMessage;
         deleteErrorMessage.classList.remove('hidden');
     } finally {
-        // Reset button state in case of failure. On success, the user is logged out
-        // so they won't see this anyway.
         deleteConfirmBtn.disabled = false;
         deleteConfirmBtn.textContent = 'Yes, Delete It';
     }
 }
 
-
-/**
- * Helper function to recursively delete all documents in a subcollection.
- * @param {Firestore} db - The Firestore database instance.
- * @param {string} collectionPath - The path to the subcollection to delete.
- */
 async function deleteSubcollection(db, collectionPath) {
     const collectionRef = collection(db, collectionPath);
     const q = query(collectionRef);
     const snapshot = await getDocs(q);
 
-    if (snapshot.size === 0) {
-        return; // Nothing to delete
-    }
+    if (snapshot.size === 0) return;
 
     const deletePromises = [];
     snapshot.forEach(docSnapshot => {
@@ -312,7 +293,6 @@ async function deleteSubcollection(db, collectionPath) {
     });
 
     await Promise.all(deletePromises);
-    console.log(`All documents in '${collectionPath}' have been deleted.`);
 }
 
 // --- HELPERS ---
@@ -326,109 +306,40 @@ function getPriceLabel(price, currency) {
 }
 
 function containsProfanity(text) {
-    // Comprehensive list of profanity and inappropriate words
-    const profanityList = [
-        // sexual & explicit
-        'fuck','fucking','fucked','shit','shitty','crap','bitch','bastard','dick','cock','pussy',
-        'cunt','asshole','ass','douche','twat','prick','bollocks','bugger','shag','slut','whore',
-        'fag','faggot','dyke','tranny','shemale','kike','spic','chink','gook','beaner','wetback',
-        'nigger','nigga','dyke','retard','idiot','moron','cretin',
-        'jizz','cum','dildo','handjob','blowjob','tits','boobs','penis','vagina','anus',
-        'porn','sex','suck','blow','rape','molest','pedophile','pedo','incest',
-        'motherfucker','mother fucker','motha fucker','cocksucker','cock sucker',
-        'jerkoff','jerk off','clit','titty','twatwaffle','dumbass','asswipe','dumbfuck',
-        'dumb fuck','bullshit','holy shit','holy fuck','fuckedup','fuckup','fuckyou','fuck you',
-        'goddamn','god damn','damn','bloody','frigging','fricking','hell','arse','arsehole',
-        'shite','crikey','crapola','piss','pissed','pissedoff','piss off','shitter','shitface',
-        'shithead','shitshow','shitstorm','pisshead',
-        // hate speech & modern slurs
-        'nazi','hitler','kkk','antisemite','white supremacist','whoreface','slutface',
-        'autistic','autism','schizo','schizophrenic','crazy','insane','lunatic','spastic',
-        'cripple','crip','retard','retarded','gimp','spaz','mong','mongoloid',
-        'feminazi','beanerpede','alfaclan','alien','illegal alien','wetback','raghead',
-        'honky','cracker','coon','coonass','golliwog','raghead','kafir','paki',
-        'jap','chingchong','chink','zipperhead','zipcrow','kraut','polack','slantee',
-        // misc offense, mild abuse, recent slang
-        'wtf','stfu','gtfo','omfg','omg','fml','lmao','rofl','roflmao','suckmydick',
-        'suckmyass','eatmyass','eatmyshit','eatmyshit','kissmyass','kissmyfeet','tosser',
-        'wanker','twatwaffle','clunge','gash','minge','clunge','nudist','nude','pornstar',
-        'escort','stripper','stripclub','cumshot','pearljamer','pearl jammer','gore', 'gory',
-        'neckbeard','incel','simp','stan','wang','dong','meatspin','goatse','lolita',
-        'cp','hentai','lolicon','shota','bestiality','zoophilia','zoophile','beastiality',
-        'beastial','beast','snuff','necrophilia','necrophile','vore','voreplay',
-        'spook','jungle bunny','fried chicken','macaco','macaca',
-        // euphemisms, variants & obfuscations
-        'f u c k','s h i t','s h i t t y','f@ck','sh1t','sh!t','b!tch','c0ck','p!ss','c u n t',
-        'f u c k e d','f u c k i n g','s h i t s h o w','b 1 t c h','grrrrr','damnit','damnit',
-    ];
-    
-    // Convert to lowercase and remove spaces for checking
+    const profanityList = [ 'fuck','fucking','fucked','shit','shitty','crap','bitch','bastard','dick','cock','pussy','cunt','asshole','ass','douche','twat','prick','bollocks','bugger','shag','slut','whore','fag','faggot','dyke','tranny','shemale','kike','spic','chink','gook','beaner','wetback','nigger','nigga','dyke','retard','idiot','moron','cretin','jizz','cum','dildo','handjob','blowjob','tits','boobs','penis','vagina','anus','porn','sex','suck','blow','rape','molest','pedophile','pedo','incest','motherfucker','mother fucker','motha fucker','cocksucker','cock sucker','jerkoff','jerk off','clit','titty','twatwaffle','dumbass','asswipe','dumbfuck','dumb fuck','bullshit','holy shit','holy fuck','fuckedup','fuckup','fuckyou','fuck you','goddamn','god damn','damn','bloody','frigging','fricking','hell','arse','arsehole','shite','crikey','crapola','piss','pissed','pissedoff','piss off','shitter','shitface','shithead','shitshow','shitstorm','pisshead','nazi','hitler','kkk','antisemite','white supremacist','whoreface','slutface','autistic','autism','schizo','schizophrenic','crazy','insane','lunatic','spastic','cripple','crip','retard','retarded','gimp','spaz','mong','mongoloid','feminazi','beanerpede','alfaclan','alien','illegal alien','wetback','raghead','honky','cracker','coon','coonass','golliwog','raghead','kafir','paki','jap','chingchong','chink','zipperhead','zipcrow','kraut','polack','slantee','wtf','stfu','gtfo','omfg','omg','fml','lmao','rofl','roflmao','suckmydick','suckmyass','eatmyass','eatmyshit','eatmyshit','kissmyass','kissmyfeet','tosser','wanker','twatwaffle','clunge','gash','minge','clunge','nudist','nude','pornstar','escort','stripper','stripclub','cumshot','pearljamer','pearl jammer','gore', 'gory','neckbeard','incel','simp','stan','wang','dong','meatspin','goatse','lolita','cp','hentai','lolicon','shota','bestiality','zoophilia','zoophile','beastiality','beastial','beast','snuff','necrophilia','necrophile','vore','voreplay','spook','jungle bunny','fried chicken','macaco','macaca','f u c k','s h i t','s h i t t y','f@ck','sh1t','sh!t','b!tch','c0ck','p!ss','c u n t','f u c k e d','f u c k i n g','s h i t s h o w','b 1 t c h','grrrrr','damnit','damnit', ];
     const cleanText = text.toLowerCase().replace(/\s/g, '');
-    
-    // Check for exact matches and l33t speak variations
     for (const word of profanityList) {
-        // Create pattern for l33t speak (common substitutions)
-        const l33tPattern = word
-            .replace(/a/g, '[a@4]')
-            .replace(/e/g, '[e3]')
-            .replace(/i/g, '[i1!]')
-            .replace(/o/g, '[o0]')
-            .replace(/s/g, '[s5$]')
-            .replace(/t/g, '[t7]')
-            .replace(/g/g, '[g9]')
-            .replace(/l/g, '[l1]')
-            .replace(/z/g, '[z2]');
-        
+        const l33tPattern = word.replace(/a/g, '[a@4]').replace(/e/g, '[e3]').replace(/i/g, '[i1!]').replace(/o/g, '[o0]').replace(/s/g, '[s5$]').replace(/t/g, '[t7]').replace(/g/g, '[g9]').replace(/l/g, '[l1]').replace(/z/g, '[z2]');
         const regex = new RegExp(l33tPattern, 'i');
-        if (regex.test(cleanText) || cleanText.includes(word)) {
-            return true;
-        }
+        if (regex.test(cleanText) || cleanText.includes(word)) return true;
     }
-    
     return false;
 }
 
 function handleBioInput() {
     if (!userBioInput) return;
-
     const maxLength = 15;
     const warningThreshold = 8;
     let currentLength = userBioInput.value.length;
-
-    // THE FIX: Enforce the max length by trimming the value
     if (currentLength > maxLength) {
         userBioInput.value = userBioInput.value.substring(0, maxLength);
         currentLength = maxLength;
     }
-
-    // Check for profanity
     if (containsProfanity(userBioInput.value)) {
         userBioInput.classList.add('bio-danger');
         if (!document.getElementById('bio-profanity-warning')) {
             const warning = document.createElement('div');
             warning.id = 'bio-profanity-warning';
             warning.className = 'profanity-warning-note';
-            warning.innerHTML = `
-                <div class="warning-paper">
-                    <div class="warning-tape"></div>
-                    <div class="warning-content">
-                        <span class="warning-emoji">🙊</span>
-                        <span class="warning-text">Whoa there, friend!</span>
-                        <span class="warning-subtext">Let's keep it family-friendly</span>
-                    </div>
-                </div>
-            `;
+            warning.innerHTML = `<div class="warning-paper"><div class="warning-tape"></div><div class="warning-content"><span class="warning-emoji">🙊</span><span class="warning-text">Whoa there, friend!</span><span class="warning-subtext">Let's keep it family-friendly</span></div></div>`;
             userBioInput.parentElement.appendChild(warning);
         }
         return;
     } else {
-        // Remove profanity warning if it exists
         const warning = document.getElementById('bio-profanity-warning');
         if (warning) warning.remove();
     }
-
     userBioInput.classList.remove('bio-warning', 'bio-danger');
-
     if (currentLength >= maxLength) {
         userBioInput.classList.add('bio-danger');
     } else if (currentLength >= warningThreshold) {
@@ -462,9 +373,7 @@ function switchTab(sectionId, db) {
 
         if (sectionId === 'leaderboard-section') {
             publicLeaderboardContainer.classList.remove('hidden');
-            if (db) {
-                fetchAndRenderLeaderboard(db);
-            }
+            if (db) fetchAndRenderLeaderboard(db);
         } else {
             publicLeaderboardContainer.classList.add('hidden');
         }
@@ -482,15 +391,9 @@ function handleInitialTab() {
 }
 
 function openMapModal() {
-    if (!map) {
-        initializeMap();
-    }
+    if (!map) initializeMap();
     mapModalOverlay.classList.remove('hidden');
-    setTimeout(() => {
-        if (map) {
-            map.invalidateSize();
-        }
-    }, 300);
+    setTimeout(() => { if (map) map.invalidateSize(); }, 300);
 }
 
 function closeMapModal() {
@@ -515,10 +418,7 @@ function closeModal() {
     pfpUploadInput.value = '';
     selectedPfpFile = null;
     pfpError.classList.add('hidden');
-    if (userBioInput) {
-        userBioInput.value = currentUser.bio || '';
-    }
-    // Remove any profanity warnings when closing
+    if (userBioInput) userBioInput.value = currentUser.bio || '';
     const warning = document.getElementById('bio-profanity-warning');
     if (warning) warning.remove();
 }
@@ -532,7 +432,6 @@ function closeCustomLogModal() {
 function handlePfpUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-
     if (!file.type.startsWith('image/')) {
         pfpError.textContent = 'Please select an image file.';
         pfpError.classList.remove('hidden');
@@ -543,27 +442,19 @@ function handlePfpUpload(e) {
         pfpError.classList.remove('hidden');
         return;
     }
-    
     pfpError.classList.add('hidden');
     selectedPfpFile = file;
-
     const reader = new FileReader();
-    reader.onload = (event) => {
-        pfpPreview.src = event.target.result;
-    };
+    reader.onload = (event) => { pfpPreview.src = event.target.result; };
     reader.readAsDataURL(file);
 }
 
 async function saveProfile(storage, db) {
     if (!currentUser) return;
-
     pfpSaveButton.disabled = true;
     pfpSaveButton.textContent = 'Saving...';
     pfpError.classList.add('hidden');
-
     const newBio = userBioInput.value.trim();
-    
-    // Check for profanity before saving
     if (containsProfanity(newBio)) {
         pfpError.textContent = 'Please use appropriate language in your status.';
         pfpError.classList.remove('hidden');
@@ -571,38 +462,26 @@ async function saveProfile(storage, db) {
         pfpSaveButton.textContent = 'Save Changes';
         return;
     }
-    
     const updateData = { bio: newBio };
-
     try {
         if (selectedPfpFile) {
             const storageRef = ref(storage, `profile_pictures/${currentUser.uid}`);
             const snapshot = await uploadBytes(storageRef, selectedPfpFile);
             const downloadURL = await getDownloadURL(snapshot.ref);
-            
             updateData.photoURL = downloadURL;
             await updateProfile(currentUser, { photoURL: downloadURL });
             updateAvatar(downloadURL, currentUser.displayName);
         }
-
         const userDocRef = doc(db, "users", currentUser.uid);
         await updateDoc(userDocRef, updateData);
         currentUser.bio = newBio;
-
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists() && userDocSnap.data().showOnWallOfFame) {
             const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
             const { displayName, photoURL, currentStreak } = userDocSnap.data();
-            await setDoc(wallOfFameDocRef, {
-                displayName,
-                photoURL,
-                currentStreak: currentStreak || 0,
-                bio: newBio
-            }, { merge: true });
+            await setDoc(wallOfFameDocRef, { displayName, photoURL, currentStreak: currentStreak || 0, bio: newBio }, { merge: true });
         }
-
         closeModal();
-
     } catch (error) {
         console.error("Profile Save Error:", error);
         pfpError.textContent = 'Save failed. Please try again.';
@@ -613,71 +492,87 @@ async function saveProfile(storage, db) {
     }
 }
 
-/**
- * Checks if an item is purchased frequently and creates a widget if it is.
- * @param {Firestore} db - The Firestore database instance.
- * @param {string} itemName - The name of the item purchased.
- * @param {number} itemPrice - The price of the item.
- * @param {string} storeName - The name of the store.
- * @returns {Promise<boolean>} - True if a widget was created, false otherwise.
- */
 async function checkAndCreateFrequentWidget(db, itemName, itemPrice, storeName) {
     if (!currentUser) return false;
-
     try {
         const widgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
         const widgetsSnapshot = await getDocs(widgetsRef);
-        
-        // 1. Check if we have reached the max number of widgets (3)
-        if (widgetsSnapshot.size >= 3) {
-            return false;
-        }
-
-        // 2. Check if a widget for this item already exists
+        if (widgetsSnapshot.size >= 3) return false;
         let widgetExists = false;
-        widgetsSnapshot.forEach(doc => {
-            if (doc.data().itemName === itemName) {
-                widgetExists = true;
-            }
-        });
-        if (widgetExists) {
-            return false;
-        }
-
-        // 3. Count past purchases of this specific item
+        widgetsSnapshot.forEach(doc => { if (doc.data().itemName === itemName) widgetExists = true; });
+        if (widgetExists) return false;
         const purchasesRef = collection(db, "users", currentUser.uid, "purchases");
         const allPurchasesSnapshot = await getDocs(purchasesRef);
-        
         let purchaseCount = 0;
         allPurchasesSnapshot.forEach(doc => {
             const purchase = doc.data();
-            // Check if the purchase has an items array and the first item's name matches
-            if (purchase.items && purchase.items.length > 0 && purchase.items[0].name === itemName) {
-                purchaseCount++;
-            }
+            if (purchase.items && purchase.items.length > 0 && purchase.items[0].name === itemName) purchaseCount++;
         });
-
-        // 4. If the item has been purchased enough times, create the widget
         const FREQUENCY_THRESHOLD = 3;
         if (purchaseCount >= FREQUENCY_THRESHOLD) {
-            await addDoc(widgetsRef, {
-                itemName,
-                itemPrice,
-                storeName,
-                currency: 'dollars',
-                balanceType: 'credits',
-                createdAt: Timestamp.now()
-            });
-            return true; // Indicate that a widget was created
+            await addDoc(widgetsRef, { itemName, itemPrice, storeName, currency: 'dollars', balanceType: 'credits', createdAt: Timestamp.now() });
+            return true;
         }
-
     } catch (error) {
         console.error("Error checking/creating frequent widget:", error);
     }
-    
-    return false; // No widget was created
+    return false;
 }
 
+function handlePaymentTypeChange() {
+    if (!customPaymentType || !pricePrefix || !customItemPrice) return;
+    const selectedType = customPaymentType.value;
+    const priceInput = customItemPrice;
+    
+    if (selectedType === 'swipes' || selectedType === 'bonus') {
+        pricePrefix.textContent = 'x';
+        priceInput.step = "1";
+        priceInput.min = "1";
+        priceInput.placeholder = "1";
+        priceInput.value = "1";
+    } else {
+        pricePrefix.textContent = '$';
+        priceInput.step = "0.01";
+        priceInput.min = "0";
+        priceInput.placeholder = "0.00";
+        priceInput.value = "";
+    }
+}
+
+async function populateLocationsDropdown(db) {
+    if (!currentUser || !customItemStore) return;
+    customItemStore.innerHTML = '<option>Loading...</option>';
+    
+    try {
+        const storesRef = collection(db, "users", currentUser.uid, "customStores");
+        const q = query(storesRef, orderBy("name"));
+        const querySnapshot = await getDocs(q);
+
+        customItemStore.innerHTML = '';
+
+        const rossOption = document.createElement('option');
+        rossOption.value = "Ross Granville Market";
+        rossOption.textContent = "Ross Granville Market";
+        customItemStore.appendChild(rossOption);
+
+        querySnapshot.forEach(doc => {
+            const store = doc.data();
+            const option = document.createElement('option');
+            option.value = store.name;
+            option.textContent = store.name;
+            customItemStore.appendChild(option);
+        });
+
+        const otherOption = document.createElement('option');
+        otherOption.value = "Other";
+        otherOption.textContent = "Other Location";
+        customItemStore.appendChild(otherOption);
+
+    } catch (error) {
+        console.error("Error fetching custom stores for dropdown:", error);
+        customItemStore.innerHTML = '<option value="Other">Could not load stores</option>';
+    }
+}
 
 async function logCustomPurchase(db) {
     if (!currentUser) return;
@@ -686,6 +581,7 @@ async function logCustomPurchase(db) {
     const itemPrice = parseFloat(customItemPrice.value);
     const storeName = customItemStore.value;
     const shouldSaveWidget = saveAsWidgetCheckbox.checked;
+    const paymentType = customPaymentType.value;
 
     if (!itemName || isNaN(itemPrice) || itemPrice <= 0) {
         alert('Please fill in all fields correctly');
@@ -695,10 +591,17 @@ async function logCustomPurchase(db) {
     const userDocRef = doc(db, "users", currentUser.uid);
     const userDoc = await getDoc(userDocRef);
     const userData = userDoc.data();
-    const currentBalance = userData.balances.credits;
+    const balances = userData.balances;
+    const currentBalance = balances[paymentType] || 0;
 
     if (itemPrice > currentBalance) {
-        alert("Not enough credits!");
+        const balanceNameMap = {
+            credits: 'Campus Credits',
+            dining: 'Dining Dollars',
+            swipes: 'Meal Swipes',
+            bonus: 'Bonus Swipes'
+        };
+        alert(`Not enough ${balanceNameMap[paymentType]}!`);
         return;
     }
 
@@ -718,19 +621,15 @@ async function logCustomPurchase(db) {
             lastDate.setHours(0, 0, 0, 0);
             const diffTime = today - lastDate;
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            if (diffDays === 1) {
-                currentStreak++;
-            } else if (diffDays > 1) {
-                currentStreak = 1;
-            }
+            if (diffDays === 1) currentStreak++;
+            else if (diffDays > 1) currentStreak = 1;
         } else {
             currentStreak = 1;
         }
+        if (currentStreak > longestStreak) longestStreak = currentStreak;
 
-        if (currentStreak > longestStreak) {
-            longestStreak = currentStreak;
-        }
+        const currencyMap = { credits: 'dollars', dining: 'dollars', swipes: 'swipes', bonus: 'bonus_swipes' };
+        const currency = currencyMap[paymentType];
 
         const purchaseRef = collection(db, "users", currentUser.uid, "purchases");
         await addDoc(purchaseRef, {
@@ -738,16 +637,19 @@ async function logCustomPurchase(db) {
             total: itemPrice,
             store: storeName,
             purchaseDate: Timestamp.now(),
-            isCustom: true
+            isCustom: true,
+            currency: currency,
+            balanceType: paymentType
         });
 
         const newBalance = currentBalance - itemPrice;
-        await updateDoc(userDocRef, {
-            "balances.credits": newBalance,
+        const updatePayload = {
+            [`balances.${paymentType}`]: newBalance,
             currentStreak: currentStreak,
             longestStreak: longestStreak,
             lastLogDate: Timestamp.now()
-        });
+        };
+        await updateDoc(userDocRef, updatePayload);
         
         if (shouldSaveWidget) {
             const quickLogWidgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
@@ -757,19 +659,14 @@ async function logCustomPurchase(db) {
                 const existingWidgets = await getDocs(q);
                 if (existingWidgets.empty) {
                     await addDoc(quickLogWidgetsRef, {
-                        itemName,
-                        itemPrice,
-                        storeName,
-                        currency: 'dollars',
-                        balanceType: 'credits',
+                        itemName, itemPrice, storeName,
+                        currency: currency,
+                        balanceType: paymentType,
                         createdAt: Timestamp.now()
                     });
                     widgetCreated = true;
                 }
             }
-        } else {
-            // If user didn't manually save, check if it's a frequent purchase
-            widgetCreated = await checkAndCreateFrequentWidget(db, itemName, itemPrice, storeName);
         }
 
         if (userData.showOnWallOfFame && currentUser?.uid) {
@@ -782,17 +679,20 @@ async function logCustomPurchase(db) {
             }, { merge: true });
         }
 
-        creditsBalanceEl.textContent = `$${newBalance.toFixed(2)}`;
-        const walletContainer = document.querySelector('.wallet-container, .table-item.item-credits');
-        if (walletContainer) {
-            walletContainer.classList.add('hit');
-            setTimeout(() => walletContainer.classList.remove('hit'), 600);
+        const updatedBalances = { ...balances, [paymentType]: newBalance };
+        updateBalancesUI(updatedBalances);
+
+        const balanceMap = {
+            credits: 'credits-card', dining: 'dining-card',
+            swipes: 'swipes-card', bonus: 'bonus-card'
+        };
+        const cardToAnimate = document.getElementById(balanceMap[paymentType]);
+        if (cardToAnimate) {
+            cardToAnimate.classList.add('hit');
+            setTimeout(() => cardToAnimate.classList.remove('hit'), 600);
         }
 
-        if (widgetCreated) {
-            await renderQuickLogWidgets(db);
-        }
-
+        if (widgetCreated) await renderQuickLogWidgets(db);
         closeCustomLogModal();
         showSuccessMessage(`✓ Logged: ${itemName}`);
 
@@ -812,7 +712,7 @@ async function renderQuickLogWidgets(db) {
     const q = query(widgetsRef, orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
 
-    quickLogWidgetsContainer.innerHTML = ''; // Clear existing
+    quickLogWidgetsContainer.innerHTML = '';
 
     if (querySnapshot.empty) {
         quickLogWidgetsContainer.style.display = 'none';
@@ -840,43 +740,27 @@ async function renderQuickLogWidgets(db) {
         let priceLabel;
 
         if (currency === 'dollars') {
-            // Differentiate between dining and credits
-            if (balanceType === 'dining') {
-                priceLabel = `DD $${itemPrice.toFixed(2)}`;
-            } else { // 'credits' or default
-                priceLabel = `CC $${itemPrice.toFixed(2)}`;
-            }
+            if (balanceType === 'dining') priceLabel = `DD $${itemPrice.toFixed(2)}`;
+            else priceLabel = `CC $${itemPrice.toFixed(2)}`;
         } else if (currency === 'swipes') {
             priceLabel = `${itemPrice} Meal Swipe${itemPrice !== 1 ? 's' : ''}`;
         } else if (currency === 'bonus_swipes') {
             priceLabel = `${itemPrice} Bonus Swipe${itemPrice !== 1 ? 's' : ''}`;
         } else {
-            // Fallback for any other case
             priceLabel = getPriceLabel(itemPrice, currency);
         }
 
-        button.innerHTML = `
-            <span class="widget-name">${widgetData.itemName}</span>
-            <span class="widget-price">${priceLabel}</span>
-        `;
-        
+        button.innerHTML = `<span class="widget-name">${widgetData.itemName}</span><span class="widget-price">${priceLabel}</span>`;
         button.title = `Log ${widgetData.itemName} (${priceLabel})`;
         
         button.addEventListener('click', (e) => {
-            if (isDeleteModeActive) {
-                e.preventDefault();
-                return;
-            }
+            if (isDeleteModeActive) { e.preventDefault(); return; }
             logFromWidget(db, widgetData, button);
         });
         
-        // Mobile Press and Hold Logic
         button.addEventListener('touchstart', (e) => {
             if (isDeleteModeActive) return;
-            pressTimer = setTimeout(() => {
-                e.preventDefault();
-                toggleDeleteMode(true);
-            }, 500); // 500ms for a long press
+            pressTimer = setTimeout(() => { e.preventDefault(); toggleDeleteMode(true); }, 500);
         }, { passive: true });
 
         button.addEventListener('touchend', () => clearTimeout(pressTimer));
@@ -896,20 +780,15 @@ async function renderQuickLogWidgets(db) {
             button.style.transform = 'scale(0.8)';
             setTimeout(() => {
                 button.remove();
-                const remainingButtons = buttonWrapper.querySelectorAll('.quick-log-widget-btn');
-                if (remainingButtons.length === 0) {
+                if (buttonWrapper.querySelectorAll('.quick-log-widget-btn').length === 0) {
                     quickLogWidgetsContainer.style.display = 'none';
                 }
             }, 300);
         };
         
         deleteBtn.addEventListener('click', deleteHandler);
-        // Also listen for touchend on mobile to ensure it fires reliably
         deleteBtn.addEventListener('touchend', (e) => {
-             if (isDeleteModeActive) {
-                e.preventDefault();
-                deleteHandler(e);
-             }
+             if (isDeleteModeActive) { e.preventDefault(); deleteHandler(e); }
         });
 
         button.appendChild(deleteBtn);
@@ -919,11 +798,8 @@ async function renderQuickLogWidgets(db) {
 
 function toggleDeleteMode(enable) {
     isDeleteModeActive = enable;
-    if (enable) {
-        quickLogWidgetsContainer.classList.add('delete-mode');
-    } else {
-        quickLogWidgetsContainer.classList.remove('delete-mode');
-    }
+    if (enable) quickLogWidgetsContainer.classList.add('delete-mode');
+    else quickLogWidgetsContainer.classList.remove('delete-mode');
 }
 
 async function logFromWidget(db, widgetData, buttonEl) {
@@ -963,17 +839,12 @@ async function logFromWidget(db, widgetData, buttonEl) {
             lastDate.setHours(0, 0, 0, 0);
             const diffTime = today.getTime() - lastDate.getTime();
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            if (diffDays === 1) { 
-                currentStreak++; 
-            } else if (diffDays > 1) { 
-                currentStreak = 1; 
-            }
+            if (diffDays === 1) currentStreak++; 
+            else if (diffDays > 1) currentStreak = 1; 
         } else {
             currentStreak = 1;
         }
 
-        // Log the purchase
         const purchaseRef = collection(db, "users", currentUser.uid, "purchases");
         await addDoc(purchaseRef, {
             items: [{ name: itemName, price: itemPrice, quantity: 1 }],
@@ -984,23 +855,19 @@ async function logFromWidget(db, widgetData, buttonEl) {
             isFromWidget: true
         });
 
-        // Update balance and streak
         const newBalance = currentBalance - itemPrice;
         let updateData = {};
         updateData[`balances.${balanceType}`] = newBalance;
         updateData.currentStreak = currentStreak;
         updateData.longestStreak = Math.max(longestStreak, currentStreak);
         updateData.lastLogDate = Timestamp.now();
-
         await updateDoc(userDocRef, updateData);
 
-        // Update Wall of Fame if applicable
         if (userData.showOnWallOfFame) {
             const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
             await setDoc(wallOfFameDocRef, { currentStreak }, { merge: true });
         }
 
-        // Update UI
         const updatedBalances = { ...balances, [balanceType]: newBalance };
         updateBalancesUI(updatedBalances);
 
@@ -1039,9 +906,7 @@ function showQuickLogError(message) {
     
     if (quickLogWidgetsContainer) {
         quickLogWidgetsContainer.insertBefore(errorEl, quickLogWidgetsContainer.firstChild);
-        setTimeout(() => {
-            if (errorEl) errorEl.remove();
-        }, 3000);
+        setTimeout(() => { if (errorEl) errorEl.remove(); }, 3000);
     }
 }
 
@@ -1061,9 +926,7 @@ async function fetchAndRenderLeaderboard(db) {
         users.forEach((user, index) => {
             const item = document.createElement('div');
             item.className = 'leaderboard-item';
-            if (user.id === currentUser.uid) {
-                item.classList.add('current-user');
-            }
+            if (user.id === currentUser.uid) item.classList.add('current-user');
 
             const initial = user.displayName ? user.displayName.charAt(0).toUpperCase() : '?';
             const svgAvatar = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="20" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
@@ -1104,8 +967,7 @@ async function handlePublicToggle(e, db) {
             if (userDoc.exists()) {
                 const { displayName, photoURL, currentStreak, bio } = userDoc.data();
                 await setDoc(wallOfFameDocRef, { 
-                    displayName, 
-                    photoURL, 
+                    displayName, photoURL, 
                     currentStreak: currentStreak || 0,
                     bio: bio || ""
                 });
@@ -1132,16 +994,12 @@ async function fetchAndRenderWeather() {
 
     const lat = 40.08;
     const lon = -82.49;
-
     const apiUrl = `/.netlify/functions/getWeather?lat=${lat}&lon=${lon}`;
 
     try {
         const response = await fetch(apiUrl);
         const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.message || 'Error fetching weather');
-        }
+        if (!response.ok) throw new Error(data.message || 'Error fetching weather');
 
         const temp = Math.round(data.main.temp);
         const description = data.weather[0].description;
@@ -1206,27 +1064,12 @@ function initializeMap() {
 
     locations.forEach(location => {
         let icon = creditsIcon;
-        if (location.accepts.includes('dining') || location.accepts.includes('swipes')) {
-            icon = diningIcon;
-        }
-
-        const popupContent = `
-            <div style="font-family: 'Nunito', sans-serif; text-align: center;">
-                <strong style="font-size: 1.1em;">${location.name}</strong><br>
-                ${location.address}<br>
-                <em style="font-size: 0.9em; color: #555;">Accepts: ${location.accepts.join(', ')}</em>
-            </div>
-        `;
-
-        L.marker(location.coords, { icon: icon }).addTo(map)
-            .bindPopup(popupContent);
+        if (location.accepts.includes('dining') || location.accepts.includes('swipes')) icon = diningIcon;
+        const popupContent = `<div style="font-family: 'Nunito', sans-serif; text-align: center;"><strong style="font-size: 1.1em;">${location.name}</strong><br>${location.address}<br><em style="font-size: 0.9em; color: #555;">Accepts: ${location.accepts.join(', ')}</em></div>`;
+        L.marker(location.coords, { icon: icon }).addTo(map).bindPopup(popupContent);
     });
 
-    setTimeout(() => {
-        if (map) {
-            map.invalidateSize();
-        }
-    }, 100);
+    setTimeout(() => { if (map) map.invalidateSize(); }, 100);
 }
 
 const style = document.createElement('style');
@@ -1262,99 +1105,38 @@ style.textContent = `
         border-radius: 8px !important;
     }
     
-    /* Profanity Warning Styles */
     .profanity-warning-note {
-        position: relative;
-        margin-top: 0.75rem;
+        position: relative; margin-top: 0.75rem;
         animation: wobbleIn 0.5s ease-out;
     }
-    
     .warning-paper {
         background: #FFE4B5;
-        background-image: 
-            repeating-linear-gradient(
-                0deg,
-                transparent,
-                transparent 20px,
-                rgba(139, 69, 19, 0.03) 20px,
-                rgba(139, 69, 19, 0.03) 21px
-            );
-        border: 2px solid #D2691E;
-        border-radius: 4px;
-        padding: 0.75rem 1rem;
-        position: relative;
-        transform: rotate(-2deg);
-        box-shadow: 
-            2px 2px 8px rgba(0,0,0,0.1),
-            inset 0 0 20px rgba(139, 69, 19, 0.05);
+        background-image: repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(139, 69, 19, 0.03) 20px, rgba(139, 69, 19, 0.03) 21px);
+        border: 2px solid #D2691E; border-radius: 4px; padding: 0.75rem 1rem;
+        position: relative; transform: rotate(-2deg);
+        box-shadow: 2px 2px 8px rgba(0,0,0,0.1), inset 0 0 20px rgba(139, 69, 19, 0.05);
         font-family: 'Patrick Hand', cursive;
     }
-    
     .warning-tape {
-        position: absolute;
-        top: -12px;
-        left: 50%;
-        transform: translateX(-50%) rotate(3deg);
-        width: 60px;
-        height: 24px;
-        background: rgba(255, 255, 255, 0.6);
-        border: 1px dashed rgba(0,0,0,0.1);
+        position: absolute; top: -12px; left: 50%;
+        transform: translateX(-50%) rotate(3deg); width: 60px; height: 24px;
+        background: rgba(255, 255, 255, 0.6); border: 1px dashed rgba(0,0,0,0.1);
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    
     .warning-tape::before {
-        content: '';
-        position: absolute;
-        top: 3px;
-        left: 3px;
-        right: 3px;
-        bottom: 3px;
-        background: repeating-linear-gradient(
-            45deg,
-            transparent,
-            transparent 4px,
-            rgba(0,0,0,0.03) 4px,
-            rgba(0,0,0,0.03) 8px
-        );
+        content: ''; position: absolute; top: 3px; left: 3px; right: 3px; bottom: 3px;
+        background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.03) 4px, rgba(0,0,0,0.03) 8px);
     }
-    
     .warning-content {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.25rem;
+        display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
     }
-    
-    .warning-emoji {
-        font-size: 1.8rem;
-        filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.2));
-    }
-    
-    .warning-text {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #8B4513;
-        text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
-    }
-    
-    .warning-subtext {
-        font-size: 0.9rem;
-        color: #A0522D;
-        font-style: italic;
-    }
-    
+    .warning-emoji { font-size: 1.8rem; filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.2)); }
+    .warning-text { font-size: 1.1rem; font-weight: 700; color: #8B4513; text-shadow: 1px 1px 0 rgba(255,255,255,0.5); }
+    .warning-subtext { font-size: 0.9rem; color: #A0522D; font-style: italic; }
     @keyframes wobbleIn {
-        0% {
-            opacity: 0;
-            transform: scale(0.8) rotate(-8deg);
-        }
-        50% {
-            transform: scale(1.05) rotate(3deg);
-        }
-        100% {
-            opacity: 1;
-            transform: scale(1) rotate(-2deg);
-        }
+        0% { opacity: 0; transform: scale(0.8) rotate(-8deg); }
+        50% { transform: scale(1.05) rotate(3deg); }
+        100% { opacity: 1; transform: scale(1) rotate(-2deg); }
     }
 `;
 document.head.appendChild(style);
