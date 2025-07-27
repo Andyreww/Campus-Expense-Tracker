@@ -290,16 +290,36 @@ async function main() {
         // --- FREQUENT PURCHASE WIDGET ---
         async function checkAndCreateFrequentWidget(db, storeName) {
             if (!currentUser || cart.length === 0) return;
-
+        
             try {
                 const widgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
                 const widgetsSnapshot = await getDocs(widgetsRef);
-                
+        
                 // Check if we have reached the max number of widgets (3)
                 if (widgetsSnapshot.size >= 3) {
                     return;
                 }
-
+        
+                // Determine balance type based on current store context
+                let balanceTypeToDebit;
+                if (currentStoreId === 'ross') {
+                    balanceTypeToDebit = 'credits';
+                } else {
+                    switch (currentStoreCurrency) {
+                        case 'dollars':
+                            balanceTypeToDebit = 'dining';
+                            break;
+                        case 'swipes':
+                            balanceTypeToDebit = 'swipes';
+                            break;
+                        case 'bonus_swipes':
+                            balanceTypeToDebit = 'bonus';
+                            break;
+                        default:
+                            balanceTypeToDebit = 'credits'; // Fallback just in case
+                    }
+                }
+        
                 // For each item in the cart, check if it should become a widget
                 for (const cartItem of cart) {
                     // Check if a widget for this item already exists
@@ -313,7 +333,7 @@ async function main() {
                     if (widgetExists) {
                         continue; // Skip this item
                     }
-
+        
                     // Count past purchases of this specific item
                     const purchasesRef = collection(db, "users", currentUser.uid, "purchases");
                     const allPurchasesSnapshot = await getDocs(purchasesRef);
@@ -330,10 +350,10 @@ async function main() {
                             });
                         }
                     });
-
+        
                     // Add current purchase quantity
                     purchaseCount += cartItem.quantity;
-
+        
                     // If the item has been purchased enough times, create the widget
                     const FREQUENCY_THRESHOLD = 3;
                     if (purchaseCount >= FREQUENCY_THRESHOLD) {
@@ -341,6 +361,8 @@ async function main() {
                             itemName: cartItem.name,
                             itemPrice: cartItem.price,
                             storeName: storeName,
+                            currency: currentStoreCurrency, // For display
+                            balanceType: balanceTypeToDebit,  // For logic
                             createdAt: Timestamp.now()
                         });
                         console.log(`Created frequent widget for ${cartItem.name} after ${purchaseCount} purchases`);
@@ -803,7 +825,7 @@ async function main() {
                 '🥗': ['salad', 'caesar', 'cobb'],
                 '🍲': ['soup', 'stew', 'chili'],
                 '🍗': ['chicken wing', 'fried chicken', 'nugget'],
-                '�': ['egg', 'omelette', 'breakfast'],
+                '': ['egg', 'omelette', 'breakfast'],
         
                 // Snacks
                 '🍪': ['cookie', 'biscuit'],

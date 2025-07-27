@@ -315,6 +315,15 @@ async function deleteSubcollection(db, collectionPath) {
     console.log(`All documents in '${collectionPath}' have been deleted.`);
 }
 
+// --- HELPERS ---
+function getPriceLabel(price, currency) {
+    switch (currency) {
+        case 'dollars': return `$${price.toFixed(2)}`;
+        case 'swipes': return `${price} Swipe${price !== 1 ? 's' : ''}`;
+        case 'bonus_swipes': return `${price} Bonus Swipe${price !== 1 ? 's' : ''}`;
+        default: return `$${price.toFixed(2)}`;
+    }
+}
 
 function containsProfanity(text) {
     // Comprehensive list of profanity and inappropriate words
@@ -655,6 +664,8 @@ async function checkAndCreateFrequentWidget(db, itemName, itemPrice, storeName) 
                 itemName,
                 itemPrice,
                 storeName,
+                currency: 'dollars',
+                balanceType: 'credits',
                 createdAt: Timestamp.now()
             });
             return true; // Indicate that a widget was created
@@ -749,6 +760,8 @@ async function logCustomPurchase(db) {
                         itemName,
                         itemPrice,
                         storeName,
+                        currency: 'dollars',
+                        balanceType: 'credits',
                         createdAt: Timestamp.now()
                     });
                     widgetCreated = true;
@@ -823,12 +836,15 @@ async function renderQuickLogWidgets(db) {
         const button = document.createElement('button');
         button.className = 'quick-log-widget-btn';
         
+        const currency = widgetData.currency || 'dollars';
+        const priceLabel = getPriceLabel(widgetData.itemPrice, currency);
+
         button.innerHTML = `
             <span class="widget-name">${widgetData.itemName}</span>
-            <span class="widget-price">$${widgetData.itemPrice.toFixed(2)}</span>
+            <span class="widget-price">${priceLabel}</span>
         `;
         
-        button.title = `Log ${widgetData.itemName} ($${widgetData.itemPrice.toFixed(2)})`;
+        button.title = `Log ${widgetData.itemName} (${priceLabel})`;
         
         button.addEventListener('click', (e) => {
             if (isDeleteModeActive) {
@@ -897,15 +913,25 @@ function toggleDeleteMode(enable) {
 async function logFromWidget(db, widgetData, buttonEl) {
     if (!currentUser) return;
 
-    const { itemName, itemPrice } = widgetData;
+    const { itemName, itemPrice, currency = 'dollars', balanceType = 'credits' } = widgetData;
 
     const userDocRef = doc(db, "users", currentUser.uid);
     const userDoc = await getDoc(userDocRef);
     const userData = userDoc.data();
-    const currentBalance = userData.balances.credits;
+    const balances = userData.balances;
+
+    const balanceMap = {
+        credits: { name: 'Campus Credits', cardId: 'credits-card' },
+        dining: { name: 'Dining Dollars', cardId: 'dining-card' },
+        swipes: { name: 'Meal Swipes', cardId: 'swipes-card' },
+        bonus: { name: 'Bonus Swipes', cardId: 'bonus-card' }
+    };
+    
+    const balanceInfo = balanceMap[balanceType];
+    const currentBalance = balances[balanceType] || 0;
 
     if (itemPrice > currentBalance) {
-        showQuickLogError('Not enough credits!');
+        showQuickLogError(`Not enough ${balanceInfo.name}!`);
         return;
     }
     
@@ -919,43 +945,53 @@ async function logFromWidget(db, widgetData, buttonEl) {
         if (lastLogDate) {
             const lastDate = lastLogDate.toDate();
             lastDate.setHours(0, 0, 0, 0);
-            const diffTime = today - lastDate;
+            const diffTime = today.getTime() - lastDate.getTime();
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-            if (diffDays === 1) { currentStreak++; }
-            else if (diffDays > 1) { currentStreak = 1; }
+            if (diffDays === 1) { 
+                currentStreak++; 
+            } else if (diffDays > 1) { 
+                currentStreak = 1; 
+            }
         } else {
             currentStreak = 1;
         }
-        if (currentStreak > longestStreak) { longestStreak = currentStreak; }
 
+        // Log the purchase
         const purchaseRef = collection(db, "users", currentUser.uid, "purchases");
         await addDoc(purchaseRef, {
             items: [{ name: itemName, price: itemPrice, quantity: 1 }],
             total: itemPrice,
             store: widgetData.storeName,
+            currency: currency,
             purchaseDate: Timestamp.now(),
             isFromWidget: true
         });
 
+        // Update balance and streak
         const newBalance = currentBalance - itemPrice;
-        await updateDoc(userDocRef, {
-            "balances.credits": newBalance,
-            currentStreak: currentStreak,
-            longestStreak: longestStreak,
-            lastLogDate: Timestamp.now()
-        });
+        let updateData = {};
+        updateData[`balances.${balanceType}`] = newBalance;
+        updateData.currentStreak = currentStreak;
+        updateData.longestStreak = Math.max(longestStreak, currentStreak);
+        updateData.lastLogDate = Timestamp.now();
 
+        await updateDoc(userDocRef, updateData);
+
+        // Update Wall of Fame if applicable
         if (userData.showOnWallOfFame) {
             const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
             await setDoc(wallOfFameDocRef, { currentStreak }, { merge: true });
         }
 
-        updateBalancesUI({ ...userData.balances, credits: newBalance });
-        const creditsCard = document.getElementById('credits-card');
-        if (creditsCard) {
-            creditsCard.classList.add('hit');
-            setTimeout(() => creditsCard.classList.remove('hit'), 600);
+        // Update UI
+        const updatedBalances = { ...balances, [balanceType]: newBalance };
+        updateBalancesUI(updatedBalances);
+
+        const cardToAnimate = document.getElementById(balanceInfo.cardId) || document.getElementById(`${balanceType}-balance`)?.closest('.table-item');
+        if (cardToAnimate) {
+            cardToAnimate.classList.add('hit');
+            setTimeout(() => cardToAnimate.classList.remove('hit'), 600);
         }
         
         showSuccessMessage(`✓ Logged: ${itemName}`);
