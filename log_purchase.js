@@ -33,7 +33,6 @@ async function main() {
         let walletToAnimate = null; // Used to trigger wallet shake animation
 
         // --- DOM ELEMENTS ---
-        const header = document.querySelector('.shop-header');
         const itemSearchInput = document.getElementById('item-search');
         const categorySidebar = document.getElementById('category-sidebar');
         const itemListContainer = document.getElementById('item-list');
@@ -44,9 +43,6 @@ async function main() {
         const tabContents = document.querySelectorAll('.tab-panel');
         const activeSubsList = document.getElementById('active-subs-list');
         const pastSubsList = document.getElementById('past-subs-list');
-        const projectedBalanceEl = document.getElementById('projected-balance');
-        const weeklySubCostEl = document.getElementById('weekly-sub-cost');
-        const weeksLeftEl = document.getElementById('weeks-left');
         const historyList = document.getElementById('history-list');
         const storeSelect = document.getElementById('store-select');
         const customSelectWrapper = document.querySelector('.custom-select-wrapper');
@@ -73,7 +69,6 @@ async function main() {
         const customStoreActions = document.getElementById('custom-store-actions');
         const addNewItemBtn = document.getElementById('add-new-item-btn');
         
-        // Delete Store Modal
         const deleteStoreModal = document.getElementById('delete-store-modal');
         const deleteStoreNameEl = document.getElementById('delete-store-name');
         const deleteStoreCancelBtn = document.getElementById('delete-store-cancel-btn');
@@ -91,26 +86,6 @@ async function main() {
 
         // --- INITIALIZATION ---
         async function init() {
-            // iOS scroll fix
-            if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-                document.addEventListener('touchmove', function(e) {
-                    if (e.target.closest('.item-shelves') || 
-                        e.target.closest('.basket-paper') || 
-                        e.target.closest('.subs-paper') || 
-                        e.target.closest('.history-paper') ||
-                        e.target.closest('.custom-options')) {
-                        e.stopPropagation();
-                    }
-                }, { passive: true });
-                
-                // Fix for iOS bounce scrolling
-                const itemShelves = document.querySelector('.item-shelves');
-                if (itemShelves) {
-                    itemShelves.style.webkitOverflowScrolling = 'touch';
-                    itemShelves.style.overflowY = 'scroll';
-                }
-            }
-            
             listenToUserData();
             setupEventListeners();
             setupCustomSelect();
@@ -121,7 +96,7 @@ async function main() {
             renderCart();
             renderSubscriptions();
             renderHistory();
-            calculateProjection();
+            updateWeeklySubsView();
         }
 
         // --- DATA LOADING & MANAGEMENT ---
@@ -131,9 +106,9 @@ async function main() {
             unsubscribeUserDoc = onSnapshot(userDocRef, (docSnap) => {
                 if (docSnap.exists()) {
                     userBalances = docSnap.data().balances || {};
-                    renderAllWallets(walletToAnimate); // Pass animation trigger
-                    walletToAnimate = null; // Reset trigger after use
-                    calculateProjection();
+                    renderAllWallets(walletToAnimate);
+                    walletToAnimate = null;
+                    updateWeeklySubsView();
                 }
             });
         }
@@ -170,7 +145,7 @@ async function main() {
 
             if (selectedValue === 'create-new') {
                 createStoreModal.classList.remove('hidden');
-                storeSelect.value = currentStoreId; // Revert to previous selection
+                storeSelect.value = currentStoreId;
                 rebuildCustomOptions();
                 return;
             }
@@ -189,7 +164,7 @@ async function main() {
                 if (store) {
                     currentStoreCurrency = store.currency;
                     customStoreActions.classList.remove('hidden');
-                    categorySidebar.classList.add('hidden'); // No categories for custom stores
+                    categorySidebar.classList.add('hidden');
                     await loadCustomStoreItems(currentStoreId);
                 }
             }
@@ -214,14 +189,6 @@ async function main() {
                 });
                 renderCategories();
                 renderItems();
-                
-                // Ensure scroll is properly initialized after content loads
-                setTimeout(() => {
-                    if (itemListContainer) {
-                        itemListContainer.scrollTop = 1; // Trigger iOS to recognize scrollable content
-                        itemListContainer.scrollTop = 0;
-                    }
-                }, 100);
             } catch (error) {
                 console.error("Could not load Ross Market data:", error);
                 itemListContainer.innerHTML = '<p class="empty-message">Could not load items for Ross Market.</p>';
@@ -230,19 +197,10 @@ async function main() {
 
         async function loadCustomStoreItems(storeId) {
             itemListContainer.innerHTML = `<div class="loading-message"><div class="loading-spinner"></div><p>Loading your items...</p></div>`;
-            
             try {
                 const itemsRef = collection(db, "users", currentUser.uid, "customStores", storeId, "items");
                 const q = query(itemsRef, orderBy("name"));
-                
-                let querySnapshot;
-                try {
-                    querySnapshot = await getDocs(q);
-                } catch (orderError) {
-                    // If ordering fails (might happen with empty collection), try without ordering
-                    console.log("Order query failed, trying without order:", orderError);
-                    querySnapshot = await getDocs(itemsRef);
-                }
+                const querySnapshot = await getDocs(q);
                 
                 if (querySnapshot.empty) {
                     allItems = [];
@@ -257,19 +215,10 @@ async function main() {
                 }));
                 
                 renderItems();
-                
-                // Ensure scroll is properly initialized after content loads
-                setTimeout(() => {
-                    if (itemListContainer) {
-                        itemListContainer.scrollTop = 1; // Trigger iOS to recognize scrollable content
-                        itemListContainer.scrollTop = 0;
-                    }
-                }, 100);
             } catch (error) {
                 console.error("Error loading custom store items:", error);
-                console.error("Error details:", error.code, error.message);
                 allItems = [];
-                itemListContainer.innerHTML = '<p class="empty-message">No items yet. Click "Add New Item" to get started!</p>';
+                itemListContainer.innerHTML = '<p class="empty-message">Error loading items. Please try again.</p>';
             }
         }
 
@@ -287,91 +236,49 @@ async function main() {
             purchaseHistory = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         }
 
-        // --- FREQUENT PURCHASE WIDGET ---
         async function checkAndCreateFrequentWidget(db, storeName) {
             if (!currentUser || cart.length === 0) return;
-        
             try {
                 const widgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
                 const widgetsSnapshot = await getDocs(widgetsRef);
+                if (widgetsSnapshot.size >= 3) return;
         
-                // Check if we have reached the max number of widgets (3)
-                if (widgetsSnapshot.size >= 3) {
-                    return;
-                }
-        
-                // Determine balance type based on current store context
                 let balanceTypeToDebit;
-                if (currentStoreId === 'ross') {
-                    balanceTypeToDebit = 'credits';
-                } else {
+                if (currentStoreId === 'ross') balanceTypeToDebit = 'credits';
+                else {
                     switch (currentStoreCurrency) {
-                        case 'dollars':
-                            balanceTypeToDebit = 'dining';
-                            break;
-                        case 'swipes':
-                            balanceTypeToDebit = 'swipes';
-                            break;
-                        case 'bonus_swipes':
-                            balanceTypeToDebit = 'bonus';
-                            break;
-                        default:
-                            balanceTypeToDebit = 'credits'; // Fallback just in case
+                        case 'dollars': balanceTypeToDebit = 'dining'; break;
+                        case 'swipes': balanceTypeToDebit = 'swipes'; break;
+                        case 'bonus_swipes': balanceTypeToDebit = 'bonus'; break;
+                        default: balanceTypeToDebit = 'credits';
                     }
                 }
         
-                // For each item in the cart, check if it should become a widget
                 for (const cartItem of cart) {
-                    // Check if a widget for this item already exists
-                    let widgetExists = false;
-                    widgetsSnapshot.forEach(doc => {
-                        if (doc.data().itemName === cartItem.name) {
-                            widgetExists = true;
-                        }
-                    });
-                    
-                    if (widgetExists) {
-                        continue; // Skip this item
-                    }
+                    let widgetExists = widgetsSnapshot.docs.some(doc => doc.data().itemName === cartItem.name);
+                    if (widgetExists) continue;
         
-                    // Count past purchases of this specific item
                     const purchasesRef = collection(db, "users", currentUser.uid, "purchases");
                     const allPurchasesSnapshot = await getDocs(purchasesRef);
-                    
-                    let purchaseCount = 0;
-                    allPurchasesSnapshot.forEach(doc => {
-                        const purchase = doc.data();
-                        // Check if this purchase contains the item
-                        if (purchase.items && Array.isArray(purchase.items)) {
-                            purchase.items.forEach(item => {
-                                if (item.name === cartItem.name) {
-                                    purchaseCount += item.quantity || 1;
-                                }
-                            });
-                        }
-                    });
-        
-                    // Add current purchase quantity
+                    let purchaseCount = allPurchasesSnapshot.docs.reduce((count, doc) => {
+                        const items = doc.data().items || [];
+                        const item = items.find(i => i.name === cartItem.name);
+                        return count + (item ? item.quantity : 0);
+                    }, 0);
                     purchaseCount += cartItem.quantity;
         
-                    // If the item has been purchased enough times, create the widget
                     const FREQUENCY_THRESHOLD = 3;
                     if (purchaseCount >= FREQUENCY_THRESHOLD) {
                         await addDoc(widgetsRef, {
                             itemName: cartItem.name,
                             itemPrice: cartItem.price,
                             storeName: storeName,
-                            currency: currentStoreCurrency, // For display
-                            balanceType: balanceTypeToDebit,  // For logic
+                            currency: currentStoreCurrency,
+                            balanceType: balanceTypeToDebit,
                             createdAt: Timestamp.now()
                         });
-                        console.log(`Created frequent widget for ${cartItem.name} after ${purchaseCount} purchases`);
-                        
-                        // Check if we've reached the limit
                         const updatedSnapshot = await getDocs(widgetsRef);
-                        if (updatedSnapshot.size >= 3) {
-                            break;
-                        }
+                        if (updatedSnapshot.size >= 3) break;
                     }
                 }
             } catch (error) {
@@ -385,95 +292,60 @@ async function main() {
             if (!walletWrapper) return;
             walletWrapper.innerHTML = '';
 
-            const diningDollars = userBalances.dining || 0;
-            const diningWallet = document.createElement('div');
-            diningWallet.className = 'wallet-container';
-            diningWallet.id = 'dining-dollars-wallet';
-            diningWallet.innerHTML = `<div class="wallet-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="6" width="18" height="12" rx="2" fill="#4CAF50" /><circle cx="12" cy="12" r="3" fill="#FFFDF7"/><path d="M12 10.5V13.5M13 11.5H11" stroke="#4A2C2A" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="wallet-details"><div class="wallet-label">Dining Dollars</div><div class="wallet-amount">$${diningDollars.toFixed(2)}</div></div>`;
-            walletWrapper.appendChild(diningWallet);
+            const wallets = [
+                { id: 'dining', label: 'Dining Dollars', value: userBalances.dining || 0, currency: '$', svg: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="6" width="18" height="12" rx="2" fill="#4CAF50" /><circle cx="12" cy="12" r="3" fill="#FFFDF7"/><path d="M12 10.5V13.5M13 11.5H11" stroke="#4A2C2A" stroke-width="1.5" stroke-linecap="round"/></svg>` },
+                { id: 'credits', label: 'Campus Credits', value: userBalances.credits || 0, currency: '$', svg: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8.5C18 5.46243 15.3137 3 12 3C8.68629 3 6 5.46243 6 8.5C6 10.4462 6.94878 12.1643 8.40993 13.2218C8.43542 13.2403 8.46154 13.2579 8.48828 13.2747L9 13.5858V16.5C9 17.0523 9.44772 17.5 10 17.5H14C14.5523 17.5 15 17.0523 15 16.5V13.5858L15.5117 13.2747C15.5385 13.2579 15.5646 13.2403 15.5901 13.2218C17.0512 12.1643 18 10.4462 18 8.5Z" fill="#D97706"/><path d="M12 21C13.1046 21 14 20.1046 14 19H10C10 20.1046 10.8954 21 12 21Z" fill="#FBBF24"/><path d="M12 5.5L13.5 8.5L16.5 9L14.5 11L15 14L12 12.5L9 14L9.5 11L7.5 9L10.5 8.5L12 5.5Z" fill="#FBBF24"/></svg>` }
+            ];
 
-            const credits = userBalances.credits || 0;
-            const creditsWallet = document.createElement('div');
-            creditsWallet.className = 'wallet-container';
-            creditsWallet.id = 'campus-credits-wallet';
-            creditsWallet.innerHTML = `<div class="wallet-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8.5C18 5.46243 15.3137 3 12 3C8.68629 3 6 5.46243 6 8.5C6 10.4462 6.94878 12.1643 8.40993 13.2218C8.43542 13.2403 8.46154 13.2579 8.48828 13.2747L9 13.5858V16.5C9 17.0523 9.44772 17.5 10 17.5H14C14.5523 17.5 15 17.0523 15 16.5V13.5858L15.5117 13.2747C15.5385 13.2579 15.5646 13.2403 15.5901 13.2218C17.0512 12.1643 18 10.4462 18 8.5Z" fill="#D97706"/><path d="M12 21C13.1046 21 14 20.1046 14 19H10C10 20.1046 10.8954 21 12 21Z" fill="#FBBF24"/><path d="M12 5.5L13.5 8.5L16.5 9L14.5 11L15 14L12 12.5L9 14L9.5 11L7.5 9L10.5 8.5L12 5.5Z" fill="#FBBF24"/></svg></div><div class="wallet-details"><div class="wallet-label">Campus Credits</div><div class="wallet-amount">$${credits.toFixed(2)}</div></div>`;
-            walletWrapper.appendChild(creditsWallet);
-
-            if (animatedWallet === 'dining') {
-                diningWallet.classList.add('hit');
-            } else if (animatedWallet === 'credits') {
-                creditsWallet.classList.add('hit');
-            }
+            wallets.forEach(wallet => {
+                const walletEl = document.createElement('div');
+                walletEl.className = 'wallet-container';
+                if (animatedWallet === wallet.id) walletEl.classList.add('hit');
+                walletEl.innerHTML = `<div class="wallet-icon">${wallet.svg}</div><div class="wallet-details"><div class="wallet-label">${wallet.label}</div><div class="wallet-amount">${wallet.currency}${wallet.value.toFixed(2)}</div></div>`;
+                walletWrapper.appendChild(walletEl);
+            });
         }
 
         function renderCategories() {
             const categories = ['All', ...new Set(allItems.map(item => item.category).sort())];
-            categorySidebar.innerHTML = '';
-            categories.forEach(category => {
-                const link = document.createElement('a');
-                link.className = 'category-link';
-                link.textContent = category;
-                link.dataset.category = category;
-                if (category === currentCategory) link.classList.add('active');
-                link.addEventListener('click', () => {
-                    currentCategory = category;
-                    document.querySelectorAll('.category-link').forEach(l => l.classList.remove('active'));
-                    link.classList.add('active');
-                    renderItems(itemSearchInput.value, currentCategory);
-                });
-                categorySidebar.appendChild(link);
-            });
+            categorySidebar.innerHTML = categories.map(category => `
+                <a class="category-link ${category === currentCategory ? 'active' : ''}" data-category="${category}">${category}</a>
+            `).join('');
         }
 
         function renderItems(searchFilter = '', categoryFilter = 'All') {
             itemListContainer.innerHTML = '';
             itemListContainer.classList.remove('loading-message');
 
-            let itemsToDisplay = allItems;
-
-            if (categoryFilter !== 'All' && currentStoreId === 'ross') {
-                itemsToDisplay = itemsToDisplay.filter(item => item.category === categoryFilter);
-            }
-
-            if (searchFilter) {
-                itemsToDisplay = itemsToDisplay.filter(item => item.name.toLowerCase().includes(searchFilter.toLowerCase()));
-            }
+            let itemsToDisplay = allItems
+                .filter(item => categoryFilter === 'All' || item.category === categoryFilter)
+                .filter(item => item.name.toLowerCase().includes(searchFilter.toLowerCase()));
 
             if (itemsToDisplay.length === 0) {
-                itemListContainer.innerHTML = '<p class="empty-message">No items found. Try a different search or add one to your store!</p>';
+                itemListContainer.innerHTML = '<p class="empty-message">No items found. Try a different search!</p>';
                 return;
             }
 
+            const fragment = document.createDocumentFragment();
             itemsToDisplay.slice(0, 100).forEach(item => {
                 const card = document.createElement('div');
                 card.className = 'item-card';
-                const priceLabel = getPriceLabel(item.price, currentStoreCurrency);
-
                 card.innerHTML = `
                     <div class="item-emoji">${item.emoji}</div>
                     <div class="item-name">${item.name}</div>
                     <div class="item-price-tag">
-                        <span class="item-price">${priceLabel}</span>
+                        <span class="item-price">${getPriceLabel(item.price, currentStoreCurrency)}</span>
                         ${(item.onSale && currentStoreId === 'ross') ? `<span class="item-original-price">${item.originalPrice.toFixed(2)}</span>` : ''}
                     </div>
                     ${(item.onSale && currentStoreId === 'ross') ? '<div class="sale-badge">SALE</div>' : ''}
                 `;
-
                 card.addEventListener('click', () => addItemToCart(item));
-                itemListContainer.appendChild(card);
+                fragment.appendChild(card);
             });
-            
-            // Force iOS to recognize scrollable content
-            if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-                itemListContainer.style.webkitOverflowScrolling = 'touch';
-                itemListContainer.style.overflowY = 'scroll';
-                // Force a reflow to ensure iOS picks up the changes
-                itemListContainer.scrollTop = 0;
-            }
+            itemListContainer.appendChild(fragment);
         }
 
         function renderCart(animatedItemName = null) {
-            cartItemsContainer.innerHTML = '';
             const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             cartTotalEl.textContent = getPriceLabel(total, currentStoreCurrency);
 
@@ -481,12 +353,8 @@ async function main() {
                 cartItemsContainer.innerHTML = `<div class="empty-basket"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.3"><path d="M5 6m0 1a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-12a1 1 0 0 1-1-1z"></path><path d="M10 6v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3"></path></svg><p>Your basket is empty!</p><span>Click items to add them</span></div>`;
                 logPurchaseBtn.disabled = true;
             } else {
-                cart.forEach(item => {
-                    const div = document.createElement('div');
-                    div.className = 'cart-item';
-                    if (item.name === animatedItemName) div.classList.add('slide-in');
-                    
-                    div.innerHTML = `
+                cartItemsContainer.innerHTML = cart.map(item => `
+                    <div class="cart-item ${item.name === animatedItemName ? 'slide-in' : ''}">
                         <div class="cart-item-emoji">${item.emoji}</div>
                         <div class="cart-item-name-and-qty">
                             <div class="cart-item-name">${item.name}</div>
@@ -501,43 +369,41 @@ async function main() {
                             ${currentStoreId === 'ross' ? `<button class="add-to-subs-btn" data-name="${item.name}" title="Add to weekly subscriptions"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M12 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg></button>` : ''}
                             <button class="remove-item-btn" data-name="${item.name}" title="Remove from cart">×</button>
                         </div>
-                    `;
-                    cartItemsContainer.appendChild(div);
-                });
+                    </div>
+                `).join('');
                 logPurchaseBtn.disabled = false;
             }
         }
         
         function renderSubscriptions() {
-            activeSubsList.innerHTML = '';
-            pastSubsList.innerHTML = '';
-
             const activeSubs = subscriptions.filter(s => s.status === 'active');
             const pastSubs = subscriptions.filter(s => s.status === 'ended');
 
-            if (activeSubs.length === 0) activeSubsList.innerHTML = '<p class="empty-message">No weekly favorites yet!</p>';
-            else {
-                activeSubs.forEach(sub => {
-                    const div = document.createElement('div');
-                    div.className = 'sub-item';
-                    div.innerHTML = `<div class="cart-item-emoji">${sub.item.emoji}</div><div><div class="cart-item-name">${sub.item.name}</div><div class="sub-duration">Every week</div></div><div class="cart-item-price">$${sub.item.price.toFixed(2)}</div><button class="end-sub-btn" data-id="${sub.id}">End</button>`;
-                    activeSubsList.appendChild(div);
-                });
-            }
+            activeSubsList.innerHTML = activeSubs.length === 0 ? '<p class="empty-message">No weekly favorites yet!</p>' : activeSubs.map(sub => `
+                <div class="sub-item">
+                    <div class="cart-item-emoji">${sub.item.emoji}</div>
+                    <div>
+                        <div class="cart-item-name">${sub.item.name} (x${sub.quantity || 1})</div>
+                        <div class="sub-duration">Every week</div>
+                    </div>
+                    <div class="cart-item-price">$${(sub.item.price * (sub.quantity || 1)).toFixed(2)}</div>
+                    <button class="end-sub-btn" data-id="${sub.id}">End</button>
+                </div>
+            `).join('');
 
-            if (pastSubs.length === 0) pastSubsList.innerHTML = '<p class="empty-message">No past subscriptions</p>';
-            else {
-                pastSubs.forEach(sub => {
-                    const div = document.createElement('div');
-                    div.className = 'sub-item ended';
-                    div.innerHTML = `<div class="cart-item-emoji">${sub.item.emoji}</div><div><div class="cart-item-name">${sub.item.name}</div><div class="sub-duration">Ended</div></div><div class="cart-item-price">$${sub.item.price.toFixed(2)}</div>`;
-                    pastSubsList.appendChild(div);
-                });
-            }
+            pastSubsList.innerHTML = pastSubs.length === 0 ? '<p class="empty-message">No past subscriptions</p>' : pastSubs.map(sub => `
+                <div class="sub-item ended">
+                    <div class="cart-item-emoji">${sub.item.emoji}</div>
+                    <div>
+                        <div class="cart-item-name">${sub.item.name}</div>
+                        <div class="sub-duration">Ended</div>
+                    </div>
+                    <div class="cart-item-price">$${sub.item.price.toFixed(2)}</div>
+                </div>
+            `).join('');
         }
 
         function renderHistory() {
-            historyList.innerHTML = '';
             if (purchaseHistory.length === 0) {
                 historyList.innerHTML = '<p class="empty-message">No purchases yet!</p>';
                 return;
@@ -550,29 +416,22 @@ async function main() {
                 return acc;
             }, {});
 
-            for (const date in groupedByDate) {
-                const groupDiv = document.createElement('div');
-                groupDiv.className = 'history-group';
-                groupDiv.innerHTML = `<h3 class="history-date">${date}</h3>`;
-
-                groupedByDate[date].forEach(purchase => {
-                    const itemsHtml = purchase.items.map(item => `<li>${item.quantity > 1 ? `${item.name} (x${item.quantity})` : item.name}</li>`).join('');
-                    const currency = purchase.currency || 'dollars';
-                    const totalLabel = getPriceLabel(purchase.total, currency);
-                    
-                    const purchaseDiv = document.createElement('div');
-                    purchaseDiv.className = 'history-purchase';
-                    purchaseDiv.innerHTML = `
-                        <div class="history-purchase-header">
-                            <span>${purchase.store}</span>
-                            <span>-${totalLabel}</span>
+            historyList.innerHTML = Object.entries(groupedByDate).map(([date, purchases]) => `
+                <div class="history-group">
+                    <h3 class="history-date">${date}</h3>
+                    ${purchases.map(purchase => `
+                        <div class="history-purchase">
+                            <div class="history-purchase-header">
+                                <span>${purchase.store}</span>
+                                <span>-${getPriceLabel(purchase.total, purchase.currency || 'dollars')}</span>
+                            </div>
+                            <ul class="history-item-list">
+                                ${purchase.items.map(item => `<li>${item.quantity > 1 ? `${item.name} (x${item.quantity})` : item.name}</li>`).join('')}
+                            </ul>
                         </div>
-                        <ul class="history-item-list">${itemsHtml}</ul>
-                    `;
-                    groupDiv.appendChild(purchaseDiv);
-                });
-                historyList.appendChild(groupDiv);
-            }
+                    `).join('')}
+                </div>
+            `).join('');
         }
 
         // --- ACTIONS & EVENT HANDLERS ---
@@ -609,7 +468,7 @@ async function main() {
             removeItemFromCart(itemToSub.name);
             await loadSubscriptions();
             renderSubscriptions();
-            calculateProjection();
+            updateWeeklySubsView();
         }
 
         async function endSubscription(subId) {
@@ -618,44 +477,25 @@ async function main() {
             });
             await loadSubscriptions();
             renderSubscriptions();
-            calculateProjection();
+            updateWeeklySubsView();
         }
 
         async function deleteCustomStore(storeId) {
             try {
-                // First check if items subcollection exists and delete all items
                 const itemsRef = collection(db, "users", currentUser.uid, "customStores", storeId, "items");
-                try {
-                    const itemsSnapshot = await getDocs(itemsRef);
-                    if (!itemsSnapshot.empty) {
-                        const deletePromises = [];
-                        itemsSnapshot.forEach(docSnapshot => {
-                            deletePromises.push(deleteDoc(docSnapshot.ref));
-                        });
-                        await Promise.all(deletePromises);
-                        console.log(`Deleted ${deletePromises.length} items from store ${storeId}`);
-                    }
-                } catch (itemsError) {
-                    console.log("No items to delete or error accessing items:", itemsError);
-                }
+                const itemsSnapshot = await getDocs(itemsRef);
+                const deletePromises = itemsSnapshot.docs.map(docSnapshot => deleteDoc(docSnapshot.ref));
+                await Promise.all(deletePromises);
 
-                // Delete the store document
-                const storeDocRef = doc(db, "users", currentUser.uid, "customStores", storeId);
-                await deleteDoc(storeDocRef);
-                console.log(`Deleted store ${storeId}`);
+                await deleteDoc(doc(db, "users", currentUser.uid, "customStores", storeId));
 
-                // Reset to Ross Market
                 storeSelect.value = 'ross';
                 currentStoreId = 'ross';
-                
-                // Reload custom stores and switch to Ross
                 await loadCustomStores();
                 await handleStoreChange();
-                
             } catch (error) {
                 console.error("Error deleting custom store:", error);
-                console.error("Error details:", error.code, error.message);
-                alert(`Failed to delete store: ${error.message || 'Unknown error'}`);
+                showSimpleAlert(`Failed to delete store: ${error.message || 'Unknown error'}`);
             }
         }
 
@@ -663,21 +503,17 @@ async function main() {
             if (cart.length === 0) return;
             const totalCost = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         
-            // Balance Check
-            if (currentStoreId === 'ross' && totalCost > (userBalances.credits || 0)) {
-                alert("Not enough Campus Credits!");
-                return;
-            }
-            if (currentStoreId !== 'ross' && currentStoreCurrency === 'dollars' && totalCost > (userBalances.dining || 0)) {
-                alert("Not enough Dining Dollars!");
-                return;
-            }
-            if (currentStoreCurrency === 'swipes' && totalCost > (userBalances.swipes || 0)) {
-                alert("Not enough Meal Swipes!");
-                return;
-            }
-            if (currentStoreCurrency === 'bonus_swipes' && totalCost > (userBalances.bonus || 0)) {
-                alert("Not enough Bonus Swipes!");
+            const balanceMap = {
+                'ross': { balance: userBalances.credits || 0, name: 'Campus Credits' },
+                'dollars': { balance: userBalances.dining || 0, name: 'Dining Dollars' },
+                'swipes': { balance: userBalances.swipes || 0, name: 'Meal Swipes' },
+                'bonus_swipes': { balance: userBalances.bonus || 0, name: 'Bonus Swipes' }
+            };
+            const balanceKey = currentStoreId === 'ross' ? 'ross' : currentStoreCurrency;
+            const currentBalance = balanceMap[balanceKey];
+
+            if (totalCost > currentBalance.balance) {
+                showSimpleAlert(`Not enough ${currentBalance.name}!`);
                 return;
             }
         
@@ -688,7 +524,6 @@ async function main() {
                 const userDocRef = doc(db, "users", currentUser.uid);
                 const storeName = storeSelect.options[storeSelect.selectedIndex].text;
         
-                // Add to purchase history
                 await addDoc(collection(db, "users", currentUser.uid, "purchases"), {
                     items: cart.map(({ emoji, category, ...rest }) => rest),
                     total: totalCost,
@@ -697,16 +532,15 @@ async function main() {
                     purchaseDate: Timestamp.now()
                 });
         
-                // Update Balances based on currency type
+                let updateData = {};
                 if (currentStoreId === 'ross') {
-                    // This is for Campus Credits
                     walletToAnimate = 'credits';
-                    const newBalance = (userBalances.credits || 0) - totalCost;
+                    updateData['balances.credits'] = (userBalances.credits || 0) - totalCost;
+                    // Streak Logic
                     const userDocSnap = await getDoc(userDocRef);
                     const { currentStreak = 0, longestStreak = 0, lastLogDate = null } = userDocSnap.data() || {};
                     const today = new Date(); today.setHours(0, 0, 0, 0);
                     let newCurrentStreak = currentStreak;
-        
                     if (lastLogDate) {
                         const lastDate = lastLogDate.toDate(); lastDate.setHours(0, 0, 0, 0);
                         const diffDays = Math.ceil((today - lastDate) / (1000 * 60 * 60 * 24));
@@ -715,35 +549,18 @@ async function main() {
                     } else {
                         newCurrentStreak = 1;
                     }
-        
-                    await updateDoc(userDocRef, {
-                        'balances.credits': newBalance,
-                        currentStreak: newCurrentStreak,
-                        longestStreak: Math.max(longestStreak, newCurrentStreak),
-                        lastLogDate: Timestamp.now()
-                    });
+                    updateData.currentStreak = newCurrentStreak;
+                    updateData.longestStreak = Math.max(longestStreak, newCurrentStreak);
+                    updateData.lastLogDate = Timestamp.now();
                 } else {
-                    // This is for custom stores
-                    let updateData = {};
-                    
-                    if (currentStoreCurrency === 'dollars') {
-                        walletToAnimate = 'dining';
-                        const newDiningBalance = (userBalances.dining || 0) - totalCost;
-                        updateData['balances.dining'] = newDiningBalance;
-                    } else if (currentStoreCurrency === 'swipes') {
-                        const newSwipesBalance = (userBalances.swipes || 0) - totalCost;
-                        updateData['balances.swipes'] = newSwipesBalance;
-                    } else if (currentStoreCurrency === 'bonus_swipes') {
-                        const newBonusBalance = (userBalances.bonus || 0) - totalCost;
-                        updateData['balances.bonus'] = newBonusBalance;
-                    }
-                    
-                    await updateDoc(userDocRef, updateData);
+                    const balanceFieldMap = { 'dollars': 'dining', 'swipes': 'swipes', 'bonus_swipes': 'bonus' };
+                    const field = balanceFieldMap[currentStoreCurrency];
+                    if (field === 'dining') walletToAnimate = 'dining';
+                    updateData[`balances.${field}`] = (userBalances[field] || 0) - totalCost;
                 }
                 
-                // Check for frequent purchases and create widgets
+                await updateDoc(userDocRef, updateData);
                 await checkAndCreateFrequentWidget(db, storeName);
-                
                 cart = [];
                 await loadPurchaseHistory();
                 renderCart();
@@ -751,29 +568,64 @@ async function main() {
         
             } catch (error) {
                 console.error("Error logging purchase:", error);
-                alert("Failed to log purchase. Please try again.");
+                showSimpleAlert("Failed to log purchase. Please try again.");
             } finally {
                 logPurchaseBtn.disabled = false;
                 logPurchaseBtn.innerHTML = `<span>Checkout</span><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>`;
             }
         }
 
-        function calculateProjection() {
-            const today = new Date();
-            const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-            const daysLeft = (endOfMonth.getDate() - today.getDate());
-            const weeksLeft = daysLeft > 0 ? Math.ceil(daysLeft / 7) : 0;
-
+        function updateWeeklySubsView() {
             const weeklyCost = subscriptions
                 .filter(s => s.status === 'active')
                 .reduce((sum, sub) => sum + (sub.item.price * (sub.quantity || 1)), 0);
 
-            const projectedMonthlyCost = weeklyCost * weeksLeft;
-            const projectedBalance = (userBalances.credits || 0) - projectedMonthlyCost;
+            const weeklySubCostEl = document.getElementById('weekly-sub-cost');
+            const chargeSubsBtn = document.getElementById('charge-subs-btn');
 
-            weeklySubCostEl.textContent = `$${weeklyCost.toFixed(2)}`;
-            weeksLeftEl.textContent = weeksLeft;
-            projectedBalanceEl.textContent = `$${projectedBalance.toFixed(2)}`;
+            if (weeklySubCostEl) weeklySubCostEl.textContent = `$${weeklyCost.toFixed(2)}`;
+            if (chargeSubsBtn) chargeSubsBtn.disabled = weeklyCost <= 0;
+        }
+
+        async function chargeWeeklySubscriptions() {
+            const activeSubs = subscriptions.filter(s => s.status === 'active');
+            if (activeSubs.length === 0) return;
+
+            const totalCost = activeSubs.reduce((sum, sub) => sum + (sub.item.price * (sub.quantity || 1)), 0);
+
+            if (totalCost > (userBalances.credits || 0)) {
+                showSimpleAlert("Not enough Campus Credits to pay for weekly items!");
+                return;
+            }
+
+            const chargeSubsBtn = document.getElementById('charge-subs-btn');
+            chargeSubsBtn.disabled = true;
+            chargeSubsBtn.innerHTML = `<span class="loading-spinner" style="display: inline-block; width: 16px; height: 16px; margin-right: 0.5rem;"></span> Paying...`;
+
+            try {
+                const purchaseItems = activeSubs.map(sub => ({
+                    name: sub.item.name, price: sub.item.price, quantity: sub.quantity || 1
+                }));
+
+                await addDoc(collection(db, "users", currentUser.uid, "purchases"), {
+                    items: purchaseItems, total: totalCost, store: "Weekly Bill", currency: "dollars", purchaseDate: Timestamp.now()
+                });
+
+                walletToAnimate = 'credits';
+                const newBalance = (userBalances.credits || 0) - totalCost;
+                await updateDoc(doc(db, "users", currentUser.uid), { 'balances.credits': newBalance });
+
+                await loadPurchaseHistory();
+                renderHistory();
+                showSimpleAlert("Weekly bill paid successfully!");
+
+            } catch (error) {
+                console.error("Error charging weekly subscriptions:", error);
+                showSimpleAlert("Failed to pay weekly bill. Please try again.");
+            } finally {
+                chargeSubsBtn.disabled = false;
+                chargeSubsBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg><span>Pay Weekly Bill</span>`;
+            }
         }
 
         // --- HELPERS ---
@@ -785,100 +637,57 @@ async function main() {
                 default: return `$${price.toFixed(2)}`;
             }
         }
+
+        function showSimpleAlert(message, title = "Heads up!") {
+            let alertModal = document.getElementById('simple-alert-modal');
+            if (!alertModal) {
+                alertModal = document.createElement('div');
+                alertModal.id = 'simple-alert-modal';
+                alertModal.className = 'modal-overlay hidden';
+                alertModal.innerHTML = `
+                    <div class="modal-paper">
+                        <div class="modal-pin"></div>
+                        <h2 class="modal-title" id="simple-alert-title"></h2>
+                        <p id="simple-alert-message"></p>
+                        <div class="modal-actions">
+                            <button id="simple-alert-ok-btn" class="modal-btn confirm">Got it</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(alertModal);
+                alertModal.querySelector('#simple-alert-ok-btn').addEventListener('click', () => alertModal.classList.add('hidden'));
+                alertModal.addEventListener('click', (e) => { if (e.target === alertModal) alertModal.classList.add('hidden'); });
+            }
+            alertModal.querySelector('#simple-alert-title').textContent = title;
+            alertModal.querySelector('#simple-alert-message').textContent = message;
+            alertModal.classList.remove('hidden');
+        }
         
         function detectCategory(item) {
             const departmentMap = {"1544840": "Dips & Spreads", "1544841": "Dips & Spreads", "1457139": "Beverages"};
             const departmentId = item.department && item.department.length > 0 ? item.department[0] : null;
             if (departmentId && departmentMap[departmentId]) return departmentMap[departmentId];
-            
             const itemNameLower = item.name.toLowerCase();
-            const categories = { "snacks": ["chip", "cookie", "cracker"], "drinks": ["water", "soda", "juice"], "candy": ["chocolate", "candy"], "fresh": ["fruit", "vegetable"], "dairy": ["cheese", "yogurt"], "frozen": ["ice cream", "frozen"], "bakery": ["bread", "bagel"], "meal": ["sandwich", "wrap", "pizza"] };
+            const categories = { "Snacks": ["chip", "cookie", "cracker"], "Drinks": ["water", "soda", "juice"], "Candy": ["chocolate", "candy"], "Fresh": ["fruit", "vegetable"], "Dairy": ["cheese", "yogurt"], "Frozen": ["ice cream", "frozen"], "Bakery": ["bread", "bagel"], "Meal": ["sandwich", "wrap", "pizza"] };
             for (const [category, keywords] of Object.entries(categories)) {
-                if (keywords.some(keyword => itemNameLower.includes(keyword))) return category.charAt(0).toUpperCase() + category.slice(1);
+                if (keywords.some(keyword => itemNameLower.includes(keyword))) return category;
             }
             return 'Miscellaneous';
         }
 
         function getEmojiForItem(name) {
             const lowerName = name.toLowerCase();
-            const keywords = {
-                // Drinks
-                '☕': ['coffee', 'latte', 'espresso', 'cappuccino', 'mocha'],
-                '🍵': ['tea', 'matcha'],
-                '🥤': ['soda', 'coke', 'pepsi', 'sprite', 'fanta', 'dr pepper'],
-                '🧃': ['juice', 'lemonade', 'smoothie'],
-                '💧': ['water', 'dasani', 'fiji', 'smartwater'],
-                '🥛': ['milk', 'cream'],
-                '🍺': ['beer'],
-                '🍷': ['wine'],
-                '🍹': ['cocktail'],
-        
-                // Meals & Main Courses
-                '🍔': ['burger', 'cheeseburger'],
-                '🍕': ['pizza', 'calzone'],
-                '🥪': ['sandwich', 'sub', 'wrap', 'panini', 'blt'],
-                '🥙': ['gyro', 'kebab', 'shawarma'],
-                '🌮': ['taco', 'burrito', 'quesadilla'],
-                '🌭': ['hot dog', 'sausage'],
-                '🍜': ['ramen', 'pho', 'noodle', 'pasta', 'spaghetti'],
-                '🍣': ['sushi', 'sashimi', 'nigiri'],
-                '🥗': ['salad', 'caesar', 'cobb'],
-                '🍲': ['soup', 'stew', 'chili'],
-                '🍗': ['chicken wing', 'fried chicken', 'nugget'],
-                '': ['egg', 'omelette', 'breakfast'],
-        
-                // Snacks
-                '🍪': ['cookie', 'biscuit'],
-                '🍫': ['chocolate', 'candy', 'snickers', 'm&m', 'kitkat', 'hershey'],
-                '🥨': ['pretzel', 'chip', 'doritos', 'lays', 'cheetos', 'fritos'],
-                '🍿': ['popcorn'],
-                '🍩': ['donut', 'doughnut'],
-                '🍰': ['cake', 'cupcake', 'cheesecake'],
-                '🍦': ['ice cream', 'gelato', 'sorbet', 'froyo'],
-                '🥜': ['nut', 'peanut', 'almond', 'cashew'],
-                '🧀': ['cheese', 'cheez-it'],
-                '🥣': ['cereal', 'oatmeal'],
-                '🥖': ['bread', 'baguette', 'croissant'],
-                '🥯': ['bagel'],
-        
-                // Fruits & Veggies
-                '🍎': ['apple'],
-                '🍌': ['banana'],
-                '🍇': ['grape'],
-                '🍓': ['strawberry', 'berry'],
-                '🍊': ['orange', 'mandarin'],
-                '🍉': ['watermelon'],
-                '🥑': ['avocado', 'guacamole'],
-                '🥕': ['carrot'],
-                '🥦': ['broccoli'],
-                '🍅': ['tomato'],
-        
-                // Misc
-                '💊': ['medicine', 'advil', 'tylenol', 'pill'],
-                '🍬': ['mint', 'gum'],
-                '🍱': ['meal', 'bento', 'combo']
-            };
-        
+            const keywords = { '☕': ['coffee', 'latte', 'espresso'], '🍵': ['tea', 'matcha'], '🥤': ['soda', 'coke', 'pepsi'], '🧃': ['juice', 'lemonade'], '💧': ['water'], '🍔': ['burger'], '🍕': ['pizza'], '🥪': ['sandwich', 'sub', 'wrap'], '🌮': ['taco', 'burrito'], '🍪': ['cookie'], '🍫': ['chocolate', 'candy'], '🥨': ['pretzel', 'chip'], '🍦': ['ice cream'], '🍎': ['apple'], '🍌': ['banana'] };
             for (const emoji in keywords) {
-                if (keywords[emoji].some(keyword => lowerName.includes(keyword))) {
-                    return emoji;
-                }
+                if (keywords[emoji].some(keyword => lowerName.includes(keyword))) return emoji;
             }
-            return '📦'; // Default emoji
+            return '📦';
         }
         
-        // --- NEW DROPDOWN LOGIC ---
         function setupCustomSelect() {
             const trigger = customSelectWrapper.querySelector('.select-trigger');
-            
-            trigger.addEventListener('click', () => {
-                customSelectWrapper.classList.toggle('open');
-            });
-
+            trigger.addEventListener('click', () => customSelectWrapper.classList.toggle('open'));
             window.addEventListener('click', (e) => {
-                if (!customSelectWrapper.contains(e.target)) {
-                    customSelectWrapper.classList.remove('open');
-                }
+                if (!customSelectWrapper.contains(e.target)) customSelectWrapper.classList.remove('open');
             });
         }
 
@@ -887,120 +696,98 @@ async function main() {
             const triggerSpan = customSelectWrapper.querySelector('.select-trigger span');
             optionsContainer.innerHTML = '';
 
-            Array.from(storeSelect.options).forEach((option, index) => {
+            Array.from(storeSelect.options).forEach(option => {
                 const optionDiv = document.createElement('div');
                 optionDiv.className = 'custom-option';
+                optionDiv.dataset.value = option.value;
                 
                 if (option.value === 'create-new') {
                     optionDiv.classList.add('create-new-option');
-                    optionDiv.innerHTML = option.textContent;
-                } else if (index > 0 && option.value !== 'create-new') {
-                    // Custom store with delete button
+                    optionDiv.innerHTML = `<span>${option.textContent}</span>`;
+                } else if (option.value !== 'ross') {
                     optionDiv.innerHTML = `
                         <span class="option-text">${option.textContent}</span>
-                        <button class="delete-store-btn" data-store-id="${option.value}" data-store-name="${option.textContent}" title="Delete store">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                        </button>
-                    `;
+                        <button class="delete-store-btn" data-store-id="${option.value}" data-store-name="${option.textContent}" title="Delete store"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>`;
                 } else {
-                    optionDiv.textContent = option.textContent;
+                    optionDiv.innerHTML = `<span>${option.textContent}</span>`;
                 }
-                
-                optionDiv.dataset.value = option.value;
                 
                 if (option.value === storeSelect.value) {
                     optionDiv.classList.add('selected');
                     triggerSpan.textContent = option.textContent;
                 }
-
-                // Click handler for the option (not delete button)
-                const clickHandler = (e) => {
-                    if (!e.target.closest('.delete-store-btn')) {
-                        storeSelect.value = option.value;
-                        storeSelect.dispatchEvent(new Event('change'));
-                        
-                        triggerSpan.textContent = option.textContent;
-                        customSelectWrapper.querySelector('.custom-option.selected')?.classList.remove('selected');
-                        optionDiv.classList.add('selected');
-                        customSelectWrapper.classList.remove('open');
-                    }
-                };
-                
-                optionDiv.addEventListener('click', clickHandler);
                 optionsContainer.appendChild(optionDiv);
-            });
-
-            // Add event listeners for delete buttons
-            optionsContainer.querySelectorAll('.delete-store-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const storeId = btn.dataset.storeId;
-                    const storeName = btn.dataset.storeName;
-                    
-                    deleteStoreNameEl.textContent = storeName;
-                    deleteStoreModal.classList.remove('hidden');
-                    deleteStoreModal.dataset.storeId = storeId;
-                    customSelectWrapper.classList.remove('open');
-                });
             });
         }
 
         function setupEventListeners() {
-            // iOS-specific scroll handling
-            if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-                // Prevent body scroll when touching inside scrollable areas
-                document.body.addEventListener('touchstart', function(e) {
-                    if (e.target.closest('.item-shelves') || 
-                        e.target.closest('.basket-paper') || 
-                        e.target.closest('.custom-options')) {
-                        document.body.style.overflow = 'hidden';
-                    }
-                }, { passive: true });
-                
-                document.body.addEventListener('touchend', function(e) {
-                    document.body.style.overflow = '';
-                }, { passive: true });
-                
-                // Fix for iOS momentum scrolling
-                const scrollableElements = ['.item-shelves', '.basket-paper', '.subs-paper', '.history-paper', '.custom-options'];
-                scrollableElements.forEach(selector => {
-                    const element = document.querySelector(selector);
-                    if (element) {
-                        element.addEventListener('touchstart', function() {
-                            const top = this.scrollTop;
-                            const totalScroll = this.scrollHeight;
-                            const currentScroll = top + this.offsetHeight;
-                            
-                            if (top === 0) {
-                                this.scrollTop = 1;
-                            } else if (currentScroll === totalScroll) {
-                                this.scrollTop = top - 1;
-                            }
-                        }, { passive: true });
-                    }
-                });
-            }
-            
             storeSelect.addEventListener('change', handleStoreChange);
             itemSearchInput.addEventListener('input', () => renderItems(itemSearchInput.value, currentCategory));
             logPurchaseBtn.addEventListener('click', logPurchase);
-            cartItemsContainer.addEventListener('click', e => {
-                const removeBtn = e.target.closest('.remove-item-btn');
-                const subsBtn = e.target.closest('.add-to-subs-btn');
-                const increaseBtn = e.target.closest('.increase-btn');
-                const decreaseBtn = e.target.closest('.decrease-btn');
-                if (removeBtn) removeItemFromCart(removeBtn.dataset.name);
-                if (increaseBtn) changeQuantity(increaseBtn.dataset.name, 1);
-                if (decreaseBtn) changeQuantity(decreaseBtn.dataset.name, -1);
-                if (subsBtn) {
-                    const item = cart.find(i => i.name === subsBtn.dataset.name);
-                    if (item) {
-                        itemToSubscribe = item;
-                        subModalItemName.textContent = item.name;
-                        subModal.classList.remove('hidden');
+            
+            // Event Delegation for dynamic elements
+            document.body.addEventListener('click', e => {
+                // Category Links
+                const categoryLink = e.target.closest('.category-link');
+                if (categoryLink) {
+                    currentCategory = categoryLink.dataset.category;
+                    document.querySelectorAll('.category-link').forEach(l => l.classList.remove('active'));
+                    categoryLink.classList.add('active');
+                    renderItems(itemSearchInput.value, currentCategory);
+                    return;
+                }
+
+                // Cart Buttons
+                const cartActionsTarget = e.target.closest('.cart-item-actions button, .cart-item-quantity button');
+                if (cartActionsTarget) {
+                    const name = cartActionsTarget.dataset.name;
+                    if (cartActionsTarget.classList.contains('remove-item-btn')) removeItemFromCart(name);
+                    if (cartActionsTarget.classList.contains('increase-btn')) changeQuantity(name, 1);
+                    if (cartActionsTarget.classList.contains('decrease-btn')) changeQuantity(name, -1);
+                    if (cartActionsTarget.classList.contains('add-to-subs-btn')) {
+                        const item = cart.find(i => i.name === name);
+                        if (item) {
+                            itemToSubscribe = item;
+                            subModalItemName.textContent = item.name;
+                            subModal.classList.remove('hidden');
+                        }
                     }
+                    return;
+                }
+
+                // Subscription Buttons
+                const endSubBtn = e.target.closest('.end-sub-btn');
+                if (endSubBtn) {
+                    endSubscription(endSubBtn.dataset.id);
+                    return;
+                }
+
+                const chargeSubsBtn = e.target.closest('#charge-subs-btn');
+                if (chargeSubsBtn) {
+                    chargeWeeklySubscriptions();
+                    return;
+                }
+
+                // Custom Select Dropdown
+                const customOption = e.target.closest('.custom-option');
+                if (customOption) {
+                    const value = customOption.dataset.value;
+                    if (!e.target.closest('.delete-store-btn')) {
+                        storeSelect.value = value;
+                        storeSelect.dispatchEvent(new Event('change'));
+                        customSelectWrapper.classList.remove('open');
+                    } else {
+                        const storeId = e.target.closest('.delete-store-btn').dataset.storeId;
+                        const storeName = e.target.closest('.delete-store-btn').dataset.storeName;
+                        deleteStoreNameEl.textContent = storeName;
+                        deleteStoreModal.dataset.storeId = storeId;
+                        deleteStoreModal.classList.remove('hidden');
+                        customSelectWrapper.classList.remove('open');
+                    }
+                    return;
                 }
             });
+
             tabBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
                     tabBtns.forEach(b => b.classList.remove('active'));
@@ -1009,108 +796,52 @@ async function main() {
                     document.getElementById(`${btn.dataset.tab}-tab`).classList.add('active');
                 });
             });
-            activeSubsList.addEventListener('click', e => {
-                const endBtn = e.target.closest('.end-sub-btn');
-                if (endBtn) endSubscription(endBtn.dataset.id);
-            });
 
             // Modal Listeners
-            const closeCreateStoreModal = () => {
-                createStoreModal.classList.add('hidden');
-                newStoreNameInput.value = '';
-                newStoreCurrencyInput.value = 'dollars';
-                rebuildCustomOptions();
+            const setupModal = (modal, cancelBtn, createBtn, action, closeAction) => {
+                const close = () => { if(closeAction) closeAction(); modal.classList.add('hidden'); };
+                if (cancelBtn) cancelBtn.addEventListener('click', close);
+                if (createBtn) createBtn.addEventListener('click', action);
+                modal.addEventListener('click', e => { if (e.target === modal) close(); });
             };
 
-            cancelStoreBtn.addEventListener('click', closeCreateStoreModal);
-            createStoreModal.addEventListener('click', (e) => {
-                if (e.target === createStoreModal) {
-                    closeCreateStoreModal();
-                }
-            });
-
-            subModalCancelBtn.addEventListener('click', () => subModal.classList.add('hidden'));
-            subModal.addEventListener('click', (e) => { if (e.target === subModal) subModal.classList.add('hidden'); });
-            subModalConfirmBtn.addEventListener('click', () => {
+            setupModal(subModal, subModalCancelBtn, subModalConfirmBtn, () => {
                 if (itemToSubscribe) addSubscription(itemToSubscribe);
                 itemToSubscribe = null;
-                subModal.classList.add('hidden');
             });
             
-            createStoreBtn.addEventListener('click', async () => {
+            setupModal(createStoreModal, cancelStoreBtn, createStoreBtn, async () => {
                 const name = newStoreNameInput.value.trim();
-                const currency = newStoreCurrencyInput.value;
-                if (!name) return alert("Please enter a store name.");
-                
+                if (!name) return showSimpleAlert("Please enter a store name.");
                 createStoreBtn.disabled = true;
-                createStoreBtn.textContent = 'Creating...';
-                
                 try {
-                    // Create the custom store document
-                    const storeData = { 
-                        name: name, 
-                        currency: currency,
-                        createdAt: Timestamp.now() // Add timestamp
-                    };
-                    
-                    const customStoresRef = collection(db, "users", currentUser.uid, "customStores");
-                    const newStoreRef = await addDoc(customStoresRef, storeData);
-                    
-                    console.log(`Created store ${name} with ID: ${newStoreRef.id}`);
-                    
-                    newStoreNameInput.value = '';
-                    newStoreCurrencyInput.value = 'dollars';
-                    createStoreModal.classList.add('hidden');
-                    
+                    const newStoreRef = await addDoc(collection(db, "users", currentUser.uid, "customStores"), { name, currency: newStoreCurrencyInput.value, createdAt: Timestamp.now() });
                     await loadCustomStores();
                     storeSelect.value = newStoreRef.id;
                     storeSelect.dispatchEvent(new Event('change'));
-                    rebuildCustomOptions();
-                } catch (error) {
-                    console.error("Error creating store:", error);
-                    console.error("Error details:", error.code, error.message);
-                    alert(`Failed to create store: ${error.message || 'Unknown error'}`);
-                } finally {
-                    createStoreBtn.disabled = false;
-                    createStoreBtn.textContent = 'Create Store';
-                }
-            });
+                } catch(e) { console.error(e); showSimpleAlert('Failed to create store.'); } finally { createStoreBtn.disabled = false; }
+            }, () => { newStoreNameInput.value = ''; newStoreCurrencyInput.value = 'dollars'; rebuildCustomOptions(); });
             
-            // Delete Store Modal Listeners
-            deleteStoreCancelBtn.addEventListener('click', () => {
-                deleteStoreModal.classList.add('hidden');
-            });
-            
-            deleteStoreModal.addEventListener('click', (e) => {
-                if (e.target === deleteStoreModal) {
-                    deleteStoreModal.classList.add('hidden');
-                }
-            });
-            
-            deleteStoreConfirmBtn.addEventListener('click', async () => {
+            setupModal(addItemModal, cancelItemBtn, addItemBtn, async () => {
+                const name = newItemNameInput.value.trim();
+                let price = parseFloat(newItemPriceInput.value);
+                if (!name || isNaN(price) || price <= 0) return showSimpleAlert("Please enter a valid name and positive price.");
+                addItemBtn.disabled = true;
+                try {
+                    await addDoc(collection(db, "users", currentUser.uid, "customStores", currentStoreId, "items"), { name, price, createdAt: Timestamp.now() });
+                    await loadCustomStoreItems(currentStoreId);
+                } catch(e) { console.error(e); showSimpleAlert('Failed to add item.'); } finally { addItemBtn.disabled = false; }
+            }, () => { newItemNameInput.value = ''; newItemPriceInput.value = ''; });
+
+            setupModal(deleteStoreModal, deleteStoreCancelBtn, deleteStoreConfirmBtn, async () => {
                 const storeId = deleteStoreModal.dataset.storeId;
-                if (!storeId) {
-                    console.error("No store ID found for deletion");
-                    return;
-                }
-                
-                console.log(`Attempting to delete store with ID: ${storeId}`);
-                
+                if (!storeId) return;
                 deleteStoreConfirmBtn.disabled = true;
-                deleteStoreConfirmBtn.textContent = 'Deleting...';
-                
                 try {
                     await deleteCustomStore(storeId);
-                    deleteStoreModal.classList.add('hidden');
-                    delete deleteStoreModal.dataset.storeId; // Clear the stored ID
-                } catch (error) {
-                    console.error("Delete failed:", error);
-                } finally {
-                    deleteStoreConfirmBtn.disabled = false;
-                    deleteStoreConfirmBtn.textContent = 'Delete Store';
-                }
+                } catch(e) { console.error(e); } finally { deleteStoreConfirmBtn.disabled = false; }
             });
-            
+
             addNewItemBtn.addEventListener('click', () => {
                 const isSwipes = currentStoreCurrency.includes('swipes');
                 newItemPriceInput.step = isSwipes ? '1' : '0.01';
@@ -1118,53 +849,6 @@ async function main() {
                 newItemPriceLabel.textContent = `Price (${getPriceLabel(1, currentStoreCurrency).replace(/1\s?/, '')})`;
                 addItemModal.classList.remove('hidden');
                 newItemNameInput.focus();
-            });
-            cancelItemBtn.addEventListener('click', () => {
-                addItemModal.classList.add('hidden');
-                newItemNameInput.value = '';
-                newItemPriceInput.value = '';
-            });
-            addItemModal.addEventListener('click', (e) => { 
-                if (e.target === addItemModal) {
-                    addItemModal.classList.add('hidden');
-                    newItemNameInput.value = '';
-                    newItemPriceInput.value = '';
-                }
-            });
-            addItemBtn.addEventListener('click', async () => {
-                const name = newItemNameInput.value.trim();
-                let price = parseFloat(newItemPriceInput.value);
-                if (!name || isNaN(price) || price <= 0) return alert("Please enter a valid name and positive price.");
-                if (currentStoreCurrency.includes('swipes') && price % 1 !== 0) return alert("Swipes must be whole numbers.");
-                
-                addItemBtn.disabled = true;
-                addItemBtn.textContent = 'Adding...';
-                
-                try {
-                    // Ensure the store exists and get reference to items subcollection
-                    const itemsCollectionRef = collection(db, "users", currentUser.uid, "customStores", currentStoreId, "items");
-                    
-                    // Add the new item
-                    const newItemRef = await addDoc(itemsCollectionRef, { 
-                        name: name, 
-                        price: price,
-                        createdAt: Timestamp.now() // Add timestamp for ordering
-                    });
-                    
-                    console.log(`Added item ${name} with ID: ${newItemRef.id}`);
-                    
-                    newItemNameInput.value = ''; 
-                    newItemPriceInput.value = '';
-                    addItemModal.classList.add('hidden');
-                    await loadCustomStoreItems(currentStoreId);
-                } catch (error) {
-                    console.error("Error adding item:", error);
-                    console.error("Error details:", error.code, error.message);
-                    alert(`Failed to add item: ${error.message || 'Unknown error'}`);
-                } finally {
-                    addItemBtn.disabled = false;
-                    addItemBtn.textContent = 'Add Item';
-                }
             });
         }
 
