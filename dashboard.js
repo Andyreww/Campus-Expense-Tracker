@@ -847,9 +847,9 @@ async function renderQuickLogWidgets(db) {
                 priceLabel = `CC $${itemPrice.toFixed(2)}`;
             }
         } else if (currency === 'swipes') {
-            priceLabel = `MS ${itemPrice} Swipe${itemPrice !== 1 ? 's' : ''}`;
+            priceLabel = `${itemPrice} Meal Swipe${itemPrice !== 1 ? 's' : ''}`;
         } else if (currency === 'bonus_swipes') {
-            priceLabel = `BS ${itemPrice} Swipe${itemPrice !== 1 ? 's' : ''}`;
+            priceLabel = `${itemPrice} Bonus Swipe${itemPrice !== 1 ? 's' : ''}`;
         } else {
             // Fallback for any other case
             priceLabel = getPriceLabel(itemPrice, currency);
