@@ -168,6 +168,7 @@ async function main() {
                     await loadCustomStoreItems(currentStoreId);
                 }
             }
+            rebuildCustomOptions();
         }
         
         async function loadRossStoreData() {
