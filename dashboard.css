@@ -176,14 +176,14 @@ body {
     text-align: center;
     overflow: visible; /* CRITICAL: Allow delete buttons to show outside */
     position: relative; /* For divider line */
-    margin-bottom: 3rem; /* Space for divider line */
+    margin-bottom: 1.5rem; /* Space for divider line */
 }
 
 /* NEW: Shelf Divider */
 .quick-log-widgets-container::after {
     content: '';
     position: absolute;
-    bottom: -1.5rem;
+    bottom: 1rem;
     left: 5%;
     width: 90%;
     height: 12px;
