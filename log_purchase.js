@@ -476,9 +476,24 @@ async function main() {
         }
 
         async function endSubscription(subId) {
-            await updateDoc(doc(db, "users", currentUser.uid, "subscriptions", subId), {
-                status: 'ended', endDate: Timestamp.now()
-            });
+            const subToEnd = subscriptions.find(s => s.id === subId);
+        
+            if (subToEnd) {
+                // If it was never paid for, just delete it.
+                if (subToEnd.needsCatchUpPayment === true) {
+                    await deleteDoc(doc(db, "users", currentUser.uid, "subscriptions", subId));
+                } else {
+                    // Otherwise, mark it as ended to show in history.
+                    await updateDoc(doc(db, "users", currentUser.uid, "subscriptions", subId), {
+                        status: 'ended', 
+                        endDate: Timestamp.now()
+                    });
+                }
+            } else {
+                console.warn(`Could not find subscription with id ${subId} in local state. Deleting directly.`);
+                await deleteDoc(doc(db, "users", currentUser.uid, "subscriptions", subId));
+            }
+        
             await loadSubscriptions();
             renderSubscriptions();
             updateWeeklySubsView();
@@ -741,7 +756,7 @@ async function main() {
 
         function getEmojiForItem(name) {
             const lowerName = name.toLowerCase();
-            const keywords = { '☕': ['coffee', 'latte', 'espresso'], '🍵': ['tea', 'matcha'], '🥤': ['soda', 'coke', 'pepsi'], '�': ['juice', 'lemonade'], '💧': ['water'], '🍔': ['burger'], '🍕': ['pizza'], '🥪': ['sandwich', 'sub', 'wrap'], '🌮': ['taco', 'burrito'], '🍪': ['cookie'], '🍫': ['chocolate', 'candy'], '🥨': ['pretzel', 'chip'], '🍦': ['ice cream'], '🍎': ['apple'], '🍌': ['banana'] };
+            const keywords = { '☕': ['coffee', 'latte', 'espresso'], '🍵': ['tea', 'matcha'], '🥤': ['soda', 'coke', 'pepsi'], '🧃': ['juice', 'lemonade'], '💧': ['water'], '🍔': ['burger'], '🍕': ['pizza'], '🥪': ['sandwich', 'sub', 'wrap'], '🌮': ['taco', 'burrito'], '🍪': ['cookie'], '🍫': ['chocolate', 'candy'], '🥨': ['pretzel', 'chip'], '🍦': ['ice cream'], '🍎': ['apple'], '🍌': ['banana'] };
             for (const emoji in keywords) {
                 if (keywords[emoji].some(keyword => lowerName.includes(keyword))) return emoji;
             }
