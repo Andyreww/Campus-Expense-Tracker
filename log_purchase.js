@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, getDocs, query, Timestamp, deleteDoc, orderBy, getDoc, setDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, doc, onSnapshot, updateDoc, addDoc, collection, getDocs, query, Timestamp, deleteDoc, orderBy, getDoc, setDoc, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // --- Main App Initialization ---
 async function main() {
@@ -23,7 +23,7 @@ async function main() {
         let cart = [];
         let subscriptions = [];
         let purchaseHistory = [];
-        let userBalances = {};
+        let userProfile = {}; // Will hold balances and other user-specific data
         let unsubscribeUserDoc = null;
         let currentCategory = 'All';
         let itemToSubscribe = null;
@@ -105,7 +105,7 @@ async function main() {
             const userDocRef = doc(db, "users", currentUser.uid);
             unsubscribeUserDoc = onSnapshot(userDocRef, (docSnap) => {
                 if (docSnap.exists()) {
-                    userBalances = docSnap.data().balances || {};
+                    userProfile = docSnap.data();
                     renderAllWallets(walletToAnimate);
                     walletToAnimate = null;
                     updateWeeklySubsView();
@@ -289,6 +289,7 @@ async function main() {
         // --- RENDERING ---
         function renderAllWallets(animatedWallet = null) {
             const walletWrapper = document.getElementById('wallets-group');
+            const userBalances = userProfile.balances || {};
             if (!walletWrapper) return;
             walletWrapper.innerHTML = '';
 
@@ -463,7 +464,10 @@ async function main() {
         async function addSubscription(itemToSub) {
             await addDoc(collection(db, "users", currentUser.uid, "subscriptions"), {
                 item: { name: itemToSub.name, price: itemToSub.price, emoji: itemToSub.emoji },
-                quantity: itemToSub.quantity, status: 'active', startDate: Timestamp.now()
+                quantity: itemToSub.quantity, 
+                status: 'active', 
+                startDate: Timestamp.now(),
+                needsCatchUpPayment: true
             });
             removeItemFromCart(itemToSub.name);
             await loadSubscriptions();
@@ -502,6 +506,7 @@ async function main() {
         async function logPurchase() {
             if (cart.length === 0) return;
             const totalCost = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const userBalances = userProfile.balances || {};
         
             const balanceMap = {
                 'ross': { balance: userBalances.credits || 0, name: 'Campus Credits' },
@@ -537,8 +542,7 @@ async function main() {
                     walletToAnimate = 'credits';
                     updateData['balances.credits'] = (userBalances.credits || 0) - totalCost;
                     // Streak Logic
-                    const userDocSnap = await getDoc(userDocRef);
-                    const { currentStreak = 0, longestStreak = 0, lastLogDate = null } = userDocSnap.data() || {};
+                    const { currentStreak = 0, longestStreak = 0, lastLogDate = null } = userProfile;
                     const today = new Date(); today.setHours(0, 0, 0, 0);
                     let newCurrentStreak = currentStreak;
                     if (lastLogDate) {
@@ -576,59 +580,120 @@ async function main() {
         }
 
         function updateWeeklySubsView() {
-            const weeklyCost = subscriptions
-                .filter(s => s.status === 'active')
-                .reduce((sum, sub) => sum + (sub.item.price * (sub.quantity || 1)), 0);
+            const activeSubs = subscriptions.filter(s => s.status === 'active');
+            const weeklyCost = activeSubs.reduce((sum, sub) => sum + (sub.item.price * (sub.quantity || 1)), 0);
 
             const weeklySubCostEl = document.getElementById('weekly-sub-cost');
             const chargeSubsBtn = document.getElementById('charge-subs-btn');
+            
+            if (!weeklySubCostEl || !chargeSubsBtn) return;
 
-            if (weeklySubCostEl) weeklySubCostEl.textContent = `$${weeklyCost.toFixed(2)}`;
-            if (chargeSubsBtn) chargeSubsBtn.disabled = weeklyCost <= 0;
+            const lastPayment = userProfile.subscriptionInfo?.lastPaymentDate?.toDate();
+            const startOfWeek = getStartOfWeek();
+            const hasPaidThisWeek = lastPayment && lastPayment >= startOfWeek;
+
+            if (hasPaidThisWeek) {
+                const newSubs = activeSubs.filter(s => s.needsCatchUpPayment === true);
+                const newItemsCost = newSubs.reduce((sum, sub) => sum + (sub.item.price * (sub.quantity || 1)), 0);
+
+                if (newItemsCost > 0) {
+                    weeklySubCostEl.textContent = `$${newItemsCost.toFixed(2)}`;
+                    chargeSubsBtn.disabled = false;
+                    chargeSubsBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"></path></svg><span>Pay for New Items</span>`;
+                    chargeSubsBtn.dataset.mode = 'new_items';
+                } else {
+                    weeklySubCostEl.textContent = `$${weeklyCost.toFixed(2)}`;
+                    chargeSubsBtn.disabled = true;
+                    chargeSubsBtn.innerHTML = `<span>Paid This Week</span>`;
+                    chargeSubsBtn.dataset.mode = 'paid';
+                }
+            } else {
+                weeklySubCostEl.textContent = `$${weeklyCost.toFixed(2)}`;
+                chargeSubsBtn.disabled = weeklyCost <= 0;
+                chargeSubsBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg><span>Pay Weekly Bill</span>`;
+                chargeSubsBtn.dataset.mode = 'full_bill';
+            }
         }
 
         async function chargeWeeklySubscriptions() {
-            const activeSubs = subscriptions.filter(s => s.status === 'active');
-            if (activeSubs.length === 0) return;
+            const chargeSubsBtn = document.getElementById('charge-subs-btn');
+            const mode = chargeSubsBtn.dataset.mode;
+            if (mode === 'paid' || !mode) return;
 
-            const totalCost = activeSubs.reduce((sum, sub) => sum + (sub.item.price * (sub.quantity || 1)), 0);
+            const userBalances = userProfile.balances || {};
+            const activeSubs = subscriptions.filter(s => s.status === 'active');
+            let subsToCharge;
+            let purchaseStoreName;
+
+            if (mode === 'new_items') {
+                subsToCharge = activeSubs.filter(s => s.needsCatchUpPayment === true);
+                purchaseStoreName = "New Weekly Items";
+            } else { // mode === 'full_bill'
+                subsToCharge = activeSubs;
+                purchaseStoreName = "Weekly Bill";
+            }
+
+            if (subsToCharge.length === 0) return;
+
+            const totalCost = subsToCharge.reduce((sum, sub) => sum + (sub.item.price * (sub.quantity || 1)), 0);
 
             if (totalCost > (userBalances.credits || 0)) {
-                showSimpleAlert("Not enough Campus Credits to pay for weekly items!");
+                showSimpleAlert("Not enough Campus Credits!");
                 return;
             }
 
-            const chargeSubsBtn = document.getElementById('charge-subs-btn');
             chargeSubsBtn.disabled = true;
             chargeSubsBtn.innerHTML = `<span class="loading-spinner" style="display: inline-block; width: 16px; height: 16px; margin-right: 0.5rem;"></span> Paying...`;
 
             try {
-                const purchaseItems = activeSubs.map(sub => ({
+                // 1. Log the purchase
+                const purchaseItems = subsToCharge.map(sub => ({
                     name: sub.item.name, price: sub.item.price, quantity: sub.quantity || 1
                 }));
-
                 await addDoc(collection(db, "users", currentUser.uid, "purchases"), {
-                    items: purchaseItems, total: totalCost, store: "Weekly Bill", currency: "dollars", purchaseDate: Timestamp.now()
+                    items: purchaseItems, total: totalCost, store: purchaseStoreName, currency: "dollars", purchaseDate: Timestamp.now()
                 });
 
+                // 2. Update user balance and possibly payment date
+                const userDocRef = doc(db, "users", currentUser.uid);
+                const updateData = { 'balances.credits': (userBalances.credits || 0) - totalCost };
+                if (mode === 'full_bill') {
+                    updateData['subscriptionInfo.lastPaymentDate'] = Timestamp.now();
+                }
+                await updateDoc(userDocRef, updateData);
                 walletToAnimate = 'credits';
-                const newBalance = (userBalances.credits || 0) - totalCost;
-                await updateDoc(doc(db, "users", currentUser.uid), { 'balances.credits': newBalance });
 
+                // 3. Batch update subscriptions to clear the flag
+                const batch = writeBatch(db);
+                subsToCharge.forEach(sub => {
+                    const subRef = doc(db, "users", currentUser.uid, "subscriptions", sub.id);
+                    batch.update(subRef, { needsCatchUpPayment: false });
+                });
+                await batch.commit();
+
+                // 4. Reload local data and re-render
+                await loadSubscriptions(); 
                 await loadPurchaseHistory();
                 renderHistory();
-                showSimpleAlert("Weekly bill paid successfully!");
+                renderSubscriptions(); 
+                showSimpleAlert(`${purchaseStoreName} paid successfully!`);
 
             } catch (error) {
-                console.error("Error charging weekly subscriptions:", error);
-                showSimpleAlert("Failed to pay weekly bill. Please try again.");
-            } finally {
-                chargeSubsBtn.disabled = false;
-                chargeSubsBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg><span>Pay Weekly Bill</span>`;
+                console.error(`Error charging subscriptions (mode: ${mode}):`, error);
+                showSimpleAlert("Failed to process payment. Please try again.");
             }
         }
 
         // --- HELPERS ---
+        function getStartOfWeek() {
+            const now = new Date();
+            const dayOfWeek = now.getDay(); // Sunday = 0, Monday = 1, ...
+            const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust when day is Sunday
+            const startOfWeek = new Date(now.setDate(diff));
+            startOfWeek.setHours(0, 0, 0, 0);
+            return startOfWeek;
+        }
+
         function getPriceLabel(price, currency) {
             switch (currency) {
                 case 'dollars': return `$${price.toFixed(2)}`;
@@ -676,7 +741,7 @@ async function main() {
 
         function getEmojiForItem(name) {
             const lowerName = name.toLowerCase();
-            const keywords = { '☕': ['coffee', 'latte', 'espresso'], '🍵': ['tea', 'matcha'], '🥤': ['soda', 'coke', 'pepsi'], '🧃': ['juice', 'lemonade'], '💧': ['water'], '🍔': ['burger'], '🍕': ['pizza'], '🥪': ['sandwich', 'sub', 'wrap'], '🌮': ['taco', 'burrito'], '🍪': ['cookie'], '🍫': ['chocolate', 'candy'], '🥨': ['pretzel', 'chip'], '�': ['ice cream'], '🍎': ['apple'], '🍌': ['banana'] };
+            const keywords = { '☕': ['coffee', 'latte', 'espresso'], '🍵': ['tea', 'matcha'], '🥤': ['soda', 'coke', 'pepsi'], '�': ['juice', 'lemonade'], '💧': ['water'], '🍔': ['burger'], '🍕': ['pizza'], '🥪': ['sandwich', 'sub', 'wrap'], '🌮': ['taco', 'burrito'], '🍪': ['cookie'], '🍫': ['chocolate', 'candy'], '🥨': ['pretzel', 'chip'], '🍦': ['ice cream'], '🍎': ['apple'], '🍌': ['banana'] };
             for (const emoji in keywords) {
                 if (keywords[emoji].some(keyword => lowerName.includes(keyword))) return emoji;
             }
@@ -763,7 +828,7 @@ async function main() {
                 }
 
                 const chargeSubsBtn = e.target.closest('#charge-subs-btn');
-                if (chargeSubsBtn) {
+                if (chargeSubsBtn && !chargeSubsBtn.disabled) {
                     chargeWeeklySubscriptions();
                     return;
                 }
@@ -809,7 +874,6 @@ async function main() {
                 if (confirmBtn) {
                     confirmBtn.addEventListener('click', async () => {
                         const result = await action();
-                        // if action returns false, it means validation failed, so we don't close the modal.
                         if (result !== false) {
                             close();
                         }
@@ -828,7 +892,7 @@ async function main() {
                 const name = newStoreNameInput.value.trim();
                 if (!name) {
                     showSimpleAlert("Please enter a store name.");
-                    return false; // Prevent modal from closing
+                    return false;
                 }
                 createStoreBtn.disabled = true;
                 try {
@@ -839,7 +903,7 @@ async function main() {
                 } catch(e) { 
                     console.error(e); 
                     showSimpleAlert('Failed to create store.');
-                    return false; // Prevent modal from closing on error
+                    return false;
                 } finally { 
                     createStoreBtn.disabled = false; 
                 }
@@ -850,7 +914,7 @@ async function main() {
                 let price = parseFloat(newItemPriceInput.value);
                 if (!name || isNaN(price) || price <= 0) {
                     showSimpleAlert("Please enter a valid name and positive price.");
-                    return false; // Prevent modal from closing
+                    return false;
                 }
                 addItemBtn.disabled = true;
                 try {
@@ -859,7 +923,7 @@ async function main() {
                 } catch(e) { 
                     console.error(e); 
                     showSimpleAlert('Failed to add item.');
-                    return false; // Prevent modal from closing on error
+                    return false;
                 } finally { 
                     addItemBtn.disabled = false; 
                 }
