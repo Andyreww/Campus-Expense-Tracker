@@ -676,7 +676,7 @@ async function main() {
 
         function getEmojiForItem(name) {
             const lowerName = name.toLowerCase();
-            const keywords = { '☕': ['coffee', 'latte', 'espresso'], '🍵': ['tea', 'matcha'], '🥤': ['soda', 'coke', 'pepsi'], '🧃': ['juice', 'lemonade'], '💧': ['water'], '🍔': ['burger'], '🍕': ['pizza'], '🥪': ['sandwich', 'sub', 'wrap'], '🌮': ['taco', 'burrito'], '🍪': ['cookie'], '🍫': ['chocolate', 'candy'], '🥨': ['pretzel', 'chip'], '🍦': ['ice cream'], '🍎': ['apple'], '🍌': ['banana'] };
+            const keywords = { '☕': ['coffee', 'latte', 'espresso'], '🍵': ['tea', 'matcha'], '🥤': ['soda', 'coke', 'pepsi'], '🧃': ['juice', 'lemonade'], '💧': ['water'], '🍔': ['burger'], '🍕': ['pizza'], '🥪': ['sandwich', 'sub', 'wrap'], '🌮': ['taco', 'burrito'], '🍪': ['cookie'], '🍫': ['chocolate', 'candy'], '🥨': ['pretzel', 'chip'], '�': ['ice cream'], '🍎': ['apple'], '🍌': ['banana'] };
             for (const emoji in keywords) {
                 if (keywords[emoji].some(keyword => lowerName.includes(keyword))) return emoji;
             }
@@ -798,10 +798,24 @@ async function main() {
             });
 
             // Modal Listeners
-            const setupModal = (modal, cancelBtn, createBtn, action, closeAction) => {
-                const close = () => { if(closeAction) closeAction(); modal.classList.add('hidden'); };
+            const setupModal = (modal, cancelBtn, confirmBtn, action, closeAction) => {
+                const close = () => {
+                    if (closeAction) closeAction();
+                    modal.classList.add('hidden');
+                };
+            
                 if (cancelBtn) cancelBtn.addEventListener('click', close);
-                if (createBtn) createBtn.addEventListener('click', action);
+            
+                if (confirmBtn) {
+                    confirmBtn.addEventListener('click', async () => {
+                        const result = await action();
+                        // if action returns false, it means validation failed, so we don't close the modal.
+                        if (result !== false) {
+                            close();
+                        }
+                    });
+                }
+            
                 modal.addEventListener('click', e => { if (e.target === modal) close(); });
             };
 
@@ -812,25 +826,43 @@ async function main() {
             
             setupModal(createStoreModal, cancelStoreBtn, createStoreBtn, async () => {
                 const name = newStoreNameInput.value.trim();
-                if (!name) return showSimpleAlert("Please enter a store name.");
+                if (!name) {
+                    showSimpleAlert("Please enter a store name.");
+                    return false; // Prevent modal from closing
+                }
                 createStoreBtn.disabled = true;
                 try {
                     const newStoreRef = await addDoc(collection(db, "users", currentUser.uid, "customStores"), { name, currency: newStoreCurrencyInput.value, createdAt: Timestamp.now() });
                     await loadCustomStores();
                     storeSelect.value = newStoreRef.id;
                     storeSelect.dispatchEvent(new Event('change'));
-                } catch(e) { console.error(e); showSimpleAlert('Failed to create store.'); } finally { createStoreBtn.disabled = false; }
+                } catch(e) { 
+                    console.error(e); 
+                    showSimpleAlert('Failed to create store.');
+                    return false; // Prevent modal from closing on error
+                } finally { 
+                    createStoreBtn.disabled = false; 
+                }
             }, () => { newStoreNameInput.value = ''; newStoreCurrencyInput.value = 'dollars'; rebuildCustomOptions(); });
             
             setupModal(addItemModal, cancelItemBtn, addItemBtn, async () => {
                 const name = newItemNameInput.value.trim();
                 let price = parseFloat(newItemPriceInput.value);
-                if (!name || isNaN(price) || price <= 0) return showSimpleAlert("Please enter a valid name and positive price.");
+                if (!name || isNaN(price) || price <= 0) {
+                    showSimpleAlert("Please enter a valid name and positive price.");
+                    return false; // Prevent modal from closing
+                }
                 addItemBtn.disabled = true;
                 try {
                     await addDoc(collection(db, "users", currentUser.uid, "customStores", currentStoreId, "items"), { name, price, createdAt: Timestamp.now() });
                     await loadCustomStoreItems(currentStoreId);
-                } catch(e) { console.error(e); showSimpleAlert('Failed to add item.'); } finally { addItemBtn.disabled = false; }
+                } catch(e) { 
+                    console.error(e); 
+                    showSimpleAlert('Failed to add item.');
+                    return false; // Prevent modal from closing on error
+                } finally { 
+                    addItemBtn.disabled = false; 
+                }
             }, () => { newItemNameInput.value = ''; newItemPriceInput.value = ''; });
 
             setupModal(deleteStoreModal, deleteStoreCancelBtn, deleteStoreConfirmBtn, async () => {
@@ -839,7 +871,11 @@ async function main() {
                 deleteStoreConfirmBtn.disabled = true;
                 try {
                     await deleteCustomStore(storeId);
-                } catch(e) { console.error(e); } finally { deleteStoreConfirmBtn.disabled = false; }
+                } catch(e) { 
+                    console.error(e); 
+                } finally { 
+                    deleteStoreConfirmBtn.disabled = false; 
+                }
             });
 
             addNewItemBtn.addEventListener('click', () => {
