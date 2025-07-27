@@ -436,6 +436,15 @@ async function main() {
         }
 
         // --- ACTIONS & EVENT HANDLERS ---
+        function switchToTab(tabId) {
+            tabBtns.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tabId);
+            });
+            tabContents.forEach(content => {
+                content.classList.toggle('active', content.id === `${tabId}-tab`);
+            });
+        }
+        
         function addItemToCart(item) {
             const existingItem = cart.find(cartItem => cartItem.name === item.name);
             if (existingItem) {
@@ -445,6 +454,7 @@ async function main() {
                 cart.push({ ...item, quantity: 1 });
                 renderCart(item.name);
             }
+            switchToTab('cart');
         }
 
         function removeItemFromCart(itemName) {
