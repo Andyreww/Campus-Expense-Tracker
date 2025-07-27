@@ -184,8 +184,10 @@ body {
     content: '';
     position: absolute;
     bottom: 1rem;
-    left: 5%;
-    width: 90%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: var(--shelf-width, 0px);
+    max-width: 90%;
     height: 12px;
     background: linear-gradient(to bottom, var(--wood-light) 0%, var(--wood-dark) 100%);
     border-radius: 4px;
@@ -194,7 +196,8 @@ body {
         0 2px 0 rgba(255, 255, 255, 0.1) inset,
         0 -2px 2px rgba(0, 0, 0, 0.3) inset,
         0 2px 4px rgba(0, 0, 0, 0.4);
-    z-index: 1;
+    z-index: -1;
+    transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 
@@ -213,6 +216,8 @@ body {
     justify-content: center;
     padding: 15px; /* Add padding to ensure delete buttons have space */
     overflow: visible; /* Allow overflow */
+    position: relative;
+    z-index: 2;
 }
 
 .quick-log-widget-btn {
@@ -1288,5 +1293,6 @@ body {
         padding: 0.5rem 0.75rem;
     }
     .tab-item span { display: none; }
-    .tab-item svg { width: 24px; height: 24px; margin-bottom: 0; }
+    .tab-item svg { width: 24px; height: 24px; margin-bottom: 0; 
+    }
 }
