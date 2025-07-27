@@ -836,8 +836,24 @@ async function renderQuickLogWidgets(db) {
         const button = document.createElement('button');
         button.className = 'quick-log-widget-btn';
         
-        const currency = widgetData.currency || 'dollars';
-        const priceLabel = getPriceLabel(widgetData.itemPrice, currency);
+        const { itemPrice, currency, balanceType } = widgetData;
+        let priceLabel;
+
+        if (currency === 'dollars') {
+            // Differentiate between dining and credits
+            if (balanceType === 'dining') {
+                priceLabel = `DD $${itemPrice.toFixed(2)}`;
+            } else { // 'credits' or default
+                priceLabel = `CC $${itemPrice.toFixed(2)}`;
+            }
+        } else if (currency === 'swipes') {
+            priceLabel = `🎟️ ${itemPrice} Swipe${itemPrice !== 1 ? 's' : ''}`;
+        } else if (currency === 'bonus_swipes') {
+            priceLabel = `⭐ ${itemPrice} Swipe${itemPrice !== 1 ? 's' : ''}`;
+        } else {
+            // Fallback for any other case
+            priceLabel = getPriceLabel(itemPrice, currency);
+        }
 
         button.innerHTML = `
             <span class="widget-name">${widgetData.itemName}</span>

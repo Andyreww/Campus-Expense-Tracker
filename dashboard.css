@@ -175,7 +175,21 @@ body {
     margin: -1rem auto 0 auto;
     text-align: center;
     overflow: visible; /* CRITICAL: Allow delete buttons to show outside */
+    position: relative; /* For divider line */
+    margin-bottom: 3rem; /* Space for divider line */
 }
+
+/* NEW: Divider line */
+.quick-log-widgets-container::after {
+    content: '';
+    position: absolute;
+    bottom: -1.5rem; /* Position it below the container */
+    left: 10%;
+    width: 80%;
+    height: 0;
+    border-bottom: 3px dashed rgba(58, 36, 34, 0.2); /* Dashed wood color */
+}
+
 
 .quick-log-title {
     font-family: 'Patrick Hand', cursive;
