@@ -91,6 +91,26 @@ async function main() {
 
         // --- INITIALIZATION ---
         async function init() {
+            // iOS scroll fix
+            if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                document.addEventListener('touchmove', function(e) {
+                    if (e.target.closest('.item-shelves') || 
+                        e.target.closest('.basket-paper') || 
+                        e.target.closest('.subs-paper') || 
+                        e.target.closest('.history-paper') ||
+                        e.target.closest('.custom-options')) {
+                        e.stopPropagation();
+                    }
+                }, { passive: true });
+                
+                // Fix for iOS bounce scrolling
+                const itemShelves = document.querySelector('.item-shelves');
+                if (itemShelves) {
+                    itemShelves.style.webkitOverflowScrolling = 'touch';
+                    itemShelves.style.overflowY = 'scroll';
+                }
+            }
+            
             listenToUserData();
             setupEventListeners();
             setupCustomSelect();
@@ -194,6 +214,14 @@ async function main() {
                 });
                 renderCategories();
                 renderItems();
+                
+                // Ensure scroll is properly initialized after content loads
+                setTimeout(() => {
+                    if (itemListContainer) {
+                        itemListContainer.scrollTop = 1; // Trigger iOS to recognize scrollable content
+                        itemListContainer.scrollTop = 0;
+                    }
+                }, 100);
             } catch (error) {
                 console.error("Could not load Ross Market data:", error);
                 itemListContainer.innerHTML = '<p class="empty-message">Could not load items for Ross Market.</p>';
@@ -229,6 +257,14 @@ async function main() {
                 }));
                 
                 renderItems();
+                
+                // Ensure scroll is properly initialized after content loads
+                setTimeout(() => {
+                    if (itemListContainer) {
+                        itemListContainer.scrollTop = 1; // Trigger iOS to recognize scrollable content
+                        itemListContainer.scrollTop = 0;
+                    }
+                }, 100);
             } catch (error) {
                 console.error("Error loading custom store items:", error);
                 console.error("Error details:", error.code, error.message);
@@ -396,7 +432,7 @@ async function main() {
                     <div class="item-name">${item.name}</div>
                     <div class="item-price-tag">
                         <span class="item-price">${priceLabel}</span>
-                        ${(item.onSale && currentStoreId === 'ross') ? `<span class="item-original-price">$${item.originalPrice.toFixed(2)}</span>` : ''}
+                        ${(item.onSale && currentStoreId === 'ross') ? `<span class="item-original-price">${item.originalPrice.toFixed(2)}</span>` : ''}
                     </div>
                     ${(item.onSale && currentStoreId === 'ross') ? '<div class="sale-badge">SALE</div>' : ''}
                 `;
@@ -404,6 +440,14 @@ async function main() {
                 card.addEventListener('click', () => addItemToCart(item));
                 itemListContainer.appendChild(card);
             });
+            
+            // Force iOS to recognize scrollable content
+            if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                itemListContainer.style.webkitOverflowScrolling = 'touch';
+                itemListContainer.style.overflowY = 'scroll';
+                // Force a reflow to ensure iOS picks up the changes
+                itemListContainer.scrollTop = 0;
+            }
         }
 
         function renderCart(animatedItemName = null) {
@@ -759,7 +803,7 @@ async function main() {
                 '🥗': ['salad', 'caesar', 'cobb'],
                 '🍲': ['soup', 'stew', 'chili'],
                 '🍗': ['chicken wing', 'fried chicken', 'nugget'],
-                '🍳': ['egg', 'omelette', 'breakfast'],
+                '�': ['egg', 'omelette', 'breakfast'],
         
                 // Snacks
                 '🍪': ['cookie', 'biscuit'],
@@ -880,6 +924,41 @@ async function main() {
         }
 
         function setupEventListeners() {
+            // iOS-specific scroll handling
+            if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                // Prevent body scroll when touching inside scrollable areas
+                document.body.addEventListener('touchstart', function(e) {
+                    if (e.target.closest('.item-shelves') || 
+                        e.target.closest('.basket-paper') || 
+                        e.target.closest('.custom-options')) {
+                        document.body.style.overflow = 'hidden';
+                    }
+                }, { passive: true });
+                
+                document.body.addEventListener('touchend', function(e) {
+                    document.body.style.overflow = '';
+                }, { passive: true });
+                
+                // Fix for iOS momentum scrolling
+                const scrollableElements = ['.item-shelves', '.basket-paper', '.subs-paper', '.history-paper', '.custom-options'];
+                scrollableElements.forEach(selector => {
+                    const element = document.querySelector(selector);
+                    if (element) {
+                        element.addEventListener('touchstart', function() {
+                            const top = this.scrollTop;
+                            const totalScroll = this.scrollHeight;
+                            const currentScroll = top + this.offsetHeight;
+                            
+                            if (top === 0) {
+                                this.scrollTop = 1;
+                            } else if (currentScroll === totalScroll) {
+                                this.scrollTop = top - 1;
+                            }
+                        }, { passive: true });
+                    }
+                });
+            }
+            
             storeSelect.addEventListener('change', handleStoreChange);
             itemSearchInput.addEventListener('input', () => renderItems(itemSearchInput.value, currentCategory));
             logPurchaseBtn.addEventListener('click', logPurchase);

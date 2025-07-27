@@ -17,13 +17,45 @@
     --sale-yellow: #F39C12;
 }
 
-*, *::before, *::after { box-sizing: border-box; }
+/* Global Box Sizing */
+*, *::before, *::after { 
+    box-sizing: border-box; 
+    -webkit-tap-highlight-color: transparent; /* Remove tap highlight on iOS */
+}
 
-html, body {
+/* Ensure proper scrolling context */
+html {
+    height: 100%;
+    overflow: hidden;
+    -webkit-text-size-adjust: 100%; /* Prevent font scaling in iOS */
+}
+
+body {
     margin: 0;
     padding: 0;
     height: 100%;
-    overflow-x: hidden;
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+}
+
+/* Fix for iOS safe areas */
+@supports (padding-top: env(safe-area-inset-top)) {
+    .shop-header {
+        padding-top: env(safe-area-inset-top);
+    }
+    
+    .shop-container {
+        padding-top: calc(70px + env(safe-area-inset-top));
+    }
+}
+
+/* Scrolling polyfill for iOS */
+.scrollable {
+    overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
 }
 
 body {
@@ -483,6 +515,17 @@ body {
     padding-right: 0.5rem;
     scrollbar-width: thin;
     scrollbar-color: var(--border-color) var(--bg-secondary);
+    -webkit-overflow-scrolling: touch; /* iOS smooth scrolling */
+    position: relative;
+}
+
+/* iOS scroll fix */
+@supports (-webkit-touch-callout: none) {
+    .item-shelves {
+        overflow-y: scroll;
+        -webkit-overflow-scrolling: touch;
+        transform: translateZ(0);
+    }
 }
 
 .loading-message, .empty-message {
@@ -546,6 +589,7 @@ body {
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2; 
     -webkit-box-orient: vertical;
 }
 
@@ -1174,8 +1218,19 @@ body {
    MOBILE RESPONSIVE
    ======================================== */
 @media (max-width: 640px) {
+    /* Prevent body scroll when modal is open */
+    body {
+        position: relative;
+        height: 100%;
+    }
+    
     .shop-header {
         padding: 0.5rem 0.75rem;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
     }
     
     .back-to-cafe span {
@@ -1195,34 +1250,52 @@ body {
     }
     
     .shop-container {
-        padding: 0.75rem;
-        height: calc(100vh - 80px); /* Fixed height */
+        padding: 0;
+        padding-top: 70px; /* Account for fixed header */
+        height: 100vh;
         display: flex;
         flex-direction: column;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
     }
     
     .shop-layout {
         display: flex;
         flex-direction: column;
         height: 100%;
-        gap: 0.75rem;
         overflow: hidden;
     }
     
+    /* Store section takes up remaining space */
     .store-section {
-        padding: 1rem;
         flex: 1;
-        min-height: 0;
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        background: var(--paper-white);
+        border-radius: 1rem 1rem 0 0;
+        border: 2px solid var(--border-color);
+        border-bottom: none;
+        padding: 1rem;
+        margin: 0 0.75rem;
     }
     
+    /* Make basket a fixed bottom sheet */
     .basket-section {
-        flex: 0 0 auto;
-        height: 40vh;
-        min-height: 250px;
-        max-height: 350px;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 35vh;
+        background: var(--paper-white);
+        border-radius: 1rem 1rem 0 0;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+        z-index: 50;
+        display: flex;
+        flex-direction: column;
     }
     
     .custom-select-wrapper {
@@ -1234,50 +1307,73 @@ body {
     
     /* Fix dropdown scrolling on mobile */
     .custom-options {
-        max-height: 40vh !important; /* Limit height on mobile */
+        max-height: 40vh !important;
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch;
     }
     
-    /* Ensure item shelves are scrollable */
+    /* Store sign and search should not scroll */
+    .store-sign,
+    .custom-store-actions,
+    .search-container,
+    .category-tabs {
+        flex-shrink: 0;
+    }
+    
+    /* Item shelves container */
     .item-shelves {
         flex: 1;
-        overflow-y: auto !important;
+        overflow-y: scroll !important; /* Force scroll */
+        overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
-        min-height: 0; /* Important for flex scrolling */
+        overscroll-behavior: contain;
+        position: relative;
+        margin: 0 -0.5rem; /* Compensate for padding */
+        padding: 0 0.5rem;
+        padding-bottom: 36vh; /* Space for basket */
+    }
+    
+    /* Ensure loading message doesn't break scrolling */
+    .item-shelves.loading-message {
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     
     .item-shelves:not(.loading-message) {
-        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
         gap: 0.5rem;
-        padding-bottom: 1rem; /* Add some padding at bottom */
+        align-content: start;
     }
     
     .item-card {
-        padding: 0.75rem;
+        padding: 0.5rem;
+        height: fit-content;
     }
     
     .item-emoji {
-        font-size: 2rem;
+        font-size: 1.8rem;
     }
     
     .item-name {
-        font-size: 0.75rem;
-        min-height: 2.4em;
+        font-size: 0.7rem;
+        min-height: 2.1em;
     }
     
     .item-price {
-        font-size: 1rem;
+        font-size: 0.9rem;
     }
     
     /* Ensure categories don't take too much space */
     .category-tabs {
-        flex-shrink: 0;
         max-height: 45px;
+        margin-bottom: 0.5rem;
     }
     
     .basket-tabs {
         font-size: 0.8rem;
+        flex-shrink: 0;
     }
     
     .basket-tab {
@@ -1289,17 +1385,65 @@ body {
         height: 16px;
     }
     
+    .basket-content {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    
     .basket-paper, .subs-paper, .history-paper {
-        padding: 0.75rem;
+        padding: 0.5rem;
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
     
     .basket-title {
-        font-size: 1.1rem;
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .checkout-section {
+        flex-shrink: 0;
+        padding: 0.75rem;
+        background: var(--bg-secondary);
+        border-top: 2px solid var(--border-color);
+    }
+    
+    .total-row {
+        margin-bottom: 0.5rem;
     }
     
     .projection-card {
         margin: 0.5rem;
         padding: 0.5rem;
+    }
+    
+    /* Hide scrollbars on mobile for cleaner look */
+    .item-shelves::-webkit-scrollbar,
+    .basket-paper::-webkit-scrollbar,
+    .subs-paper::-webkit-scrollbar,
+    .history-paper::-webkit-scrollbar {
+        display: none;
+    }
+    
+    /* iOS bounce scroll fix */
+    .item-shelves {
+        -webkit-transform: translateZ(0);
+        transform: translateZ(0);
+    }
+}
+
+/* iPhone Pro Max specific adjustments */
+@media (max-width: 430px) and (min-height: 800px) {
+    .basket-section {
+        height: 30vh; /* Even smaller basket on large phones */
+    }
+    
+    .item-shelves {
+        padding-bottom: 31vh;
     }
 }
 
