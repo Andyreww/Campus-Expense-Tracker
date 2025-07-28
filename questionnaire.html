@@ -25,7 +25,77 @@
                 <!-- 2. Enter University Name -->
                 <section class="form-section">
                     <label for="university-input" class="section-title">Campus of Choice?</label>
-                    <input type="text" id="university-input" placeholder="Oatmilk University" class="form-input">
+                    <input type="text" id="university-input" placeholder="Oatmilk University" value="Denison University" class="form-input">
+                </section>
+
+                <!-- 2.5 Balance Type Selection (for non-Denison) -->
+                <section id="balance-type-section" class="form-section hidden">
+                    <h2 class="section-title">What's on your campus menu?</h2>
+                    <p class="helper-text">Click all the payment types your school uses:</p>
+                    
+                    <div class="menu-options-grid">
+                        <div class="menu-option" data-balance-type="credits">
+                            <span class="menu-icon">💳</span>
+                            <span class="menu-label">Campus Credits</span>
+                            <span class="menu-sublabel">Flex money, etc.</span>
+                        </div>
+                        <div class="menu-option" data-balance-type="dining">
+                            <span class="menu-icon">💵</span>
+                            <span class="menu-label">Dining Dollars</span>
+                            <span class="menu-sublabel">Declining balance</span>
+                        </div>
+                        <div class="menu-option" data-balance-type="swipes">
+                            <span class="menu-icon">🎫</span>
+                            <span class="menu-label">Meal Swipes</span>
+                            <span class="menu-sublabel">Regular meals</span>
+                        </div>
+                        <div class="menu-option" data-balance-type="bonus">
+                            <span class="menu-icon">🎟️</span>
+                            <span class="menu-label">Bonus Swipes</span>
+                            <span class="menu-sublabel">Guest passes</span>
+                        </div>
+                    </div>
+
+                    <!-- Main Swipe Reset Toggle (for standard swipes) -->
+                    <div id="main-swipe-reset-toggle-section" class="form-section">
+                        <h2 class="section-title">Do your main swipes reset weekly?</h2>
+                        <div class="selector-container swipe-reset-toggle-container">
+                            <div id="main-swipe-reset-toggle-bg" class="selector-bg"></div>
+                            <div id="main-swipe-reset-no" class="selector-option">No</div>
+                            <div id="main-swipe-reset-yes" class="selector-option">Yes</div>
+                        </div>
+                    </div>
+
+                    <!-- Main Swipe Reset Day Selector -->
+                    <div id="main-swipe-reset-day-section" class="form-section">
+                        <h2 class="section-title">Main Swipe Reset Day?</h2>
+                        <p class="helper-text">On what day of the week do your main swipes refresh?</p>
+                        <div class="selector-container day-selector-container">
+                            <div id="main-day-selector-bg" class="selector-bg"></div>
+                            <div class="selector-option" data-day="Sunday">Sun</div>
+                            <div class="selector-option" data-day="Monday">Mon</div>
+                            <div class="selector-option" data-day="Tuesday">Tue</div>
+                            <div class="selector-option" data-day="Wednesday">Wed</div>
+                            <div class="selector-option" data-day="Thursday">Thu</div>
+                            <div class="selector-option" data-day="Friday">Fri</div>
+                            <div class="selector-option" data-day="Saturday">Sat</div>
+                        </div>
+                    </div>
+                    
+                    <div class="custom-balance-section">
+                        <p class="helper-text">Got something special? Add it here:</p>
+                        <div id="custom-balance-container" class="custom-balance-container">
+                            <!-- Custom inputs will be added here dynamically -->
+                        </div>
+                        <div class="add-custom-buttons-container">
+                             <button type="button" id="add-custom-tender" class="add-custom-btn">
+                                <span>+ Add Custom Tender</span>
+                            </button>
+                             <button type="button" id="add-custom-swipes" class="add-custom-btn">
+                                <span>+ Add Custom Swipes</span>
+                            </button>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- 3. Select Class Year -->
@@ -41,7 +111,7 @@
                 </section>
 
                 <!-- 4. Ask if they've spent money -->
-                <section class="form-section">
+                <section id="spent-money-section" class="form-section">
                     <h2 class="section-title">Already started a tab?</h2>
                     <div class="selector-container spent-selector-container">
                         <div id="spent-money-bg" class="selector-bg"></div>
@@ -54,22 +124,7 @@
                 <section id="balance-inputs-container" class="balance-inputs">
                     <h2 class="section-title">Update your tab:</h2>
                     <div class="balance-grid">
-                        <div>
-                            <label for="credits-input">Campus Credits</label>
-                            <input type="number" id="credits-input" placeholder="50.00" class="form-input balance-input">
-                        </div>
-                        <div>
-                            <label for="dining-input">Dining Dollars</label>
-                            <input type="number" id="dining-input" placeholder="375.00" class="form-input balance-input">
-                        </div>
-                        <div id="swipes-input-group">
-                            <label for="swipes-input">Meal Swipes</label>
-                            <input type="number" id="swipes-input" placeholder="15" class="form-input balance-input">
-                        </div>
-                        <div id="bonus-input-group">
-                            <label for="bonus-input">Bonus Swipes</label>
-                            <input type="number" id="bonus-input" placeholder="4" class="form-input balance-input">
-                        </div>
+                        <!-- Balance inputs will be dynamically generated here -->
                     </div>
                 </section>
 
