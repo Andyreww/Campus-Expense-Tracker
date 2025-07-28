@@ -260,7 +260,6 @@ async function main() {
         const lowerCaseName = displayName.toLowerCase().trim();
         const usernameRef = doc(db, "usernames", lowerCaseName);
         const docSnap = await getDoc(usernameRef);
-        // It's taken if it exists AND the UID doesn't match the current user's
         return docSnap.exists() && docSnap.data().uid !== uid;
     }
 
@@ -275,9 +274,11 @@ async function main() {
             const displayName = nameInput.value.trim();
             const university = isDenison ? "Denison University" : universityInput.value.trim();
 
-            if (validateInput(displayName, "Name", 3, 15) || validateInput(university, "University", 2, 50)) {
-                throw new Error("Please check your inputs.");
-            }
+            const nameValidationError = validateInput(displayName, "Name", 3, 15);
+            if (nameValidationError) throw new Error(nameValidationError);
+
+            const universityValidationError = validateInput(university, "University", 2, 50);
+            if(universityValidationError) throw new Error(universityValidationError);
 
             if (await isDisplayNameTaken(displayName, currentUser.uid)) {
                 throw new Error("That name is already taken. Please choose another.");
@@ -294,7 +295,7 @@ async function main() {
                 });
             } else if (isDenison) {
                 const defaults = denisonDefaults[selectedYear];
-                finalBalances = { credits: defaults.credits, dining: defaults.dining, swipes: defaults.swipes, bonus: defaults.bonus };
+                finalBalances = { credits: defaults.credits, dining: defaults.dining, swipes: selectedYear !== 'Senior' ? defaults.swipes : 0, bonus: selectedYear !== 'Senior' ? defaults.bonus : 0 };
             }
 
             const userDocumentData = {
@@ -311,16 +312,13 @@ async function main() {
                 createdAt: new Date(),
             };
 
-            // Firestore transaction to save user doc and username
             await runTransaction(db, async (transaction) => {
                 const userDocRef = doc(db, "users", currentUser.uid);
                 const usernameDocRef = doc(db, "usernames", userDocumentData.displayName_lowercase);
-
                 transaction.set(userDocRef, userDocumentData);
                 transaction.set(usernameDocRef, { uid: currentUser.uid });
             });
             
-            // Update auth profile
             await updateProfile(auth.currentUser, { displayName: displayName });
 
             saveButton.textContent = "Success!";
