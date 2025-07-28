@@ -1,12 +1,17 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, runTransaction, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 async function main() {
     // --- Firebase Initialization ---
     let app, auth, db;
     try {
-        const firebaseConfig = JSON.parse(__firebase_config);
+        // Securely fetch the Firebase config from our Netlify function
+        const response = await fetch('/.netlify/functions/getFirebaseConfig');
+        if (!response.ok) {
+            throw new Error('Could not load app configuration.');
+        }
+        const firebaseConfig = await response.json();
         app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
@@ -92,7 +97,7 @@ async function main() {
 
         if (balanceInputsContainer.classList.contains('show')) {
             const balanceInputs = balanceInputsContainer.querySelectorAll('.balance-input');
-            if (!isDenison && balanceInputs.length === 0) isValid = false;
+            if (!isDenison && activeBalanceTypes.length === 0) isValid = false;
             for (const input of balanceInputs) {
                 if (input.offsetParent !== null && input.value.trim() === '') {
                     isValid = false;
@@ -258,9 +263,15 @@ async function main() {
     // --- Firestore: Check if Display Name is Taken ---
     async function isDisplayNameTaken(displayName, uid) {
         const lowerCaseName = displayName.toLowerCase().trim();
-        const usernameRef = doc(db, "usernames", lowerCaseName);
-        const docSnap = await getDoc(usernameRef);
-        return docSnap.exists() && docSnap.data().uid !== uid;
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("displayName_lowercase", "==", lowerCaseName));
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) {
+            return false;
+        }
+        // It's taken if a doc exists AND the UID doesn't match the current user's
+        const doc = querySnapshot.docs[0];
+        return doc.data().uid !== uid;
     }
 
     // --- Save Logic ---
@@ -312,12 +323,8 @@ async function main() {
                 createdAt: new Date(),
             };
 
-            await runTransaction(db, async (transaction) => {
-                const userDocRef = doc(db, "users", currentUser.uid);
-                const usernameDocRef = doc(db, "usernames", userDocumentData.displayName_lowercase);
-                transaction.set(userDocRef, userDocumentData);
-                transaction.set(usernameDocRef, { uid: currentUser.uid });
-            });
+            const userDocRef = doc(db, "users", currentUser.uid);
+            await setDoc(userDocRef, userDocumentData);
             
             await updateProfile(auth.currentUser, { displayName: displayName });
 
