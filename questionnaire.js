@@ -269,9 +269,26 @@ async function main() {
         if (querySnapshot.empty) {
             return false;
         }
-        // It's taken if a doc exists AND the UID doesn't match the current user's
         const doc = querySnapshot.docs[0];
         return doc.data().uid !== uid;
+    }
+    
+    // *** ADDED THIS FUNCTION BACK IN ***
+    function validateInput(name, fieldName, min, max) {
+        const trimmed = name.trim();
+        if (trimmed.length < min) return `${fieldName} must be at least ${min} characters long.`;
+        if (trimmed.length > max) return `${fieldName} cannot be more than ${max} characters.`;
+        if (!isNaN(trimmed)) return `${fieldName} cannot be just numbers.`;
+        
+        if (fieldName === 'Name') {
+            const normalizedName = trimmed.toLowerCase().replace(/\s/g, '');
+            for (const badWord of profanityList) {
+                if (normalizedName.includes(badWord)) {
+                    return "Please choose a more appropriate name.";
+                }
+            }
+        }
+        return null;
     }
 
     // --- Save Logic ---
