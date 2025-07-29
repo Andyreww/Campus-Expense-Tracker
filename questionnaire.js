@@ -67,6 +67,7 @@ async function main() {
         mainSwipeResetToggleSection: document.getElementById('main-swipe-reset-toggle-section'),
         mainSwipeResetYesBtn: document.getElementById('main-swipe-reset-yes'),
         mainSwipeResetNoBtn: document.getElementById('main-swipe-reset-no'),
+        mainSwipeResetToggleContainer: document.querySelector('#main-swipe-reset-toggle-section .swipe-reset-toggle-container'),
         mainSwipeResetToggleBg: document.getElementById('main-swipe-reset-toggle-bg'),
         mainSwipeResetDaySection: document.getElementById('main-swipe-reset-day-section'),
         mainDayOptions: document.querySelectorAll('#main-swipe-reset-day-section .selector-option[data-day]'),
@@ -229,7 +230,7 @@ async function main() {
     elements.mainSwipeResetYesBtn.addEventListener('click', () => {
         balanceResetSettings.main = { resetsWeekly: true, resetDay: 'Sunday' };
         elements.mainSwipeResetDaySection.classList.add('show');
-        moveSlider(elements.mainSwipeResetYesBtn, elements.mainSwipeResetToggleSection, elements.mainSwipeResetToggleBg);
+        moveSlider(elements.mainSwipeResetYesBtn, elements.mainSwipeResetToggleContainer, elements.mainSwipeResetToggleBg);
         moveSlider(elements.mainDaySelectorContainer.querySelector('[data-day="Sunday"]'), elements.mainDaySelectorContainer, elements.mainDaySelectorBg);
         updateBalanceInputs();
         validateForm();
@@ -238,7 +239,7 @@ async function main() {
     elements.mainSwipeResetNoBtn.addEventListener('click', () => {
         balanceResetSettings.main = { resetsWeekly: false };
         elements.mainSwipeResetDaySection.classList.remove('show');
-        moveSlider(elements.mainSwipeResetNoBtn, elements.mainSwipeResetToggleSection, elements.mainSwipeResetToggleBg);
+        moveSlider(elements.mainSwipeResetNoBtn, elements.mainSwipeResetToggleContainer, elements.mainSwipeResetToggleBg);
         updateBalanceInputs();
         validateForm();
     });
@@ -254,7 +255,7 @@ async function main() {
         });
     });
 
-    // --- Custom Balance Functions ---
+    // --- Add Custom Balance Handler ---
     function addCustomBalanceRow(balanceType) {
         customBalanceCount++;
         const customRow = document.createElement('div');
@@ -599,7 +600,7 @@ async function main() {
         requestAnimationFrame(() => {
             moveSlider(elements.yearOptions[0], elements.yearSelectorContainer, elements.yearSelectorBg);
             moveSlider(elements.spentNoBtn, elements.spentSelectorContainer, elements.spentMoneyBg);
-            moveSlider(elements.mainSwipeResetNoBtn, elements.mainSwipeResetToggleSection, elements.mainSwipeResetToggleBg);
+            moveSlider(elements.mainSwipeResetNoBtn, elements.mainSwipeResetToggleContainer, elements.mainSwipeResetToggleBg);
             
             // Initialize reset settings
             balanceResetSettings.main = { resetsWeekly: false };
