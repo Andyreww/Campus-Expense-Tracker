@@ -18,7 +18,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
-    background-color: var(--wood-light); /* Prevents white flash on load */
+    background-color: var(--wood-light); /* QUICK FIX: Prevents white flash on load */
 }
 
 html, body {
@@ -143,7 +143,6 @@ body {
     transition: transform 0.2s ease;
     position: relative;
     z-index: 1;
-    object-fit: cover;
 }
 .avatar-button:hover .avatar { transform: scale(1.1); }
 
@@ -169,6 +168,7 @@ body {
 
 /* University Badge */
 #university-badge {
+    display: none;
     font-family: 'Nunito', sans-serif;
     font-size: 0.9rem;
     font-weight: 700;
@@ -188,7 +188,7 @@ body {
 }
 
 /* ========================================
-   QUICK LOG WIDGETS
+   QUICK LOG WIDGETS - FIXED DELETE BUTTON
    ======================================== */
 .quick-log-widgets-container {
     padding: 0 1rem 1.5rem 1rem;
@@ -200,7 +200,7 @@ body {
     margin-bottom: 1.5rem; /* Space for divider line */
 }
 
-/* Shelf Divider */
+/* NEW: Shelf Divider */
 .quick-log-widgets-container::after {
     content: '';
     position: absolute;
@@ -263,7 +263,7 @@ body {
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
 
-    /* Flexbox for layout */
+    /* NEW: Flexbox for layout */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -272,6 +272,7 @@ body {
     line-height: 1.2;
 }
 
+/* NEW: Styles for the name and price spans */
 .widget-name {
     font-size: 1em;
     font-weight: 700;
@@ -355,6 +356,11 @@ body {
     margin-bottom: 1rem;
     font-weight: 700;
     animation: fadeInOut 3s ease forwards;
+}
+
+@keyframes fadeInOut {
+    0%, 100% { opacity: 0; transform: translateY(10px); }
+    10%, 90% { opacity: 1; transform: translateY(0); }
 }
 
 /* Jiggle animation for delete mode */
@@ -715,7 +721,7 @@ body {
 .leaderboard-item:nth-child(2), .leaderboard-item:nth-child(3) { font-size: 1.1rem; }
 .leaderboard-item:last-child { border-bottom: none; }
 .leaderboard-rank { font-size: 1.5rem; font-weight: 700; color: var(--text-secondary); width: 40px; text-align: center; }
-.leaderboard-avatar { width: 50px; height: 50px; border-radius: 50%; border: 2px solid var(--text-primary); filter: sepia(0.2) contrast(1.1); flex-shrink: 0; object-fit: cover; }
+.leaderboard-avatar { width: 50px; height: 50px; border-radius: 50%; border: 2px solid var(--text-primary); filter: sepia(0.2) contrast(1.1); flex-shrink: 0; }
 .leaderboard-name { font-weight: 700; font-size: 1.1rem; }
 .leaderboard-streak { font-weight: 700; font-size: 1.2rem; margin-left: auto; }
 .leaderboard-item.current-user { background-color: rgba(76, 175, 80, 0.15); padding: 0.5rem; box-shadow: inset 0 0 0 2px rgba(76, 175, 80, 0.3); }
@@ -900,7 +906,7 @@ body {
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.06), 0 0 0 3px rgba(76, 175, 80, 0.3);
 }
 
-/* Custom Select Dropdown Styling */
+/* NEW: Custom Select Dropdown Styling */
 .custom-select-wrapper {
     position: relative;
     width: 100%;
@@ -1243,11 +1249,11 @@ body {
     box-shadow: inset 0 1px 1px rgba(0,0,0,0.2);
 }
 
-/* Delete Account Button in Modal */
+/* Delete Account Button in Modal - Back to 3D but more subtle */
 .delete-account-btn {
     width: 100%;
-    padding: 0.6rem 1rem; 
-    font-size: 0.9rem; 
+    padding: 0.6rem 1rem; /* Slightly smaller padding */
+    font-size: 0.9rem; /* Slightly smaller font */
     font-family: 'Nunito', sans-serif;
     font-weight: 700;
     color: white;
@@ -1262,7 +1268,6 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
 }
 .delete-account-btn:hover {
     background: linear-gradient(180deg, #ef9a9a 0%, #e57373 100%);
@@ -1276,6 +1281,7 @@ body {
     transition-duration: 0.05s;
 }
 
+
 /* Confirmation Modal Delete Button */
 #delete-confirm-button {
     background-color: var(--brand-danger) !important; /* Use important to override existing styles */
@@ -1283,74 +1289,6 @@ body {
 }
 #delete-confirm-button:hover {
     background-color: #e57373 !important;
-}
-
-/* ========================================
-   HELPER & ANIMATION CLASSES
-   (Moved from JS for better organization)
-   ======================================== */
-
-/* Success message for logging purchases */
-.custom-log-success {
-    position: fixed; bottom: 140px; left: 50%; transform: translateX(-50%);
-    background: var(--brand-primary); color: white; padding: 1rem 2rem;
-    border-radius: 50px; font-weight: 700; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    animation: slideUpAndFadeOut 3s ease-out forwards;
-    z-index: 200;
-}
-
-@keyframes slideUpAndFadeOut {
-    0% { transform: translate(-50%, 20px); opacity: 0; }
-    10% { transform: translate(-50%, 0); opacity: 1; }
-    90% { transform: translate(-50%, 0); opacity: 1; }
-    100% { opacity: 0; transform: translate(-50%, -10px); }
-}
-
-/* Animation for when a balance is updated */
-.table-item.hit { 
-    animation: shake 0.5s ease-out; 
-}
-
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-5px) rotate(-1deg); }
-    75% { transform: translateX(5px) rotate(1deg); }
-}
-
-/* Profanity warning note for bio input */
-.profanity-warning-note {
-    position: relative; margin-top: 0.75rem;
-    animation: wobbleIn 0.5s ease-out;
-}
-.warning-paper {
-    background: #FFE4B5;
-    background-image: repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(139, 69, 19, 0.03) 20px, rgba(139, 69, 19, 0.03) 21px);
-    border: 2px solid #D2691E; border-radius: 4px; padding: 0.75rem 1rem;
-    position: relative; transform: rotate(-2deg);
-    box-shadow: 2px 2px 8px rgba(0,0,0,0.1), inset 0 0 20px rgba(139, 69, 19, 0.05);
-    font-family: 'Patrick Hand', cursive;
-}
-.warning-tape {
-    position: absolute; top: -12px; left: 50%;
-    transform: translateX(-50%) rotate(3deg); width: 60px; height: 24px;
-    background: rgba(255, 255, 255, 0.6); border: 1px dashed rgba(0,0,0,0.1);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-.warning-tape::before {
-    content: ''; position: absolute; top: 3px; left: 3px; right: 3px; bottom: 3px;
-    background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.03) 4px, rgba(0,0,0,0.03) 8px);
-}
-.warning-content {
-    display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
-}
-.warning-emoji { font-size: 1.8rem; filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.2)); }
-.warning-text { font-size: 1.1rem; font-weight: 700; color: #8B4513; text-shadow: 1px 1px 0 rgba(255,255,255,0.5); }
-.warning-subtext { font-size: 0.9rem; color: #A0522D; font-style: italic; }
-
-@keyframes wobbleIn {
-    0% { opacity: 0; transform: scale(0.8) rotate(-8deg); }
-    50% { transform: scale(1.05) rotate(3deg); }
-    100% { opacity: 1; transform: scale(1) rotate(-2deg); }
 }
 
 
@@ -1424,7 +1362,7 @@ body {
     .folded-map { width: 140px; height: 90px; }
     .map-label { font-size: 1.2rem; }
 
-    /* Mobile Quick Log Styles */
+    /* Mobile Quick Log Styles - FIXED */
     .quick-log-buttons {
         display: flex;
         justify-content: center;
@@ -1488,43 +1426,49 @@ body {
     .newspaper-title { font-size: 2.5rem; letter-spacing: 1px; }
     .leaderboard-header::after { display: none; }
     
-    /* Mobile leaderboard layout */
+    /* FIXED: Mobile leaderboard layout */
     .leaderboard-item {
         font-size: 0.9rem;
-        align-items: center; 
-        gap: 0.75rem; 
-        padding: 0.75rem 0;
+        align-items: center; /* Change back to center for better mobile layout */
+        gap: 0.75rem; /* Reduce gap on mobile */
+        padding: 0.75rem 0; /* Reduce padding */
+        /* Ensure proper overflow handling */
         width: 100%;
         box-sizing: border-box;
         overflow: hidden;
+        /* Keep border but ensure it doesn't overflow */
         border-bottom: 1px solid var(--border-color);
-        border-right: none;
+        border-right: none; /* Remove any right border that might cause overflow */
     }
     
+    /* FIXED: Rank styling for mobile */
     .leaderboard-rank {
-        font-size: 1.2rem;
-        width: 30px;
+        font-size: 1.2rem; /* Smaller on mobile */
+        width: 30px; /* Smaller width */
         text-align: center;
-        flex-shrink: 0;
+        flex-shrink: 0; /* Don't let it shrink */
     }
     
+    /* FIXED: Avatar styling for mobile */
     .leaderboard-avatar { 
         width: 40px; 
         height: 40px; 
         filter: none;
-        flex-shrink: 0;
+        flex-shrink: 0; /* Don't let it shrink */
     }
     
+    /* FIXED: Details section - prevent overflow */
     .leaderboard-details {
         flex-grow: 1;
         display: flex;
         flex-direction: column;
         min-width: 0; /* Important: allows flex item to shrink below content size */
-        overflow: hidden;
+        overflow: hidden; /* Prevent content from overflowing */
     }
     
+    /* FIXED: Name styling */
     .leaderboard-name {
-        font-size: 1rem;
+        font-size: 1rem; /* Slightly smaller on mobile */
         font-weight: 700;
         white-space: nowrap;
         overflow: hidden;
@@ -1532,29 +1476,32 @@ body {
         max-width: 100%;
     }
     
+    /* FIXED: Bio styling */
     .leaderboard-bio {
-        font-size: 0.85rem;
+        font-size: 0.85rem; /* Smaller on mobile */
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         max-width: 100%;
     }
     
+    /* FIXED: Streak positioning and sizing */
     .leaderboard-streak {
-        font-size: 1rem;
+        font-size: 1rem; /* Smaller on mobile */
         font-weight: 700;
-        margin-left: auto; /* Changed from 0 to auto to push it to the right */
-        padding-left: 0.5rem; /* Add some space */
-        flex-shrink: 0;
-        white-space: nowrap;
-        min-width: fit-content;
-        text-align: right;
+        margin-left: 0; /* Remove auto margin */
+        padding-left: 0; /* Remove padding */
+        flex-shrink: 0; /* Don't let it shrink */
+        white-space: nowrap; /* Prevent line breaks */
+        min-width: fit-content; /* Ensure it takes minimum needed space */
+        text-align: right; /* Align text to the right */
     }
     
+    /* FIXED: Special styling for first item */
     .leaderboard-item:nth-child(1) {
         grid-column: 1;
-        font-size: 1rem;
-        padding: 1rem 0.5rem;
+        font-size: 1rem; /* Slightly larger for winner */
+        padding: 1rem 0.5rem; /* Adjust padding */
         margin-bottom: 1rem;
     }
     
@@ -1614,8 +1561,8 @@ body {
     }
     
     @keyframes fadeInOut {
-        0%, 100% { opacity: 0; transform: translateY(10px); }
-        10%, 90% { opacity: 1; transform: translateY(0); }
+        0%, 100% { opacity: 0; }
+        20%, 80% { opacity: 0.8; }
     }
 }
 
