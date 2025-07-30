@@ -226,14 +226,14 @@ body {
     text-align: center;
     overflow: visible; 
     position: relative; 
-    margin-bottom: 0.5rem; 
+    margin-bottom: 2rem; /* More space for the shelf */
 }
 
 /* Shelf Divider */
 .quick-log-widgets-container::after {
     content: '';
     position: absolute;
-    bottom: -1.8rem; /* FIXED: Closer to widgets */
+    bottom: 0; /* Adjusted shelf position */
     left: 50%;
     transform: translateX(-50%);
     width: var(--shelf-width, 0px);
@@ -268,7 +268,7 @@ body {
     overflow: visible;
     position: relative;
     z-index: 2;
-    margin-bottom: 1.5rem; /* FIXED: Reduced space for shelf */
+    margin-bottom: 0; 
 }
 
 .quick-log-widget-btn {
@@ -1330,6 +1330,13 @@ body {
         padding: 0 0.5rem; 
     }
     
+    /* FIXED: Reset desktop-specific grid spanning for balance cards on mobile */
+    .tabletop > .table-item:nth-child(5):nth-last-child(2),
+    .tabletop > .table-item:nth-child(5):nth-last-child(3),
+    .tabletop > .table-item:nth-child(6):nth-last-child(2) {
+        grid-column: auto;
+    }
+
     .tabletop[data-card-count="1"] {
         grid-template-columns: 1fr;
         max-width: 300px;
@@ -1374,12 +1381,12 @@ body {
     /* Mobile Quick Log Styles */
     .quick-log-buttons {
         display: flex;
-        flex-wrap: wrap; /* FIXED: Allow buttons to wrap */
+        flex-wrap: wrap; 
         justify-content: center;
         gap: 0.75rem;
         padding: 15px;
         overflow: visible;
-        margin-bottom: 1.2rem; /* FIXED: Reduced space for shelf */
+        margin-bottom: 0; /* FIXED: Use container padding for spacing */
     }
 
     .quick-log-widget-btn {
@@ -1408,12 +1415,12 @@ body {
     
     .quick-log-widgets-container {
         overflow: visible;
-        padding: 0.5rem 0.5rem 1rem 0.5rem;
+        padding: 0.5rem 0.5rem 2rem 0.5rem; /* FIXED: Added padding for shelf */
         margin-bottom: 0.5rem;
     }
     
     .quick-log-widgets-container::after {
-        bottom: -1.5rem; /* FIXED: Closer to widgets */
+        bottom: 0.5rem; /* FIXED: Closer to widgets */
     }
 
     #leaderboard-section {
