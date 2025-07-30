@@ -1318,12 +1318,11 @@ body {
     }
     
     /* Center the last balance card on its own row if there's an odd number */
-    .tabletop > .table-item:nth-child(odd):nth-last-child(2) {
+    .tabletop > .table-item:not(.info-cards-row):nth-last-child(2):nth-child(odd) {
         grid-column: 1 / -1;
     }
 
     /* FIXED: Reset desktop-specific grid spanning for balance cards on mobile */
-    .tabletop > .table-item:nth-child(5):nth-last-child(2),
     .tabletop > .table-item:nth-child(5):nth-last-child(3),
     .tabletop > .table-item:nth-child(6):nth-last-child(2) {
         grid-column: auto;
