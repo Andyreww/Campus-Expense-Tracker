@@ -1,4 +1,9 @@
-/* ========================================
+@media (min-width: 641px) {
+    /* Ensure weather and map stay side by side on larger screens */
+    .info-cards-row {
+        grid-template-columns: 1fr 1fr !important;
+    }
+}/* ========================================
    DASHBOARD STYLES
    ======================================== */
 :root {
@@ -191,7 +196,7 @@ body {
    QUICK LOG WIDGETS - FIXED DELETE BUTTON
    ======================================== */
 .quick-log-widgets-container {
-    padding: 0 1rem 1.5rem 1rem;
+    padding: 0 1rem 2.5rem 1rem; /* Increased bottom padding for shelf */
     max-width: 1000px;
     margin: -1rem auto 0 auto;
     text-align: center;
@@ -204,7 +209,7 @@ body {
 .quick-log-widgets-container::after {
     content: '';
     position: absolute;
-    bottom: 1rem;
+    bottom: 0.5rem; /* Moved up from 1rem */
     left: 50%;
     transform: translateX(-50%);
     width: var(--shelf-width, 0px);
@@ -235,7 +240,7 @@ body {
     flex-wrap: wrap;
     gap: 1rem;
     justify-content: center;
-    padding: 15px; /* Add padding to ensure delete buttons have space */
+    padding: 15px 15px 25px 15px; /* Extra bottom padding */
     overflow: visible; /* Allow overflow */
     position: relative;
     z-index: 2;
@@ -404,6 +409,12 @@ body {
 }
 
 /* Handle different numbers of cards */
+.tabletop[data-card-count="1"] {
+    grid-template-columns: 1fr;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
 .tabletop[data-card-count="2"] {
     grid-template-columns: repeat(2, 1fr);
 }
@@ -414,6 +425,29 @@ body {
 
 .tabletop[data-card-count="4"] {
     grid-template-columns: repeat(4, 1fr);
+}
+
+/* For 5+ cards, use auto-fit but with max 4 columns */
+.tabletop[data-card-count="5"],
+.tabletop[data-card-count="6"] {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    max-width: 900px; /* Slightly smaller to keep cards from getting too spread out */
+}
+
+/* Always make weather and map full width on their row */
+.weather-note,
+.map-container {
+    grid-column: 1 / -1;
+}
+
+/* Weather and Map wrapper for side-by-side layout */
+.info-cards-row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    width: 100%;
+    margin-top: 1rem; /* Add some space above */
 }
 
 /* Handle overflow for many cards */
@@ -547,36 +581,55 @@ body {
 
 /* Reset Info */
 .reset-info {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    margin-top: 0.5rem;
-    font-style: italic;
+    font-size: 0.7rem;
+    color: var(--wood-dark);
+    margin-top: 0.3rem;
+    font-style: normal;
+    font-family: 'Patrick Hand', cursive;
     opacity: 0.8;
-    background: rgba(255, 255, 255, 0.3);
-    padding: 0.2rem 0.6rem;
-    border-radius: 12px;
+    background: #fdfaf2;
+    padding: 0.15rem 0.5rem;
+    border-radius: 8px;
     display: inline-block;
     position: relative;
+    border: 1px dashed var(--border-color);
+    transform: rotate(-2deg);
+    box-shadow: 1px 1px 0 rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+}
+
+.reset-info:hover {
+    transform: rotate(-1deg) scale(1.05);
+    opacity: 1;
 }
 
 .reset-info::before {
-    content: '🔄';
-    margin-right: 0.3rem;
-    font-style: normal;
+    content: '↻';
+    margin-right: 0.2rem;
+    font-size: 0.8rem;
     opacity: 0.7;
+    display: inline-block;
+    animation: gentleSpin 4s ease-in-out infinite;
+}
+
+@keyframes gentleSpin {
+    0%, 90%, 100% { transform: rotate(0deg); }
+    95% { transform: rotate(360deg); }
 }
 
 /* Pulse animation for items that reset today */
 @keyframes resetPulse {
-    0%, 100% { opacity: 0.8; }
-    50% { opacity: 1; transform: scale(1.05); }
+    0%, 100% { opacity: 0.9; }
+    50% { opacity: 1; transform: rotate(-2deg) scale(1.05); }
 }
 
 .reset-info.resets-today {
-    background: rgba(76, 175, 80, 0.2);
-    color: var(--brand-primary);
+    background: #fff3cd;
+    color: var(--wood-dark);
+    border-color: #ffc107;
     font-weight: 600;
     animation: resetPulse 2s ease-in-out infinite;
+    box-shadow: 0 0 8px rgba(255, 193, 7, 0.3);
 }
 
 /* Weather and Map always at end */
@@ -590,7 +643,6 @@ body {
     flex-direction: column; 
     justify-content: center; 
     min-height: 200px;
-    grid-column: span 2;
 }
 
 .map-container { 
@@ -600,7 +652,6 @@ body {
     align-items: center; 
     justify-content: center; 
     min-height: 200px;
-    grid-column: span 2;
 }
 
 .weather-note::before { content: ''; position: absolute; top: -12px; left: 50%; transform: translateX(-50%) rotate(3deg); width: 120px; height: 30px; background: rgba(135, 206, 250, 0.4); border-left: 1px dashed rgba(255,255,255,0.4); border-right: 1px dashed rgba(255,255,255,0.4); }
@@ -1304,8 +1355,9 @@ body {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
     }
-    .weather-note, .map-container { 
-        grid-column: span 2; 
+    /* Keep weather and map side by side on tablets */
+    .info-cards-row {
+        grid-template-columns: 1fr 1fr;
     }
     .leaderboard-list { grid-template-columns: 1fr; }
     .leaderboard-item:nth-child(1) { grid-column: 1; }
@@ -1330,6 +1382,12 @@ body {
         gap: 1rem; 
         padding: 0 0.5rem; 
     }
+    
+    /* Special handling for single card on mobile */
+    .tabletop[data-card-count="1"] {
+        grid-template-columns: 1fr;
+        max-width: 300px;
+    }
     .tabletop.has-overflow {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -1337,8 +1395,10 @@ body {
         overflow-y: auto;
         padding-bottom: 1rem;
     }
-    .weather-note, .map-container { 
-        grid-column: span 2; 
+    /* Stack weather and map on mobile */
+    .info-cards-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
     }
     .table-item { min-height: 140px; }
     .bell-bag { width: 80px; height: 80px; }
@@ -1356,6 +1416,11 @@ body {
     .bonus-coaster { width: 60px; height: 60px; font-size: 1.5rem; }
     .item-balance { font-size: 1.8rem; }
     .item-title { font-size: 0.85rem; }
+    .reset-info { 
+        font-size: 0.65rem; 
+        padding: 0.1rem 0.4rem;
+        margin-top: 0.2rem;
+    }
     .weather-temp { font-size: 2rem; }
     .weather-icon { width: 50px; height: 50px; }
     .weather-note { padding: 1rem; }
@@ -1367,7 +1432,7 @@ body {
         display: flex;
         justify-content: center;
         gap: 0.75rem;
-        padding: 15px; /* Ensure delete buttons have space */
+        padding: 15px 15px 30px 15px; /* Extra bottom padding on mobile */
         overflow: visible;
     }
 
@@ -1401,7 +1466,13 @@ body {
     /* Ensure container allows overflow on mobile */
     .quick-log-widgets-container {
         overflow: visible;
-        padding: 0.5rem;
+        padding: 0.5rem 0.5rem 3rem 0.5rem; /* More bottom padding for shelf */
+        margin-bottom: 2rem; /* More space below */
+    }
+    
+    /* Adjust shelf position on mobile */
+    .quick-log-widgets-container::after {
+        bottom: 0; /* Closer to bottom edge */
     }
 
     #leaderboard-section {

@@ -193,15 +193,18 @@ function renderBalanceCards(userData) {
     
     // Set card count for better grid layout
     const cardCount = visibleBalanceTypes.length;
-    if (cardCount <= 4) {
+    if (cardCount <= 6) {
         tabletopGrid.setAttribute('data-card-count', cardCount);
     }
     
-    // Always add weather and map at the end
+    // Always add weather and map at the end in a wrapper
+    const infoCardsRow = document.createElement('div');
+    infoCardsRow.className = 'info-cards-row';
+    
     const weatherCard = document.createElement('section');
     weatherCard.id = 'weather-widget';
     weatherCard.className = 'table-item weather-note';
-    tabletopGrid.appendChild(weatherCard);
+    infoCardsRow.appendChild(weatherCard);
     
     const mapCard = document.createElement('section');
     mapCard.className = 'table-item map-container';
@@ -213,7 +216,10 @@ function renderBalanceCards(userData) {
             <span class="map-label">Campus Map</span>
         </div>
     `;
-    tabletopGrid.appendChild(mapCard);
+    infoCardsRow.appendChild(mapCard);
+    
+    // Add the wrapper to the grid
+    tabletopGrid.appendChild(infoCardsRow);
     
     // Re-assign weather and map elements
     weatherWidget = document.getElementById('weather-widget');
@@ -225,9 +231,6 @@ function renderBalanceCards(userData) {
     // Handle overflow if too many cards (more than 6 balance types)
     if (visibleBalanceTypes.length > 6) {
         tabletopGrid.classList.add('has-overflow');
-        // Remove weather and map from scrollable area and place below
-        weatherCard.style.gridColumn = 'span 2';
-        mapCard.style.gridColumn = 'span 2';
     }
 }
 
@@ -315,7 +318,8 @@ function createBalanceCard(balanceType, currentBalance) {
         const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
         const isToday = today === balanceType.resetDay;
         const resetClass = isToday ? 'resets-today' : '';
-        resetInfo = `<div class="reset-info ${resetClass}">Resets ${balanceType.resetDay}s${isToday ? ' (Today!)' : ''}</div>`;
+        const dayText = isToday ? 'Today!' : `${balanceType.resetDay}s`;
+        resetInfo = `<div class="reset-info ${resetClass}">Resets ${dayText}</div>`;
     }
     
     card.innerHTML = `
