@@ -198,7 +198,7 @@ body {
     font-weight: 700;
     color: var(--bg-secondary); /* Light text on dark wood */
     background: linear-gradient(135deg, var(--wood-light) 0%, var(--wood-dark) 100%); /* Wood gradient */
-    padding: 0.3rem 0.6rem; /* Adjusted padding */
+    padding: 0.3rem 0.5rem; /* Tighter padding */
     border-radius: 8px; /* Less rounded, more plaque-like */
     margin-top: 0.75rem; /* More space */
     margin-left: 2px;
