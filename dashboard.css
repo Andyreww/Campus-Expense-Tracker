@@ -1,7 +1,29 @@
-@media (min-width: 641px) {
+/* Enforce 4-column grid for balance cards */
+.table-item:not(.weather-note):not(.map-container) {
+    /* Balance cards stay in their grid */
+}
+
+/* For exactly 5 cards, center the 5th one */
+.tabletop > .table-item:nth-child(5):nth-last-child(2) {
+    grid-column: 2 / 4;
+}
+
+/* For exactly 6 cards, center the last 2 */
+.tabletop > .table-item:nth-child(5):nth-last-child(3) {
+    grid-column: 2;
+}
+
+.tabletop > .table-item:nth-child(6):nth-last-child(2) {
+    grid-column: 3;
+}@media (min-width: 641px) {
     /* Ensure weather and map stay side by side on larger screens */
     .info-cards-row {
         grid-template-columns: 1fr 1fr !important;
+    }
+    
+    /* Desktop-specific shelf spacing */
+    .quick-log-widgets-container::after {
+        bottom: -1.5rem; /* More space on desktop */
     }
 }/* ========================================
    DASHBOARD STYLES
@@ -196,20 +218,20 @@ body {
    QUICK LOG WIDGETS - FIXED DELETE BUTTON
    ======================================== */
 .quick-log-widgets-container {
-    padding: 0 1rem 2.5rem 1rem; /* Increased bottom padding for shelf */
+    padding: 0 1rem 1rem 1rem; /* Reduced bottom padding */
     max-width: 1000px;
     margin: -1rem auto 0 auto;
     text-align: center;
     overflow: visible; /* CRITICAL: Allow delete buttons to show outside */
     position: relative; /* For divider line */
-    margin-bottom: 1.5rem; /* Space for divider line */
+    margin-bottom: 0.5rem; /* Reduced margin */
 }
 
 /* NEW: Shelf Divider */
 .quick-log-widgets-container::after {
     content: '';
     position: absolute;
-    bottom: 0.5rem; /* Moved up from 1rem */
+    bottom: -1rem; /* Positioned below container */
     left: 50%;
     transform: translateX(-50%);
     width: var(--shelf-width, 0px);
@@ -240,10 +262,11 @@ body {
     flex-wrap: wrap;
     gap: 1rem;
     justify-content: center;
-    padding: 15px 15px 25px 15px; /* Extra bottom padding */
+    padding: 15px; /* Standard padding */
     overflow: visible; /* Allow overflow */
     position: relative;
     z-index: 2;
+    margin-bottom: 2rem; /* Space for shelf */
 }
 
 .quick-log-widget-btn {
@@ -401,8 +424,7 @@ body {
 .tabletop {
     display: grid; 
     gap: 2rem; 
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    grid-auto-rows: minmax(160px, auto); 
+    grid-template-columns: repeat(4, 1fr);
     max-width: 1000px; 
     margin: 0 auto;
     position: relative;
@@ -427,17 +449,9 @@ body {
     grid-template-columns: repeat(4, 1fr);
 }
 
-/* For 5+ cards, use auto-fit but with max 4 columns */
-.tabletop[data-card-count="5"],
-.tabletop[data-card-count="6"] {
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    max-width: 900px; /* Slightly smaller to keep cards from getting too spread out */
-}
-
-/* Always make weather and map full width on their row */
-.weather-note,
-.map-container {
-    grid-column: 1 / -1;
+/* For 5+ cards, maintain 4 column layout and let them wrap */
+.tabletop:not([data-card-count]) {
+    grid-template-columns: repeat(4, 1fr);
 }
 
 /* Weather and Map wrapper for side-by-side layout */
@@ -447,47 +461,12 @@ body {
     grid-template-columns: 1fr 1fr;
     gap: 2rem;
     width: 100%;
-    margin-top: 1rem; /* Add some space above */
+    margin-top: 0; /* Remove extra margin */
 }
 
 /* Handle overflow for many cards */
 .tabletop.has-overflow {
-    max-height: 600px;
-    overflow-y: auto;
-    padding-right: 1rem;
-    scrollbar-width: thin;
-    scrollbar-color: var(--wood-dark) var(--bg-secondary);
-}
-
-.tabletop.has-overflow::-webkit-scrollbar {
-    width: 8px;
-}
-
-.tabletop.has-overflow::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
-    border-radius: 4px;
-}
-
-.tabletop.has-overflow::-webkit-scrollbar-thumb {
-    background: var(--wood-dark);
-    border-radius: 4px;
-}
-
-.tabletop.has-overflow::-webkit-scrollbar-thumb:hover {
-    background: var(--wood-light);
-}
-
-/* Overflow indicator */
-.tabletop.has-overflow::after {
-    content: 'Scroll for more ↓';
-    position: absolute;
-    bottom: -1.5rem;
-    left: 50%;
-    transform: translateX(-50%);
-    font-family: 'Patrick Hand', cursive;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    opacity: 0.7;
+    /* Remove scroll styles - let grid handle naturally */
 }
 
 .table-item {
@@ -643,6 +622,7 @@ body {
     flex-direction: column; 
     justify-content: center; 
     min-height: 200px;
+    width: 100%;
 }
 
 .map-container { 
@@ -652,6 +632,7 @@ body {
     align-items: center; 
     justify-content: center; 
     min-height: 200px;
+    width: 100%;
 }
 
 .weather-note::before { content: ''; position: absolute; top: -12px; left: 50%; transform: translateX(-50%) rotate(3deg); width: 120px; height: 30px; background: rgba(135, 206, 250, 0.4); border-left: 1px dashed rgba(255,255,255,0.4); border-right: 1px dashed rgba(255,255,255,0.4); }
@@ -1348,12 +1329,8 @@ body {
    ======================================== */
 @media (max-width: 968px) {
     .tabletop { 
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+        grid-template-columns: repeat(2, 1fr); 
         gap: 1.5rem; 
-    }
-    .tabletop.has-overflow {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
     }
     /* Keep weather and map side by side on tablets */
     .info-cards-row {
@@ -1432,8 +1409,9 @@ body {
         display: flex;
         justify-content: center;
         gap: 0.75rem;
-        padding: 15px 15px 30px 15px; /* Extra bottom padding on mobile */
+        padding: 15px;
         overflow: visible;
+        margin-bottom: 1.5rem; /* Space for shelf */
     }
 
     .quick-log-widget-btn {
@@ -1466,13 +1444,13 @@ body {
     /* Ensure container allows overflow on mobile */
     .quick-log-widgets-container {
         overflow: visible;
-        padding: 0.5rem 0.5rem 3rem 0.5rem; /* More bottom padding for shelf */
-        margin-bottom: 2rem; /* More space below */
+        padding: 0.5rem 0.5rem 1rem 0.5rem; /* Reduced bottom padding */
+        margin-bottom: 0.5rem;
     }
     
     /* Adjust shelf position on mobile */
     .quick-log-widgets-container::after {
-        bottom: 0; /* Closer to bottom edge */
+        bottom: -0.5rem; /* Closer to widgets */
     }
 
     #leaderboard-section {

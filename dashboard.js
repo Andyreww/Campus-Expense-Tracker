@@ -193,7 +193,7 @@ function renderBalanceCards(userData) {
     
     // Set card count for better grid layout
     const cardCount = visibleBalanceTypes.length;
-    if (cardCount <= 6) {
+    if (cardCount <= 4) {
         tabletopGrid.setAttribute('data-card-count', cardCount);
     }
     
@@ -226,11 +226,6 @@ function renderBalanceCards(userData) {
     mapOpener = document.getElementById('map-opener');
     if (mapOpener) {
         mapOpener.addEventListener('click', openMapModal);
-    }
-    
-    // Handle overflow if too many cards (more than 6 balance types)
-    if (visibleBalanceTypes.length > 6) {
-        tabletopGrid.classList.add('has-overflow');
     }
 }
 
@@ -1083,14 +1078,24 @@ async function renderQuickLogWidgets(db) {
     function updateShelfWidth() {
         // Use a timeout to allow the DOM to update after adding/removing buttons
         setTimeout(() => {
-            const buttonsWidth = buttonWrapper.offsetWidth;
-            if (buttonsWidth > 0) {
-                // Add some padding to the shelf width
-                const shelfWidth = Math.min(buttonsWidth + 40, quickLogWidgetsContainer.offsetWidth * 0.9);
-                quickLogWidgetsContainer.style.setProperty('--shelf-width', `${shelfWidth}px`);
-            } else {
+            const buttons = buttonWrapper.querySelectorAll('.quick-log-widget-btn');
+            if (buttons.length === 0) {
                 quickLogWidgetsContainer.style.setProperty('--shelf-width', '0px');
+                return;
             }
+            
+            // Calculate total width of buttons plus gaps
+            let totalWidth = 0;
+            buttons.forEach((btn, index) => {
+                totalWidth += btn.offsetWidth;
+                if (index < buttons.length - 1) {
+                    totalWidth += 16; // Gap between buttons (1rem = 16px)
+                }
+            });
+            
+            // Add some padding to the shelf width
+            const shelfWidth = Math.min(totalWidth + 20, quickLogWidgetsContainer.offsetWidth * 0.9);
+            quickLogWidgetsContainer.style.setProperty('--shelf-width', `${shelfWidth}px`);
         }, 50);
     }
 
