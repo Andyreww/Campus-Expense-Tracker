@@ -193,8 +193,10 @@ function renderBalanceCards(userData) {
     
     // Set card count for better grid layout
     const cardCount = visibleBalanceTypes.length;
-    if (cardCount <= 4) {
+    if (cardCount <= 4) { // Only apply data-card-count if 4 or less for specific desktop centering
         tabletopGrid.setAttribute('data-card-count', cardCount);
+    } else {
+        tabletopGrid.removeAttribute('data-card-count'); // Let CSS handle wrapping for more than 4
     }
     
     // Always add weather and map at the end in a wrapper
@@ -856,7 +858,8 @@ async function logCustomPurchase(db) {
     const paymentType = customPaymentType.value;
 
     if (!itemName || isNaN(itemPrice) || itemPrice <= 0) {
-        alert('Please fill in all fields correctly');
+        // Replaced alert with a custom message box or similar UI
+        showQuickLogError('Please fill in all fields correctly');
         return;
     }
 
@@ -869,7 +872,8 @@ async function logCustomPurchase(db) {
     if (itemPrice > currentBalance) {
         const balanceType = userBalanceTypes.find(bt => bt.id === paymentType);
         const balanceName = balanceType ? balanceType.label : paymentType;
-        alert(`Not enough ${balanceName}!`);
+        // Replaced alert with a custom message box or similar UI
+        showQuickLogError(`Not enough ${balanceName}!`);
         return;
     }
 
@@ -964,7 +968,8 @@ async function logCustomPurchase(db) {
 
     } catch (error) {
         console.error("Error logging custom purchase:", error);
-        alert("Failed to log purchase. Please try again.");
+        // Replaced alert with a custom message box or similar UI
+        showQuickLogError("Failed to log purchase. Please try again.");
     } finally {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<span>Log Purchase</span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
@@ -993,7 +998,7 @@ async function renderQuickLogWidgets(db) {
 
     if (querySnapshot.empty) {
         quickLogWidgetsContainer.style.display = 'none';
-        quickLogWidgetsContainer.style.setProperty('--shelf-width', '0px');
+        quickLogWidgetsContainer.style.setProperty('--shelf-width', '0px'); // Reset shelf width
         return;
     }
 
@@ -1058,7 +1063,7 @@ async function renderQuickLogWidgets(db) {
             button.style.transform = 'scale(0.8)';
             setTimeout(() => {
                 button.remove();
-                updateShelfWidth();
+                updateShelfWidth(); // Update shelf width after removal
                 if (buttonWrapper.querySelectorAll('.quick-log-widget-btn').length === 0) {
                     quickLogWidgetsContainer.style.display = 'none';
                 }
@@ -1086,20 +1091,25 @@ async function renderQuickLogWidgets(db) {
             
             // Calculate total width of buttons plus gaps
             let totalWidth = 0;
+            // Get the computed style of the buttonWrapper to find the gap
+            const computedStyle = window.getComputedStyle(buttonWrapper);
+            const gap = parseFloat(computedStyle.getPropertyValue('gap')) || 16; // Default to 16px if not found
+
             buttons.forEach((btn, index) => {
                 totalWidth += btn.offsetWidth;
                 if (index < buttons.length - 1) {
-                    totalWidth += 16; // Gap between buttons (1rem = 16px)
+                    totalWidth += gap; 
                 }
             });
             
             // Add some padding to the shelf width
-            const shelfWidth = Math.min(totalWidth + 20, quickLogWidgetsContainer.offsetWidth * 0.9);
+            // Ensure shelf doesn't exceed the container's width
+            const shelfWidth = Math.min(totalWidth + 30, quickLogWidgetsContainer.offsetWidth * 0.95); // Added more padding
             quickLogWidgetsContainer.style.setProperty('--shelf-width', `${shelfWidth}px`);
         }, 50);
     }
 
-    updateShelfWidth();
+    updateShelfWidth(); // Initial call
 }
 
 function toggleDeleteMode(enable) {

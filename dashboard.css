@@ -15,7 +15,8 @@
 
 .tabletop > .table-item:nth-child(6):nth-last-child(2) {
     grid-column: 3;
-}@media (min-width: 641px) {
+}
+@media (min-width: 641px) {
     /* Ensure weather and map stay side by side on larger screens */
     .info-cards-row {
         grid-template-columns: 1fr 1fr !important;
@@ -23,9 +24,10 @@
     
     /* Desktop-specific shelf spacing */
     .quick-log-widgets-container::after {
-        bottom: -1.5rem; /* More space on desktop */
+        bottom: -1rem; /* Adjusted for better desktop spacing */
     }
-}/* ========================================
+}
+/* ========================================
    DASHBOARD STYLES
    ======================================== */
 :root {
@@ -58,7 +60,7 @@ body {
     background-color: var(--wood-light);
     background-image:
         radial-gradient(circle at 10% 10%, rgba(255,255,255,0.08) 0%, transparent 40%),
-        url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40" width="80" height="40"><path fill="none" stroke="%233a2422" stroke-width="1.5" d="M-10 10 C 30 0, 50 0, 90 10 S 130 20, 170 10" opacity="0.3"></path><path fill="none" stroke="%233a2422" stroke-width="1.5" d="M-10 30 C 30 20, 50 20, 90 30 S 130 40, 170 30" opacity="0.3"></path></svg>');
+        url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40" width="80" height="40"><path fill="none" stroke="%233a2422" stroke-width="1.5" d="M-10 10 C 30 0, 50 0, 90 10 S 130 20, 170 30" opacity="0.3"></path><path fill="none" stroke="%233a2422" stroke-width="1.5" d="M-10 30 C 30 20, 50 20, 90 30 S 130 40, 170 30" opacity="0.3"></path></svg>');
     color: var(--text-primary);
     margin: 0;
     min-width: 320px;
@@ -231,7 +233,7 @@ body {
 .quick-log-widgets-container::after {
     content: '';
     position: absolute;
-    bottom: -1rem; /* Positioned below container */
+    bottom: -1rem; /* Adjusted for better desktop spacing */
     left: 50%;
     transform: translateX(-50%);
     width: var(--shelf-width, 0px);
@@ -494,7 +496,7 @@ body {
 .bill-2 { top: 3px; left: 5px; transform: rotate(3deg); }
 .bill-3 { top: 6px; left: 10px; transform: rotate(-2deg); }
 .coaster-stack { position: relative; width: 100px; height: 100px; }
-.coaster { position: absolute; width: 90px; height: 90px; background-color: #D2B48C; background-image: radial-gradient(circle at center, transparent 15%, #D2B48C 15%), url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIj48ZmlsdGVyIGlkPSJub2lzZSI+PGZlVHVyYnVsZW5jZSB0eXBlPSJmcmFjdGFsTm9pc2UiIGJhc2VGcmVxdWVuY3k9IjAuOCIgbnVtT2N0YXZlcz0iMyIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNub2lzZSkiIG9wYWNpdHk9IjAuMTUiLz48L3N2Zz4='); border: 3px solid #b39a7c; border-radius: 50%; box-shadow: inset 0 0 15px rgba(0,0,0,0.1), 0 2px 5px rgba(0,0,0,0.2); left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.coaster { position: absolute; width: 90px; height: 90px; background-color: #D2B48C; background-image: radial-gradient(circle at center, transparent 15%, #D2B48C 15%), url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIj48ZmlsdGVyIGlkPSJub2lzZSI+PGZlVHVyYnVsZW5jZSB0eXBlPSJmcmFjdGFsTm9pc2UiIGJhc2VGcmVxdWVuY3k9IjAuOCIgbnVtT2N0YXZlcz0iMyIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNub2lzZSkiIG9wYWNpdHk9IjAuMTUiLz48L3N2Zz4='); border: 3px solid #b39a7c; border-radius: 50%; box-shadow: inset 0 0 15px rgba(0,0,0,0.1), 0 2px 5px rgba(0,0,0,0.2); left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .coaster::before { content: ''; position: absolute; top: 20%; left: 20%; right: 20%; bottom: 20%; border: 2px solid rgba(0,0,0,0.1); border-radius: 50%; }
 .coaster:nth-child(2) { transform: translate(-45%, -55%) rotate(15deg); }
 .coaster:nth-child(3) { transform: translate(-40%, -60%) rotate(-10deg); }
@@ -752,10 +754,6 @@ body {
 .leaderboard-item:nth-child(1) { grid-column: 1 / -1; font-size: 1.4rem; background: linear-gradient(to right, rgba(76, 175, 80, 0.1), transparent); padding: 1.5rem; margin: 0 0 1rem 0; border: 2px solid var(--text-primary); border-left: 8px solid var(--brand-primary); }
 .leaderboard-item:nth-child(2), .leaderboard-item:nth-child(3) { font-size: 1.1rem; }
 .leaderboard-item:last-child { border-bottom: none; }
-.leaderboard-rank { font-size: 1.5rem; font-weight: 700; color: var(--text-secondary); width: 40px; text-align: center; }
-.leaderboard-avatar { width: 50px; height: 50px; border-radius: 50%; border: 2px solid var(--text-primary); filter: sepia(0.2) contrast(1.1); flex-shrink: 0; }
-.leaderboard-name { font-weight: 700; font-size: 1.1rem; }
-.leaderboard-streak { font-weight: 700; font-size: 1.2rem; margin-left: auto; }
 .leaderboard-item.current-user { background-color: rgba(76, 175, 80, 0.15); padding: 0.5rem; box-shadow: inset 0 0 0 2px rgba(76, 175, 80, 0.3); }
 
 .leaderboard-details {
@@ -1353,24 +1351,23 @@ body {
         margin-top: 0.3rem;
     }
     .university-icon { font-size: 0.85rem; }
-    .avatar { width: 48px; height: 48px; }
     .tabletop { 
-        grid-template-columns: repeat(2, 1fr); 
+        grid-template-columns: repeat(2, 1fr); /* Always 2 columns on mobile */
         gap: 1rem; 
         padding: 0 0.5rem; 
     }
     
-    /* Special handling for single card on mobile */
+    /* Special handling for single card on mobile to center it */
     .tabletop[data-card-count="1"] {
         grid-template-columns: 1fr;
         max-width: 300px;
+        margin: 0 auto; /* Center the single card */
     }
     .tabletop.has-overflow {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        max-height: 70vh;
-        overflow-y: auto;
-        padding-bottom: 1rem;
+        /* Removed overflow scroll, let grid handle naturally */
+        max-height: none; /* Remove max-height */
+        overflow-y: visible; /* Ensure no hidden overflow */
+        padding-bottom: 0; /* Remove extra padding */
     }
     /* Stack weather and map on mobile */
     .info-cards-row {
