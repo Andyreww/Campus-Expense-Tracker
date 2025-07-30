@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             video.removeAttribute('loop');
             video.style.display = 'none';
             
-            // Create a preview container with gradient background
+            // Create a preview container with paper texture feel
             const preview = document.createElement('div');
             preview.style.cssText = `
                 width: 100%;
@@ -257,7 +257,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 position: absolute;
                 top: 0;
                 left: 0;
-                background: linear-gradient(135deg, #E3F2E6 0%, #C8E6C9 50%, #A5D6A7 100%);
+                background-color: #F0EAD6;
+                background-image: 
+                    repeating-linear-gradient(
+                        45deg,
+                        transparent,
+                        transparent 10px,
+                        rgba(255,255,255,.03) 10px,
+                        rgba(255,255,255,.03) 20px
+                    ),
+                    repeating-linear-gradient(
+                        -45deg,
+                        transparent,
+                        transparent 10px,
+                        rgba(0,0,0,.03) 10px,
+                        rgba(0,0,0,.03) 20px
+                    );
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -265,27 +280,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                 transition: all 0.3s ease;
             `;
             
-            // Add step-specific color variations
-            const gradients = [
-                'linear-gradient(135deg, #E3F2E6 0%, #C8E6C9 50%, #A5D6A7 100%)',
-                'linear-gradient(135deg, #E8F5E9 0%, #B2DFDB 50%, #80CBC4 100%)', 
-                'linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 50%, #FFCC80 100%)',
-                'linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 50%, #CE93D8 100%)'
-            ];
-            preview.style.background = gradients[index % gradients.length];
+            // Add coffee ring stain decoration
+            const coffeeRing = document.createElement('div');
+            coffeeRing.style.cssText = `
+                position: absolute;
+                width: 120px;
+                height: 120px;
+                border: 8px solid rgba(139, 69, 19, 0.08);
+                border-radius: 50%;
+                top: 20%;
+                right: 15%;
+                transform: rotate(15deg);
+                pointer-events: none;
+            `;
+            preview.appendChild(coffeeRing);
             
-            // Add play button
+            // Add play button with coffee cup feel
             const playButton = document.createElement('div');
             playButton.style.cssText = `
-                width: 60px;
-                height: 60px;
-                background: rgba(255, 255, 255, 0.95);
+                width: 64px;
+                height: 64px;
+                background: #FFFDF7;
                 border-radius: 50%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                transition: transform 0.2s ease;
+                box-shadow: 0 3px 10px rgba(74, 44, 42, 0.2);
+                transition: all 0.2s ease;
+                position: relative;
+                z-index: 1;
             `;
             
             playButton.innerHTML = `
@@ -310,10 +333,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Hover effect
             preview.addEventListener('mouseenter', () => {
-                playButton.style.transform = 'scale(1.1)';
+                playButton.style.transform = 'scale(1.05)';
+                playButton.style.boxShadow = '0 4px 15px rgba(74, 44, 42, 0.25)';
             });
             preview.addEventListener('mouseleave', () => {
                 playButton.style.transform = 'scale(1)';
+                playButton.style.boxShadow = '0 3px 10px rgba(74, 44, 42, 0.2)';
             });
         });
     } else {
