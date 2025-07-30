@@ -15,7 +15,8 @@ let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar,
     newspaperDate, fabContainer, mainFab, customLogBtn, customLogModal, customLogForm,
     customItemName, customItemPrice, customItemStore, customLogCancel, customLogClose, userBioInput,
     quickLogWidgetsContainer, saveAsWidgetCheckbox, openDeleteAccountBtn, deleteConfirmModalOverlay,
-    deleteCancelBtn, deleteConfirmBtn, deleteErrorMessage, customPaymentType, pricePrefix;
+    deleteCancelBtn, deleteConfirmBtn, deleteErrorMessage, customPaymentType, pricePrefix,
+    tabletopGrid, universityBadge;
 
 // --- App State ---
 let map = null;
@@ -24,6 +25,7 @@ let selectedPfpFile = null;
 let firebaseServices = null;
 let isDeleteModeActive = false;
 let pressTimer = null;
+let userBalanceTypes = [];
 
 // --- Main App Initialization ---
 async function main() {
@@ -53,22 +55,48 @@ async function main() {
 
 // --- App Logic ---
 async function checkProfile() {
-    const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
-    const userDoc = await getDoc(userDocRef);
+    try {
+        const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
 
-    if (userDoc.exists()) {
-        const userData = userDoc.data();
-        currentUser.bio = userData.bio || '';
-        renderDashboard(userData);
-    } else {
-        window.location.href = "questionnaire.html";
+        if (userDoc.exists()) {
+            const userData = userDoc.data();
+            currentUser.bio = userData.bio || '';
+            userBalanceTypes = userData.balanceTypes || [];
+            renderDashboard(userData);
+        } else {
+            window.location.href = "questionnaire.html";
+        }
+    } catch (error) {
+        console.error("Error fetching user profile:", error);
+        if (error.code === 'permission-denied' || error.code === 'unauthenticated') {
+            // Session expired or permissions issue
+            logout();
+        } else {
+            // Show error message
+            if (loadingIndicator) {
+                loadingIndicator.innerHTML = `
+                    <div style="text-align: center; padding: 2rem;">
+                        <p style="color: var(--brand-danger); font-weight: 700;">Failed to load profile</p>
+                        <button onclick="location.reload()" style="margin-top: 1rem; padding: 0.5rem 1rem; background: var(--brand-primary); color: white; border: none; border-radius: 8px; cursor: pointer;">Retry</button>
+                    </div>
+                `;
+            }
+        }
     }
 }
 
 function renderDashboard(userData) {
-    const { balances, displayName, photoURL, showOnWallOfFame, bio } = userData;
+    const { balances, displayName, photoURL, showOnWallOfFame, bio, university, isDenisonStudent, classYear } = userData;
     
     welcomeMessage.innerHTML = `<span class="wave">👋</span> Welcome back, <span class="user-name">${displayName}</span>!`;
+    
+    // Add university badge
+    if (university && universityBadge) {
+        universityBadge.innerHTML = `<span class="university-icon">🎓</span> ${university}`;
+        universityBadge.style.display = 'block';
+    }
+    
     updateAvatar(photoURL, displayName);
     publicLeaderboardCheckbox.checked = !!showOnWallOfFame;
     
@@ -76,9 +104,13 @@ function renderDashboard(userData) {
         userBioInput.value = bio || '';
     }
     
+    // Dynamic balance rendering
+    renderBalanceCards(userData);
     updateBalancesUI(balances);
+    
     fetchAndRenderWeather();
     renderQuickLogWidgets(firebaseServices.db);
+    populatePaymentDropdown(userData);
     
     const today = new Date();
     if (newspaperDate) {
@@ -98,13 +130,251 @@ function renderDashboard(userData) {
     handleBioInput();
 }
 
+function renderBalanceCards(userData) {
+    const { balanceTypes, isDenisonStudent, classYear } = userData;
+    
+    // Clear existing cards
+    tabletopGrid.innerHTML = '';
+    
+    // Filter balance types based on user type
+    let visibleBalanceTypes = [];
+    
+    if (isDenisonStudent) {
+        // For Denison students
+        if (classYear === 'Senior') {
+            // Seniors only see credits and dining
+            visibleBalanceTypes = [
+                { id: 'credits', label: 'Campus Credits', type: 'money' },
+                { id: 'dining', label: 'Dining Dollars', type: 'money' }
+            ];
+        } else {
+            // Other years see all 4 standard types
+            visibleBalanceTypes = [
+                { id: 'credits', label: 'Campus Credits', type: 'money' },
+                { id: 'dining', label: 'Dining Dollars', type: 'money' },
+                { id: 'swipes', label: 'Meal Swipes', type: 'count', resetsWeekly: true, resetDay: 'Sunday' },
+                { id: 'bonus', label: 'Bonus Swipes', type: 'count', resetsWeekly: true, resetDay: 'Sunday' }
+            ];
+        }
+    } else {
+        // For custom universities, use their balance types
+        visibleBalanceTypes = balanceTypes || [];
+        
+        // Remove any duplicate IDs (edge case protection)
+        const seenIds = new Set();
+        visibleBalanceTypes = visibleBalanceTypes.filter(bt => {
+            if (seenIds.has(bt.id)) {
+                console.warn('Duplicate balance type ID found:', bt.id);
+                return false;
+            }
+            seenIds.add(bt.id);
+            return true;
+        });
+    }
+    
+    // Handle edge case: no balance types configured
+    if (visibleBalanceTypes.length === 0) {
+        const emptyMessage = document.createElement('div');
+        emptyMessage.className = 'no-balances-message';
+        emptyMessage.innerHTML = '🎨 No balances configured yet!<br><small>Please update your profile to add balance types.</small>';
+        tabletopGrid.appendChild(emptyMessage);
+        return;
+    }
+    
+    // Render each balance card
+    visibleBalanceTypes.forEach((balanceType, index) => {
+        try {
+            const card = createBalanceCard(balanceType, userData.balances[balanceType.id] || 0);
+            tabletopGrid.appendChild(card);
+        } catch (error) {
+            console.error('Error creating balance card:', error, balanceType);
+        }
+    });
+    
+    // Set card count for better grid layout
+    const cardCount = visibleBalanceTypes.length;
+    if (cardCount <= 4) {
+        tabletopGrid.setAttribute('data-card-count', cardCount);
+    }
+    
+    // Always add weather and map at the end
+    const weatherCard = document.createElement('section');
+    weatherCard.id = 'weather-widget';
+    weatherCard.className = 'table-item weather-note';
+    tabletopGrid.appendChild(weatherCard);
+    
+    const mapCard = document.createElement('section');
+    mapCard.className = 'table-item map-container';
+    mapCard.id = 'map-opener';
+    mapCard.innerHTML = `
+        <div class="folded-map">
+            <div class="map-fold-top"></div>
+            <div class="map-fold-bottom"></div>
+            <span class="map-label">Campus Map</span>
+        </div>
+    `;
+    tabletopGrid.appendChild(mapCard);
+    
+    // Re-assign weather and map elements
+    weatherWidget = document.getElementById('weather-widget');
+    mapOpener = document.getElementById('map-opener');
+    if (mapOpener) {
+        mapOpener.addEventListener('click', openMapModal);
+    }
+    
+    // Handle overflow if too many cards (more than 6 balance types)
+    if (visibleBalanceTypes.length > 6) {
+        tabletopGrid.classList.add('has-overflow');
+        // Remove weather and map from scrollable area and place below
+        weatherCard.style.gridColumn = 'span 2';
+        mapCard.style.gridColumn = 'span 2';
+    }
+}
+
+function createBalanceCard(balanceType, currentBalance) {
+    const card = document.createElement('div');
+    card.className = `table-item item-${balanceType.id}`;
+    card.id = `${balanceType.id}-card`;
+    
+    let iconHtml = '';
+    let balanceDisplay = '';
+    
+    // Format balance based on type
+    if (balanceType.type === 'money') {
+        balanceDisplay = `$${currentBalance.toFixed(2)}`;
+    } else {
+        balanceDisplay = currentBalance.toString();
+    }
+    
+    // Create icon based on balance ID
+    switch (balanceType.id) {
+        case 'credits':
+            iconHtml = `
+                <div class="bell-bag">
+                    <svg viewBox="0 0 100 100" class="bell-bag-svg">
+                        <defs>
+                            <radialGradient id="bell-gradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                                <stop offset="0%" style="stop-color:#EACCA8;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#DDAA66;stop-opacity:1" />
+                            </radialGradient>
+                        </defs>
+                        <path d="M20 90 C 20 70, 30 60, 50 60 S 80 70, 80 90 Z" fill="url(#bell-gradient)"/>
+                        <path d="M50 60 C 40 50, 60 50, 50 60" fill="none" stroke="#A0522D" stroke-width="4" stroke-linecap="round"/>
+                        <text x="50" y="85" font-family="'Patrick Hand', cursive" font-size="20" fill="#A0522D" text-anchor="middle">★</text>
+                    </svg>
+                </div>`;
+            break;
+            
+        case 'dining':
+            iconHtml = `
+                <div class="wallet">
+                    <div class="wallet-top"></div>
+                    <div class="wallet-bottom">
+                        <div class="cash-bills">
+                            <div class="bill bill-1"></div>
+                            <div class="bill bill-2"></div>
+                            <div class="bill bill-3"></div>
+                        </div>
+                    </div>
+                </div>`;
+            break;
+            
+        case 'swipes':
+            iconHtml = `
+                <div class="coaster-stack">
+                    <div class="coaster"></div>
+                    <div class="coaster"></div>
+                    <div class="coaster"></div>
+                </div>`;
+            break;
+            
+        case 'bonus':
+            iconHtml = `
+                <div class="coaster-stack">
+                    <div class="coaster bonus-coaster">
+                        <span style="position: relative; z-index: 1;">★</span>
+                    </div>
+                </div>`;
+            break;
+            
+        default:
+            // Custom balance type - use a generic token design
+            const isMoneyType = balanceType.type === 'money';
+            iconHtml = `
+                <div class="custom-token-stack">
+                    <div class="custom-token ${isMoneyType ? 'money-token' : 'count-token'}">
+                        <span class="token-symbol">${isMoneyType ? '$' : '#'}</span>
+                    </div>
+                </div>`;
+            break;
+    }
+    
+    // Add reset info if applicable
+    let resetInfo = '';
+    if (balanceType.resetsWeekly) {
+        const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+        const isToday = today === balanceType.resetDay;
+        const resetClass = isToday ? 'resets-today' : '';
+        resetInfo = `<div class="reset-info ${resetClass}">Resets ${balanceType.resetDay}s${isToday ? ' (Today!)' : ''}</div>`;
+    }
+    
+    card.innerHTML = `
+        ${iconHtml}
+        <div class="item-details">
+            <span class="item-title">${balanceType.label}</span>
+            <div class="item-balance" id="${balanceType.id}-balance">${balanceDisplay}</div>
+            ${resetInfo}
+        </div>
+    `;
+    
+    return card;
+}
+
+function populatePaymentDropdown(userData) {
+    if (!customPaymentType) return;
+    
+    customPaymentType.innerHTML = '';
+    
+    const { balanceTypes, isDenisonStudent, classYear } = userData;
+    
+    let availableTypes = [];
+    
+    if (isDenisonStudent) {
+        if (classYear === 'Senior') {
+            availableTypes = [
+                { id: 'credits', label: 'Campus Credits' },
+                { id: 'dining', label: 'Dining Dollars' }
+            ];
+        } else {
+            availableTypes = [
+                { id: 'credits', label: 'Campus Credits' },
+                { id: 'dining', label: 'Dining Dollars' },
+                { id: 'swipes', label: 'Meal Swipes' },
+                { id: 'bonus', label: 'Bonus Swipes' }
+            ];
+        }
+    } else {
+        availableTypes = balanceTypes || [];
+    }
+    
+    availableTypes.forEach((type, index) => {
+        const option = document.createElement('option');
+        option.value = type.id;
+        option.textContent = type.label;
+        if (index === 0) option.selected = true;
+        customPaymentType.appendChild(option);
+    });
+}
+
 function assignDOMElements() {
     loadingIndicator = document.getElementById('loading-indicator');
     dashboardContainer = document.getElementById('dashboard-container');
     pageTitle = document.getElementById('page-title');
     welcomeMessage = document.getElementById('welcome-message');
+    universityBadge = document.getElementById('university-badge');
     userAvatar = document.getElementById('user-avatar');
     avatarButton = document.getElementById('avatar-button');
+    tabletopGrid = document.getElementById('tabletop-grid');
     creditsBalanceEl = document.getElementById('credits-balance');
     diningBalanceEl = document.getElementById('dining-balance');
     swipesBalanceEl = document.getElementById('swipes-balance');
@@ -175,7 +445,6 @@ function setupEventListeners() {
     
     if (publicLeaderboardCheckbox) publicLeaderboardCheckbox.addEventListener('change', (e) => handlePublicToggle(e, db));
 
-    if (mapOpener) mapOpener.addEventListener('click', openMapModal);
     if (mapCloseButton) mapCloseButton.addEventListener('click', closeMapModal);
     if (mapModalOverlay) mapModalOverlay.addEventListener('click', (e) => {
         if(e.target === mapModalOverlay) closeMapModal();
@@ -524,7 +793,11 @@ function handlePaymentTypeChange() {
     const selectedType = customPaymentType.value;
     const priceInput = customItemPrice;
     
-    if (selectedType === 'swipes' || selectedType === 'bonus') {
+    // Find the balance type info
+    const balanceType = userBalanceTypes.find(bt => bt.id === selectedType);
+    const isCountType = balanceType && balanceType.type === 'count';
+    
+    if (isCountType) {
         pricePrefix.textContent = 'x';
         priceInput.step = "1";
         priceInput.min = "1";
@@ -595,13 +868,9 @@ async function logCustomPurchase(db) {
     const currentBalance = balances[paymentType] || 0;
 
     if (itemPrice > currentBalance) {
-        const balanceNameMap = {
-            credits: 'Campus Credits',
-            dining: 'Dining Dollars',
-            swipes: 'Meal Swipes',
-            bonus: 'Bonus Swipes'
-        };
-        alert(`Not enough ${balanceNameMap[paymentType]}!`);
+        const balanceType = userBalanceTypes.find(bt => bt.id === paymentType);
+        const balanceName = balanceType ? balanceType.label : paymentType;
+        alert(`Not enough ${balanceName}!`);
         return;
     }
 
@@ -628,8 +897,10 @@ async function logCustomPurchase(db) {
         }
         if (currentStreak > longestStreak) longestStreak = currentStreak;
 
-        const currencyMap = { credits: 'dollars', dining: 'dollars', swipes: 'swipes', bonus: 'bonus_swipes' };
-        const currency = currencyMap[paymentType];
+        // Determine currency based on balance type
+        const balanceType = userBalanceTypes.find(bt => bt.id === paymentType);
+        const isMoneyType = balanceType && balanceType.type === 'money';
+        const currency = isMoneyType ? 'dollars' : 'custom_count';
 
         const purchaseRef = collection(db, "users", currentUser.uid, "purchases");
         await addDoc(purchaseRef, {
@@ -682,11 +953,7 @@ async function logCustomPurchase(db) {
         const updatedBalances = { ...balances, [paymentType]: newBalance };
         updateBalancesUI(updatedBalances);
 
-        const balanceMap = {
-            credits: 'credits-card', dining: 'dining-card',
-            swipes: 'swipes-card', bonus: 'bonus-card'
-        };
-        const cardToAnimate = document.getElementById(balanceMap[paymentType]);
+        const cardToAnimate = document.getElementById(`${paymentType}-card`);
         if (cardToAnimate) {
             cardToAnimate.classList.add('hit');
             setTimeout(() => cardToAnimate.classList.remove('hit'), 600);
@@ -742,14 +1009,23 @@ async function renderQuickLogWidgets(db) {
         const { itemPrice, currency, balanceType } = widgetData;
         let priceLabel;
 
-        if (currency === 'dollars') {
-            if (balanceType === 'dining') priceLabel = `DD $${itemPrice.toFixed(2)}`;
-            else priceLabel = `CC $${itemPrice.toFixed(2)}`;
-        } else if (currency === 'swipes') {
-            priceLabel = `${itemPrice} Meal Swipe${itemPrice !== 1 ? 's' : ''}`;
-        } else if (currency === 'bonus_swipes') {
-            priceLabel = `${itemPrice} Bonus Swipe${itemPrice !== 1 ? 's' : ''}`;
+        // Find the balance type to determine label
+        const balanceTypeInfo = userBalanceTypes.find(bt => bt.id === balanceType);
+        
+        if (balanceTypeInfo) {
+            if (balanceTypeInfo.type === 'money') {
+                // Abbreviate long balance type names
+                const abbrev = balanceTypeInfo.label.split(' ').map(word => word[0]).join('');
+                priceLabel = `${abbrev} ${itemPrice.toFixed(2)}`;
+            } else {
+                // For count types, show the number and abbreviated type
+                const shortLabel = balanceTypeInfo.label.length > 10 
+                    ? balanceTypeInfo.label.substring(0, 10) + '...' 
+                    : balanceTypeInfo.label;
+                priceLabel = `${itemPrice} ${shortLabel}`;
+            }
         } else {
+            // Fallback
             priceLabel = getPriceLabel(itemPrice, currency);
         }
 
@@ -833,18 +1109,12 @@ async function logFromWidget(db, widgetData, buttonEl) {
     const userData = userDoc.data();
     const balances = userData.balances;
 
-    const balanceMap = {
-        credits: { name: 'Campus Credits', cardId: 'credits-card' },
-        dining: { name: 'Dining Dollars', cardId: 'dining-card' },
-        swipes: { name: 'Meal Swipes', cardId: 'swipes-card' },
-        bonus: { name: 'Bonus Swipes', cardId: 'bonus-card' }
-    };
-    
-    const balanceInfo = balanceMap[balanceType];
+    const balanceTypeInfo = userBalanceTypes.find(bt => bt.id === balanceType);
+    const balanceName = balanceTypeInfo ? balanceTypeInfo.label : balanceType;
     const currentBalance = balances[balanceType] || 0;
 
     if (itemPrice > currentBalance) {
-        showQuickLogError(`Not enough ${balanceInfo.name}!`);
+        showQuickLogError(`Not enough ${balanceName}!`);
         return;
     }
     
@@ -892,7 +1162,7 @@ async function logFromWidget(db, widgetData, buttonEl) {
         const updatedBalances = { ...balances, [balanceType]: newBalance };
         updateBalancesUI(updatedBalances);
 
-        const cardToAnimate = document.getElementById(balanceInfo.cardId) || document.getElementById(`${balanceType}-balance`)?.closest('.table-item');
+        const cardToAnimate = document.getElementById(`${balanceType}-card`);
         if (cardToAnimate) {
             cardToAnimate.classList.add('hit');
             setTimeout(() => cardToAnimate.classList.remove('hit'), 600);
@@ -1003,10 +1273,28 @@ async function handlePublicToggle(e, db) {
 
 
 function updateBalancesUI(balances) {
-    creditsBalanceEl.textContent = `$${balances.credits.toFixed(2)}`;
-    diningBalanceEl.textContent = `$${balances.dining.toFixed(2)}`;
-    swipesBalanceEl.textContent = balances.swipes;
-    bonusBalanceEl.textContent = balances.bonus;
+    // Update any balance element that exists
+    Object.keys(balances).forEach(balanceId => {
+        const balanceEl = document.getElementById(`${balanceId}-balance`);
+        if (balanceEl) {
+            const balanceType = userBalanceTypes.find(bt => bt.id === balanceId);
+            const oldValue = balanceEl.textContent;
+            let newValue;
+            
+            if (balanceType && balanceType.type === 'money') {
+                newValue = `${balances[balanceId].toFixed(2)}`;
+            } else {
+                newValue = balances[balanceId].toString();
+            }
+            
+            // Only animate if value actually changed
+            if (oldValue !== newValue) {
+                balanceEl.textContent = newValue;
+                balanceEl.classList.add('updating');
+                setTimeout(() => balanceEl.classList.remove('updating'), 600);
+            }
+        }
+    });
 }
 
 async function fetchAndRenderWeather() {
