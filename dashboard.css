@@ -24,7 +24,7 @@
     
     /* Desktop-specific shelf spacing */
     .quick-log-widgets-container::after {
-        bottom: -1rem; /* Adjusted for better desktop spacing */
+        bottom: -1.8rem; /* Adjusted for better desktop spacing */
     }
 }
 /* ========================================
@@ -220,20 +220,20 @@ body {
    QUICK LOG WIDGETS - FIXED DELETE BUTTON
    ======================================== */
 .quick-log-widgets-container {
-    padding: 0 1rem 1rem 1rem; /* Reduced bottom padding */
+    padding: 0 1rem 1rem 1rem; 
     max-width: 1000px;
     margin: -1rem auto 0 auto;
     text-align: center;
-    overflow: visible; /* CRITICAL: Allow delete buttons to show outside */
-    position: relative; /* For divider line */
-    margin-bottom: 0.5rem; /* Reduced margin */
+    overflow: visible; 
+    position: relative; 
+    margin-bottom: 0.5rem; 
 }
 
-/* NEW: Shelf Divider */
+/* Shelf Divider */
 .quick-log-widgets-container::after {
     content: '';
     position: absolute;
-    bottom: -1rem; /* Adjusted for better desktop spacing */
+    bottom: -1.8rem; /* FIXED: Closer to widgets */
     left: 50%;
     transform: translateX(-50%);
     width: var(--shelf-width, 0px);
@@ -264,16 +264,16 @@ body {
     flex-wrap: wrap;
     gap: 1rem;
     justify-content: center;
-    padding: 15px; /* Standard padding */
-    overflow: visible; /* Allow overflow */
+    padding: 15px;
+    overflow: visible;
     position: relative;
     z-index: 2;
-    margin-bottom: 2rem; /* Space for shelf */
+    margin-bottom: 1.5rem; /* FIXED: Reduced space for shelf */
 }
 
 .quick-log-widget-btn {
     position: relative;
-    padding: 0.6rem 1.2rem; /* Adjusted padding for new structure */
+    padding: 0.6rem 1.2rem;
     font-size: 1rem;
     font-family: 'Nunito', sans-serif;
     color: var(--text-primary);
@@ -285,7 +285,6 @@ body {
     border-bottom: 5px solid var(--wood-dark);
     box-shadow: inset 0 -2px 1px rgba(0,0,0,0.1);
     
-    /* Prevent text selection */
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
@@ -293,7 +292,6 @@ body {
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
 
-    /* NEW: Flexbox for layout */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -302,7 +300,6 @@ body {
     line-height: 1.2;
 }
 
-/* NEW: Styles for the name and price spans */
 .widget-name {
     font-size: 1em;
     font-weight: 700;
@@ -323,7 +320,7 @@ body {
 
 
 .quick-log-widget-btn:hover {
-    background-color: #f7f2e5; /* Slightly lighter */
+    background-color: #f7f2e5;
     transform: translateY(-2px);
     border-bottom-width: 7px;
 }
@@ -356,16 +353,14 @@ body {
     transform: scale(0.5);
     transition: all 0.2s ease;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    z-index: 20; /* Higher z-index */
+    z-index: 20;
     
-    /* Prevent text selection on delete button */
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
 }
 
-/* Desktop hover effect for delete button */
 @media (hover: hover) and (pointer: fine) {
     .quick-log-widget-btn:hover .delete-widget-btn {
         opacity: 1;
@@ -393,15 +388,13 @@ body {
     10%, 90% { opacity: 1; transform: translateY(0); }
 }
 
-/* Jiggle animation for delete mode */
 @keyframes jiggle {
   0%, 100% { transform: rotate(-1deg); }
   50% { transform: rotate(1deg); }
 }
 
-/* Mobile delete mode styles */
 .quick-log-widgets-container.delete-mode {
-    overflow: visible; /* Ensure container allows overflow in delete mode */
+    overflow: visible;
 }
 
 .quick-log-widgets-container.delete-mode .quick-log-widget-btn {
@@ -413,10 +406,9 @@ body {
     transform: scale(1);
 }
 
-/* Extra spacing in delete mode to prevent overlap */
 .quick-log-widgets-container.delete-mode .quick-log-buttons {
     gap: 1.5rem;
-    padding: 20px; /* More padding in delete mode */
+    padding: 20px;
 }
 
 
@@ -432,7 +424,6 @@ body {
     position: relative;
 }
 
-/* Handle different numbers of cards */
 .tabletop[data-card-count="1"] {
     grid-template-columns: 1fr;
     max-width: 400px;
@@ -451,24 +442,21 @@ body {
     grid-template-columns: repeat(4, 1fr);
 }
 
-/* For 5+ cards, maintain 4 column layout and let them wrap */
 .tabletop:not([data-card-count]) {
     grid-template-columns: repeat(4, 1fr);
 }
 
-/* Weather and Map wrapper for side-by-side layout */
 .info-cards-row {
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 2rem;
     width: 100%;
-    margin-top: 0; /* Remove extra margin */
+    margin-top: 0;
 }
 
-/* Handle overflow for many cards */
 .tabletop.has-overflow {
-    /* Remove scroll styles - let grid handle naturally */
+    /* Removed scroll styles */
 }
 
 .table-item {
@@ -482,7 +470,6 @@ body {
 .item-title { font-family: 'Nunito', sans-serif; font-weight: 700; color: var(--bg-secondary); font-size: 1rem; margin-bottom: 0.5rem; }
 .item-balance { font-family: 'Patrick Hand', cursive; font-size: 2.5rem; color: var(--bg-primary); }
 
-/* Dynamic item classes */
 [class*="item-custom"] .custom-token-stack { width: 80px; height: 80px; }
 
 .bell-bag { width: 100px; height: 100px; }
@@ -503,7 +490,6 @@ body {
 .bonus-coaster { background-color: #ffd700; background-image: radial-gradient(circle at center, transparent 15%, #ffd700 15%); border-color: #e6c200; font-size: 2rem; display: flex; align-items: center; justify-content: center; color: var(--text-primary); width: 75px; height: 75px; }
 .bonus-coaster::before { display: none; }
 
-/* Custom Token Styles */
 .custom-token-stack {
     position: relative;
     width: 100px;
@@ -560,7 +546,6 @@ body {
     z-index: 1;
 }
 
-/* Reset Info */
 .reset-info {
     font-size: 0.7rem;
     color: var(--wood-dark);
@@ -598,7 +583,6 @@ body {
     95% { transform: rotate(360deg); }
 }
 
-/* Pulse animation for items that reset today */
 @keyframes resetPulse {
     0%, 100% { opacity: 0.9; }
     50% { opacity: 1; transform: rotate(-2deg) scale(1.05); }
@@ -613,7 +597,6 @@ body {
     box-shadow: 0 0 8px rgba(255, 193, 7, 0.3);
 }
 
-/* Weather and Map always at end */
 .weather-note { 
     background: #fdfaf2; 
     border: 1px solid var(--border-color); 
@@ -674,7 +657,6 @@ body {
     white-space: nowrap;
 }
 
-/* Balance update animation */
 @keyframes balanceUpdate {
     0% { transform: scale(1); }
     50% { transform: scale(1.1); color: var(--brand-primary); }
@@ -685,7 +667,6 @@ body {
     animation: balanceUpdate 0.6s ease-out;
 }
 
-/* Loading state for balance cards */
 .table-item.loading {
     background: var(--bg-secondary);
     opacity: 0.6;
@@ -706,7 +687,6 @@ body {
     animation: spin 1s linear infinite;
 }
 
-/* Error state */
 .balance-error-message {
     grid-column: 1 / -1;
     text-align: center;
@@ -719,7 +699,6 @@ body {
     font-size: 1.2rem;
 }
 
-/* Empty state */
 .no-balances-message {
     grid-column: 1 / -1;
     text-align: center;
@@ -936,7 +915,6 @@ body {
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.06), 0 0 0 3px rgba(76, 175, 80, 0.3);
 }
 
-/* NEW: Custom Select Dropdown Styling */
 .custom-select-wrapper {
     position: relative;
     width: 100%;
@@ -947,7 +925,7 @@ body {
     -webkit-appearance: none;
     -moz-appearance: none;
     width: 100%;
-    padding: 0.75rem 2.5rem 0.75rem 1rem; /* Make space for the arrow */
+    padding: 0.75rem 2.5rem 0.75rem 1rem;
     border: 2px solid var(--border-color);
     border-radius: 8px;
     font-size: 1.1rem;
@@ -990,7 +968,6 @@ body {
     padding-left: 2.5rem;
 }
 
-/* Save as Widget Checkbox */
 .form-group-inline {
     display: flex;
     align-items: center;
@@ -1279,11 +1256,10 @@ body {
     box-shadow: inset 0 1px 1px rgba(0,0,0,0.2);
 }
 
-/* Delete Account Button in Modal - Back to 3D but more subtle */
 .delete-account-btn {
     width: 100%;
-    padding: 0.6rem 1rem; /* Slightly smaller padding */
-    font-size: 0.9rem; /* Slightly smaller font */
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
     font-family: 'Nunito', sans-serif;
     font-weight: 700;
     color: white;
@@ -1312,9 +1288,8 @@ body {
 }
 
 
-/* Confirmation Modal Delete Button */
 #delete-confirm-button {
-    background-color: var(--brand-danger) !important; /* Use important to override existing styles */
+    background-color: var(--brand-danger) !important;
     border-color: #a02424 !important;
 }
 #delete-confirm-button:hover {
@@ -1330,7 +1305,6 @@ body {
         grid-template-columns: repeat(2, 1fr); 
         gap: 1.5rem; 
     }
-    /* Keep weather and map side by side on tablets */
     .info-cards-row {
         grid-template-columns: 1fr 1fr;
     }
@@ -1338,7 +1312,6 @@ body {
     .leaderboard-item:nth-child(1) { grid-column: 1; }
 }
 
-/* Mobile-specific styles */
 @media (max-width: 640px) {
     .dashboard-container { padding: 1rem 0.5rem 6rem 0.5rem; max-width: 100%; }
     .dashboard-header { margin-bottom: 1.5rem; padding: 1rem; transform: rotate(-0.5deg); }
@@ -1352,24 +1325,21 @@ body {
     }
     .university-icon { font-size: 0.85rem; }
     .tabletop { 
-        grid-template-columns: repeat(2, 1fr); /* Always 2 columns on mobile */
+        grid-template-columns: repeat(2, 1fr);
         gap: 1rem; 
         padding: 0 0.5rem; 
     }
     
-    /* Special handling for single card on mobile to center it */
     .tabletop[data-card-count="1"] {
         grid-template-columns: 1fr;
         max-width: 300px;
-        margin: 0 auto; /* Center the single card */
+        margin: 0 auto;
     }
     .tabletop.has-overflow {
-        /* Removed overflow scroll, let grid handle naturally */
-        max-height: none; /* Remove max-height */
-        overflow-y: visible; /* Ensure no hidden overflow */
-        padding-bottom: 0; /* Remove extra padding */
+        max-height: none;
+        overflow-y: visible;
+        padding-bottom: 0;
     }
-    /* Stack weather and map on mobile */
     .info-cards-row {
         grid-template-columns: 1fr;
         gap: 1rem;
@@ -1401,28 +1371,27 @@ body {
     .folded-map { width: 140px; height: 90px; }
     .map-label { font-size: 1.2rem; }
 
-    /* Mobile Quick Log Styles - FIXED */
+    /* Mobile Quick Log Styles */
     .quick-log-buttons {
         display: flex;
+        flex-wrap: wrap; /* FIXED: Allow buttons to wrap */
         justify-content: center;
         gap: 0.75rem;
         padding: 15px;
         overflow: visible;
-        margin-bottom: 1.5rem; /* Space for shelf */
+        margin-bottom: 1.2rem; /* FIXED: Reduced space for shelf */
     }
 
     .quick-log-widget-btn {
-        padding: 0.5rem 1rem; /* Adjusted padding for mobile */
-        font-size: 0.9rem; /* Adjusted font size for mobile */
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
         flex-grow: 0; 
         flex-basis: auto;
         
-        /* Extra mobile protection against text selection */
         -webkit-tap-highlight-color: rgba(0,0,0,0);
         -webkit-touch-callout: none;
     }
     
-    /* Slightly smaller delete button on mobile but still outside */
     .delete-widget-btn {
         width: 24px;
         height: 24px;
@@ -1432,22 +1401,19 @@ body {
         border: 2px solid var(--bg-primary);
     }
     
-    /* More spacing in delete mode on mobile */
     .quick-log-widgets-container.delete-mode .quick-log-buttons {
         gap: 1.25rem;
         padding: 20px;
     }
     
-    /* Ensure container allows overflow on mobile */
     .quick-log-widgets-container {
         overflow: visible;
-        padding: 0.5rem 0.5rem 1rem 0.5rem; /* Reduced bottom padding */
+        padding: 0.5rem 0.5rem 1rem 0.5rem;
         margin-bottom: 0.5rem;
     }
     
-    /* Adjust shelf position on mobile */
     .quick-log-widgets-container::after {
-        bottom: -0.5rem; /* Closer to widgets */
+        bottom: -1.5rem; /* FIXED: Closer to widgets */
     }
 
     #leaderboard-section {
@@ -1472,49 +1438,42 @@ body {
     .newspaper-title { font-size: 2.5rem; letter-spacing: 1px; }
     .leaderboard-header::after { display: none; }
     
-    /* FIXED: Mobile leaderboard layout */
     .leaderboard-item {
         font-size: 0.9rem;
-        align-items: center; /* Change back to center for better mobile layout */
-        gap: 0.75rem; /* Reduce gap on mobile */
-        padding: 0.75rem 0; /* Reduce padding */
-        /* Ensure proper overflow handling */
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 0;
         width: 100%;
         box-sizing: border-box;
         overflow: hidden;
-        /* Keep border but ensure it doesn't overflow */
         border-bottom: 1px solid var(--border-color);
-        border-right: none; /* Remove any right border that might cause overflow */
+        border-right: none;
     }
     
-    /* FIXED: Rank styling for mobile */
     .leaderboard-rank {
-        font-size: 1.2rem; /* Smaller on mobile */
-        width: 30px; /* Smaller width */
+        font-size: 1.2rem;
+        width: 30px;
         text-align: center;
-        flex-shrink: 0; /* Don't let it shrink */
+        flex-shrink: 0;
     }
     
-    /* FIXED: Avatar styling for mobile */
     .leaderboard-avatar { 
         width: 40px; 
         height: 40px; 
         filter: none;
-        flex-shrink: 0; /* Don't let it shrink */
+        flex-shrink: 0;
     }
     
-    /* FIXED: Details section - prevent overflow */
     .leaderboard-details {
         flex-grow: 1;
         display: flex;
         flex-direction: column;
-        min-width: 0; /* Important: allows flex item to shrink below content size */
-        overflow: hidden; /* Prevent content from overflowing */
+        min-width: 0;
+        overflow: hidden;
     }
     
-    /* FIXED: Name styling */
     .leaderboard-name {
-        font-size: 1rem; /* Slightly smaller on mobile */
+        font-size: 1rem;
         font-weight: 700;
         white-space: nowrap;
         overflow: hidden;
@@ -1522,32 +1481,29 @@ body {
         max-width: 100%;
     }
     
-    /* FIXED: Bio styling */
     .leaderboard-bio {
-        font-size: 0.85rem; /* Smaller on mobile */
+        font-size: 0.85rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         max-width: 100%;
     }
     
-    /* FIXED: Streak positioning and sizing */
     .leaderboard-streak {
-        font-size: 1rem; /* Smaller on mobile */
+        font-size: 1rem;
         font-weight: 700;
-        margin-left: 0; /* Remove auto margin */
-        padding-left: 0; /* Remove padding */
-        flex-shrink: 0; /* Don't let it shrink */
-        white-space: nowrap; /* Prevent line breaks */
-        min-width: fit-content; /* Ensure it takes minimum needed space */
-        text-align: right; /* Align text to the right */
+        margin-left: 0;
+        padding-left: 0;
+        flex-shrink: 0;
+        white-space: nowrap;
+        min-width: fit-content;
+        text-align: right;
     }
     
-    /* FIXED: Special styling for first item */
     .leaderboard-item:nth-child(1) {
         grid-column: 1;
-        font-size: 1rem; /* Slightly larger for winner */
-        padding: 1rem 0.5rem; /* Adjust padding */
+        font-size: 1rem;
+        padding: 1rem 0.5rem;
         margin-bottom: 1rem;
     }
     
