@@ -280,21 +280,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 transition: all 0.3s ease;
             `;
             
-            // Add coffee ring stain decoration
-            const coffeeRing = document.createElement('div');
-            coffeeRing.style.cssText = `
-                position: absolute;
-                width: 120px;
-                height: 120px;
-                border: 8px solid rgba(139, 69, 19, 0.08);
-                border-radius: 50%;
-                top: 20%;
-                right: 15%;
-                transform: rotate(15deg);
-                pointer-events: none;
-            `;
-            preview.appendChild(coffeeRing);
-            
             // Add play button with coffee cup feel
             const playButton = document.createElement('div');
             playButton.style.cssText = `

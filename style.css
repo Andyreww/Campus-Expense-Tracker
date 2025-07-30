@@ -912,17 +912,33 @@ h1, h2, h3, h4, h5, h6, .logo-text {
 }
 .back-to-top-wrapper.is-visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
 .back-to-top-button {
-    width: 50px; height: 50px;
-    background-color: rgba(255, 253, 247, 0.8);
-    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    border-radius: 50%; border: 1px solid var(--border-color);
-    color: var(--brand-primary); display: flex; align-items: center; justify-content: center;
-    cursor: pointer; text-decoration: none; transition: all 0.3s ease;
+    width: 50px; 
+    height: 50px;
+    background: linear-gradient(180deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
+    border-radius: 50%; 
+    border: none;
+    border-bottom: 3px solid #388E3C;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    color: white; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    cursor: pointer; 
+    text-decoration: none; 
+    transition: all 0.15s ease-out;
 }
 .back-to-top-button:hover {
-    box-shadow: 0 0 20px var(--shadow-color);
-    background-color: var(--brand-primary);
-    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25), 0 0 20px var(--shadow-color);
+    background: linear-gradient(180deg, #57c85b 0%, #4caf50 100%);
+}
+.back-to-top-button:active {
+    transform: translateY(1px);
+    border-bottom-width: 1px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+.back-to-top-button svg {
+    stroke: white;
 }
 
 /* ========================================
