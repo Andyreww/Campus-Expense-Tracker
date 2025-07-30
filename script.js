@@ -38,6 +38,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             scrolledCtaButton?.classList.toggle('hidden', isLoggedIn);
             userAvatarLink?.classList.toggle('hidden', !isLoggedIn);
 
+            // FIX 1: Add dashboard link for logged-in users in mobile dropdown
+            if (isLoggedIn && scrolledMenuPanel) {
+                // Check if dashboard link already exists
+                let dashboardLink = scrolledMenuPanel.querySelector('#scrolled-dashboard-link');
+                if (!dashboardLink) {
+                    // Create dashboard link if it doesn't exist
+                    dashboardLink = document.createElement('a');
+                    dashboardLink.id = 'scrolled-dashboard-link';
+                    dashboardLink.href = 'dashboard.html';
+                    dashboardLink.className = 'desktop-cta-button';
+                    dashboardLink.textContent = 'Go to Dashboard';
+                    dashboardLink.style.textAlign = 'center';
+                    dashboardLink.style.marginTop = '0.5rem';
+                    
+                    // Add it to the panel
+                    scrolledMenuPanel.appendChild(dashboardLink);
+                }
+                dashboardLink.style.display = 'block';
+            } else if (!isLoggedIn && scrolledMenuPanel) {
+                // Hide dashboard link for logged out users
+                const dashboardLink = scrolledMenuPanel.querySelector('#scrolled-dashboard-link');
+                if (dashboardLink) {
+                    dashboardLink.style.display = 'none';
+                }
+            }
+
             if (isLoggedIn) {
                 // --- UI for LOGGED IN user ---
                 heroCtaButton.href = 'dashboard.html';
@@ -113,7 +139,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             mobileMenu.classList.add('is-open');
             mobileMenuOverlay.classList.add('is-open');
             document.body.style.overflow = 'hidden'; // Prevent background scrolling
-            menuButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
+            menuButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 18"/></svg>`;
         }
     }
 
@@ -207,8 +233,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         fadeInObserver.observe(el);
     });
 
-    // --- How It Works Video Interaction (Autoplay on Scroll) ---
+    // --- FIX 2: Improved Video Performance for Mobile ---
     const stepItems = document.querySelectorAll('.step-item');
+    let currentPlayingVideo = null;
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
     const handleVideoIntersection = (entries, observer) => {
         entries.forEach(entry => {
@@ -216,17 +244,91 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!video) return;
 
             if (entry.isIntersecting) {
-                video.play().catch(error => {
-                    console.error("Video autoplay failed:", error);
-                });
+                // Only play one video at a time on mobile
+                if (isMobile && currentPlayingVideo && currentPlayingVideo !== video) {
+                    currentPlayingVideo.pause();
+                }
+
+                // Use a promise to handle play failures gracefully
+                const playPromise = video.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise
+                        .then(() => {
+                            currentPlayingVideo = video;
+                        })
+                        .catch(error => {
+                            console.log("Video autoplay prevented:", error);
+                            // Add a subtle play button on mobile if autoplay fails
+                            if (isMobile && !video.hasAttribute('data-play-button-added')) {
+                                addMobilePlayButton(video);
+                            }
+                        });
+                }
             } else {
                 video.pause();
+                if (currentPlayingVideo === video) {
+                    currentPlayingVideo = null;
+                }
             }
         });
     };
 
+    // Add subtle play button for mobile if needed
+    const addMobilePlayButton = (video) => {
+        video.setAttribute('data-play-button-added', 'true');
+        const container = video.parentElement;
+        
+        // Create a subtle play overlay
+        const playOverlay = document.createElement('div');
+        playOverlay.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+        `;
+        
+        const playIcon = document.createElement('div');
+        playIcon.style.cssText = `
+            width: 60px;
+            height: 60px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        `;
+        
+        playIcon.innerHTML = `
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 5V19L19 12L8 5Z" fill="#4CAF50"/>
+            </svg>
+        `;
+        
+        playOverlay.appendChild(playIcon);
+        container.appendChild(playOverlay);
+        
+        playOverlay.addEventListener('click', () => {
+            video.play().then(() => {
+                playOverlay.style.opacity = '0';
+                setTimeout(() => playOverlay.remove(), 300);
+                currentPlayingVideo = video;
+            });
+        });
+    };
+
+    // Optimize video observer for mobile
     const videoObserver = new IntersectionObserver(handleVideoIntersection, {
-        threshold: 0.5 
+        threshold: isMobile ? 0.7 : 0.5, // Higher threshold on mobile
+        rootMargin: isMobile ? '0px' : '50px' // No margin on mobile to be more precise
     });
 
     stepItems.forEach(item => {
@@ -234,7 +336,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (video) {
             video.muted = true;
             video.setAttribute('playsinline', '');
+            
+            // Add loading optimization for mobile
+            if (isMobile) {
+                video.setAttribute('preload', 'metadata'); // Only load metadata initially
+                video.setAttribute('loading', 'lazy'); // Lazy load videos
+            }
+            
+            // Ensure videos are ready before observing
+            video.addEventListener('loadedmetadata', () => {
+                videoObserver.observe(item);
+            });
+            
+            // If metadata is already loaded, observe immediately
+            if (video.readyState >= 1) {
+                videoObserver.observe(item);
+            }
         }
-        videoObserver.observe(item);
+    });
+
+    // Pause all videos when page is hidden (mobile optimization)
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            document.querySelectorAll('.step-video').forEach(video => {
+                video.pause();
+            });
+            currentPlayingVideo = null;
+        }
     });
 });
