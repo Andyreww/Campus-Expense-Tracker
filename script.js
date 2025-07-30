@@ -233,135 +233,137 @@ document.addEventListener('DOMContentLoaded', async () => {
         fadeInObserver.observe(el);
     });
 
-    // --- FIX 2: Improved Video Performance for Mobile ---
+    // --- FIX 2: Mobile Video Solution - No Freezing ---
     const stepItems = document.querySelectorAll('.step-item');
-    let currentPlayingVideo = null;
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-    const handleVideoIntersection = (entries, observer) => {
-        entries.forEach(entry => {
-            const video = entry.target.querySelector('.step-video');
-            if (!video) return;
+    if (isMobile) {
+        // Mobile approach: Click to play with video poster
+        stepItems.forEach(item => {
+            const video = item.querySelector('.step-video');
+            const container = item.querySelector('.step-visual');
+            if (!video || !container) return;
 
-            if (entry.isIntersecting) {
-                // Only play one video at a time on mobile
-                if (isMobile && currentPlayingVideo && currentPlayingVideo !== video) {
-                    currentPlayingVideo.pause();
-                }
-
-                // Use a promise to handle play failures gracefully
-                const playPromise = video.play();
+            // Prevent any autoplay attempts
+            video.removeAttribute('autoplay');
+            video.removeAttribute('loop');
+            
+            // Create a canvas to capture the first frame
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Create poster image
+            const posterImg = document.createElement('img');
+            posterImg.style.cssText = `
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+                border-radius: inherit;
+                cursor: pointer;
+            `;
+            
+            // Hide the video initially
+            video.style.display = 'none';
+            
+            // Load video metadata to get dimensions
+            video.addEventListener('loadedmetadata', function() {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
                 
-                if (playPromise !== undefined) {
-                    playPromise
-                        .then(() => {
-                            currentPlayingVideo = video;
-                        })
-                        .catch(error => {
-                            console.log("Video autoplay prevented:", error);
-                            // Add a subtle play button on mobile if autoplay fails
-                            if (isMobile && !video.hasAttribute('data-play-button-added')) {
-                                addMobilePlayButton(video);
-                            }
-                        });
-                }
-            } else {
-                video.pause();
-                if (currentPlayingVideo === video) {
-                    currentPlayingVideo = null;
-                }
-            }
+                // Seek to first frame
+                video.currentTime = 0;
+            });
+            
+            // Capture first frame when available
+            video.addEventListener('seeked', function() {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                posterImg.src = canvas.toDataURL('image/jpeg', 0.8);
+                
+                // Add poster to container
+                container.appendChild(posterImg);
+                
+                // Add subtle play indicator
+                const playIndicator = document.createElement('div');
+                playIndicator.style.cssText = `
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: 50px;
+                    height: 50px;
+                    background: rgba(255, 255, 255, 0.95);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+                    transition: transform 0.2s ease;
+                `;
+                
+                playIndicator.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 5V19L19 12L8 5Z" fill="#4CAF50"/>
+                    </svg>
+                `;
+                
+                container.appendChild(playIndicator);
+                
+                // Click handler
+                const handleClick = () => {
+                    posterImg.style.display = 'none';
+                    playIndicator.style.display = 'none';
+                    video.style.display = 'block';
+                    video.setAttribute('loop', '');
+                    video.play();
+                    
+                    // Remove click handler after playing
+                    container.style.cursor = 'default';
+                    container.removeEventListener('click', handleClick);
+                };
+                
+                container.addEventListener('click', handleClick);
+                
+                // Hover effect
+                container.addEventListener('mouseenter', () => {
+                    playIndicator.style.transform = 'translate(-50%, -50%) scale(1.1)';
+                });
+                container.addEventListener('mouseleave', () => {
+                    playIndicator.style.transform = 'translate(-50%, -50%) scale(1)';
+                });
+            }, { once: true });
+            
+            // Trigger metadata load
+            video.load();
         });
-    };
+    } else {
+        // Desktop: Keep original autoplay behavior
+        const handleVideoIntersection = (entries, observer) => {
+            entries.forEach(entry => {
+                const video = entry.target.querySelector('.step-video');
+                if (!video) return;
 
-    // Add subtle play button for mobile if needed
-    const addMobilePlayButton = (video) => {
-        video.setAttribute('data-play-button-added', 'true');
-        const container = video.parentElement;
-        
-        // Create a subtle play overlay
-        const playOverlay = document.createElement('div');
-        playOverlay.style.cssText = `
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0,0,0,0.1);
-            cursor: pointer;
-            transition: opacity 0.3s ease;
-        `;
-        
-        const playIcon = document.createElement('div');
-        playIcon.style.cssText = `
-            width: 60px;
-            height: 60px;
-            background: rgba(255,255,255,0.9);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        `;
-        
-        playIcon.innerHTML = `
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M8 5V19L19 12L8 5Z" fill="#4CAF50"/>
-            </svg>
-        `;
-        
-        playOverlay.appendChild(playIcon);
-        container.appendChild(playOverlay);
-        
-        playOverlay.addEventListener('click', () => {
-            video.play().then(() => {
-                playOverlay.style.opacity = '0';
-                setTimeout(() => playOverlay.remove(), 300);
-                currentPlayingVideo = video;
+                if (entry.isIntersecting) {
+                    video.play().catch(error => {
+                        console.error("Video autoplay failed:", error);
+                    });
+                } else {
+                    video.pause();
+                }
             });
+        };
+
+        const videoObserver = new IntersectionObserver(handleVideoIntersection, {
+            threshold: 0.5 
         });
-    };
 
-    // Optimize video observer for mobile
-    const videoObserver = new IntersectionObserver(handleVideoIntersection, {
-        threshold: isMobile ? 0.7 : 0.5, // Higher threshold on mobile
-        rootMargin: isMobile ? '0px' : '50px' // No margin on mobile to be more precise
-    });
-
-    stepItems.forEach(item => {
-        const video = item.querySelector('.step-video');
-        if (video) {
-            video.muted = true;
-            video.setAttribute('playsinline', '');
-            
-            // Add loading optimization for mobile
-            if (isMobile) {
-                video.setAttribute('preload', 'metadata'); // Only load metadata initially
-                video.setAttribute('loading', 'lazy'); // Lazy load videos
+        stepItems.forEach(item => {
+            const video = item.querySelector('.step-video');
+            if (video) {
+                video.muted = true;
+                video.setAttribute('playsinline', '');
             }
-            
-            // Ensure videos are ready before observing
-            video.addEventListener('loadedmetadata', () => {
-                videoObserver.observe(item);
-            });
-            
-            // If metadata is already loaded, observe immediately
-            if (video.readyState >= 1) {
-                videoObserver.observe(item);
-            }
-        }
-    });
-
-    // Pause all videos when page is hidden (mobile optimization)
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            document.querySelectorAll('.step-video').forEach(video => {
-                video.pause();
-            });
-            currentPlayingVideo = null;
-        }
-    });
+            videoObserver.observe(item);
+        });
+    }
 });
