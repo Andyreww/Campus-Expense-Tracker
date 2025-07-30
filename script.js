@@ -238,8 +238,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
     if (isMobile) {
-        // Mobile approach: Click to play with video poster
-        stepItems.forEach(item => {
+        // Mobile approach: Click to play
+        stepItems.forEach((item, index) => {
             const video = item.querySelector('.step-video');
             const container = item.querySelector('.step-visual');
             if (!video || !container) return;
@@ -247,94 +247,74 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Prevent any autoplay attempts
             video.removeAttribute('autoplay');
             video.removeAttribute('loop');
-            
-            // Create a canvas to capture the first frame
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // Create poster image
-            const posterImg = document.createElement('img');
-            posterImg.style.cssText = `
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-                display: block;
-                border-radius: inherit;
-                cursor: pointer;
-            `;
-            
-            // Hide the video initially
             video.style.display = 'none';
             
-            // Load video metadata to get dimensions
-            video.addEventListener('loadedmetadata', function() {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                
-                // Seek to first frame
-                video.currentTime = 0;
-            });
+            // Create a preview container with gradient background
+            const preview = document.createElement('div');
+            preview.style.cssText = `
+                width: 100%;
+                height: 100%;
+                position: absolute;
+                top: 0;
+                left: 0;
+                background: linear-gradient(135deg, #E3F2E6 0%, #C8E6C9 50%, #A5D6A7 100%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            `;
             
-            // Capture first frame when available
-            video.addEventListener('seeked', function() {
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                posterImg.src = canvas.toDataURL('image/jpeg', 0.8);
-                
-                // Add poster to container
-                container.appendChild(posterImg);
-                
-                // Add subtle play indicator
-                const playIndicator = document.createElement('div');
-                playIndicator.style.cssText = `
-                    position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    width: 50px;
-                    height: 50px;
-                    background: rgba(255, 255, 255, 0.95);
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-                    transition: transform 0.2s ease;
-                `;
-                
-                playIndicator.innerHTML = `
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M8 5V19L19 12L8 5Z" fill="#4CAF50"/>
-                    </svg>
-                `;
-                
-                container.appendChild(playIndicator);
-                
-                // Click handler
-                const handleClick = () => {
-                    posterImg.style.display = 'none';
-                    playIndicator.style.display = 'none';
+            // Add step-specific color variations
+            const gradients = [
+                'linear-gradient(135deg, #E3F2E6 0%, #C8E6C9 50%, #A5D6A7 100%)',
+                'linear-gradient(135deg, #E8F5E9 0%, #B2DFDB 50%, #80CBC4 100%)', 
+                'linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 50%, #FFCC80 100%)',
+                'linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 50%, #CE93D8 100%)'
+            ];
+            preview.style.background = gradients[index % gradients.length];
+            
+            // Add play button
+            const playButton = document.createElement('div');
+            playButton.style.cssText = `
+                width: 60px;
+                height: 60px;
+                background: rgba(255, 255, 255, 0.95);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                transition: transform 0.2s ease;
+            `;
+            
+            playButton.innerHTML = `
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 5V19L19 12L8 5Z" fill="#4CAF50"/>
+                </svg>
+            `;
+            
+            preview.appendChild(playButton);
+            container.appendChild(preview);
+            
+            // Click handler
+            preview.addEventListener('click', () => {
+                preview.style.opacity = '0';
+                setTimeout(() => {
+                    preview.remove();
                     video.style.display = 'block';
                     video.setAttribute('loop', '');
                     video.play();
-                    
-                    // Remove click handler after playing
-                    container.style.cursor = 'default';
-                    container.removeEventListener('click', handleClick);
-                };
-                
-                container.addEventListener('click', handleClick);
-                
-                // Hover effect
-                container.addEventListener('mouseenter', () => {
-                    playIndicator.style.transform = 'translate(-50%, -50%) scale(1.1)';
-                });
-                container.addEventListener('mouseleave', () => {
-                    playIndicator.style.transform = 'translate(-50%, -50%) scale(1)';
-                });
-            }, { once: true });
+                }, 300);
+            });
             
-            // Trigger metadata load
-            video.load();
+            // Hover effect
+            preview.addEventListener('mouseenter', () => {
+                playButton.style.transform = 'scale(1.1)';
+            });
+            preview.addEventListener('mouseleave', () => {
+                playButton.style.transform = 'scale(1)';
+            });
         });
     } else {
         // Desktop: Keep original autoplay behavior
