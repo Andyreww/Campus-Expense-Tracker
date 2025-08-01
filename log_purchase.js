@@ -24,6 +24,8 @@ async function main() {
         let subscriptions = [];
         let purchaseHistory = [];
         let userProfile = {}; // Will hold balances and other user-specific data
+        let userBalanceTypes = []; // User's balance type configurations
+        let isDenisonStudent = true; // Track if user is from Denison
         let unsubscribeUserDoc = null;
         let currentCategory = 'All';
         let itemToSubscribe = null;
@@ -31,6 +33,7 @@ async function main() {
         let currentStoreId = 'ross'; // 'ross' for the default market
         let currentStoreCurrency = 'dollars'; // Default currency
         let walletToAnimate = null; // Used to trigger wallet shake animation
+        let selectedPaymentBalance = null; // Track which balance user wants to pay with
 
         // --- DOM ELEMENTS ---
         const itemSearchInput = document.getElementById('item-search');
@@ -106,9 +109,20 @@ async function main() {
             unsubscribeUserDoc = onSnapshot(userDocRef, (docSnap) => {
                 if (docSnap.exists()) {
                     userProfile = docSnap.data();
+                    userBalanceTypes = userProfile.balanceTypes || [];
+                    isDenisonStudent = userProfile.isDenisonStudent !== false; // Default to true for backward compatibility
+                    
+                    // Set default payment balance if not set
+                    if (!selectedPaymentBalance && userBalanceTypes.length > 0) {
+                        // Prefer money type balances
+                        const moneyBalance = userBalanceTypes.find(bt => bt.type === 'money');
+                        selectedPaymentBalance = moneyBalance ? moneyBalance.id : userBalanceTypes[0].id;
+                    }
+                    
                     renderAllWallets(walletToAnimate);
                     walletToAnimate = null;
                     updateWeeklySubsView();
+                    updateStoreCurrencyOptions(); // Update currency dropdown based on balance types
                 }
             });
         }
@@ -244,16 +258,7 @@ async function main() {
                 const widgetsSnapshot = await getDocs(widgetsRef);
                 if (widgetsSnapshot.size >= 3) return;
         
-                let balanceTypeToDebit;
-                if (currentStoreId === 'ross') balanceTypeToDebit = 'credits';
-                else {
-                    switch (currentStoreCurrency) {
-                        case 'dollars': balanceTypeToDebit = 'dining'; break;
-                        case 'swipes': balanceTypeToDebit = 'swipes'; break;
-                        case 'bonus_swipes': balanceTypeToDebit = 'bonus'; break;
-                        default: balanceTypeToDebit = 'credits';
-                    }
-                }
+                let balanceTypeToDebit = selectedPaymentBalance || 'credits';
         
                 for (const cartItem of cart) {
                     let widgetExists = widgetsSnapshot.docs.some(doc => doc.data().itemName === cartItem.name);
@@ -287,6 +292,52 @@ async function main() {
             }
         }
 
+        // --- UPDATE STORE CURRENCY OPTIONS ---
+        function updateStoreCurrencyOptions() {
+            if (!newStoreCurrencyInput) return;
+            
+            newStoreCurrencyInput.innerHTML = '';
+            
+            if (isDenisonStudent) {
+                // For Denison students, show the standard options
+                newStoreCurrencyInput.innerHTML = `
+                    <option value="dollars">Dining Dollars ($)</option>
+                    <option value="swipes">Meal Swipes</option>
+                    <option value="bonus_swipes">Bonus Swipes</option>
+                `;
+            } else {
+                // For custom university students, show their balance types
+                const addedOptions = new Set();
+                
+                userBalanceTypes.forEach(balanceType => {
+                    let optionValue, optionText;
+                    
+                    if (balanceType.type === 'money') {
+                        optionValue = 'dollars';
+                        optionText = `${balanceType.label} ($)`;
+                    } else {
+                        // For count types, use the balance ID as the value
+                        optionValue = balanceType.id;
+                        optionText = balanceType.label;
+                    }
+                    
+                    // Avoid duplicate options
+                    if (!addedOptions.has(optionValue)) {
+                        const option = document.createElement('option');
+                        option.value = optionValue;
+                        option.textContent = optionText;
+                        newStoreCurrencyInput.appendChild(option);
+                        addedOptions.add(optionValue);
+                    }
+                });
+                
+                // If no balance types, show a default option
+                if (newStoreCurrencyInput.options.length === 0) {
+                    newStoreCurrencyInput.innerHTML = '<option value="dollars">Currency ($)</option>';
+                }
+            }
+        }
+
         // --- RENDERING ---
         function renderAllWallets(animatedWallet = null) {
             const walletWrapper = document.getElementById('wallets-group');
@@ -294,16 +345,69 @@ async function main() {
             if (!walletWrapper) return;
             walletWrapper.innerHTML = '';
 
-            const wallets = [
-                { id: 'dining', label: 'Dining Dollars', value: userBalances.dining || 0, currency: '$', svg: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="6" width="18" height="12" rx="2" fill="#4CAF50" /><circle cx="12" cy="12" r="3" fill="#FFFDF7"/><path d="M12 10.5V13.5M13 11.5H11" stroke="#4A2C2A" stroke-width="1.5" stroke-linecap="round"/></svg>` },
-                { id: 'credits', label: 'Campus Credits', value: userBalances.credits || 0, currency: '$', svg: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8.5C18 5.46243 15.3137 3 12 3C8.68629 3 6 5.46243 6 8.5C6 10.4462 6.94878 12.1643 8.40993 13.2218C8.43542 13.2403 8.46154 13.2579 8.48828 13.2747L9 13.5858V16.5C9 17.0523 9.44772 17.5 10 17.5H14C14.5523 17.5 15 17.0523 15 16.5V13.5858L15.5117 13.2747C15.5385 13.2579 15.5646 13.2403 15.5901 13.2218C17.0512 12.1643 18 10.4462 18 8.5Z" fill="#D97706"/><path d="M12 21C13.1046 21 14 20.1046 14 19H10C10 20.1046 10.8954 21 12 21Z" fill="#FBBF24"/><path d="M12 5.5L13.5 8.5L16.5 9L14.5 11L15 14L12 12.5L9 14L9.5 11L7.5 9L10.5 8.5L12 5.5Z" fill="#FBBF24"/></svg>` }
-            ];
+            // Create payment selector first
+            const paymentSelector = document.createElement('div');
+            paymentSelector.className = 'payment-selector-container';
+            paymentSelector.innerHTML = `
+                <label for="payment-balance-select" class="payment-label">Pay with:</label>
+                <select id="payment-balance-select" class="payment-balance-select">
+                    ${userBalanceTypes.map(bt => {
+                        const balance = userBalances[bt.id] || 0;
+                        const displayValue = bt.type === 'money' ? `$${balance.toFixed(2)}` : balance;
+                        return `<option value="${bt.id}" ${bt.id === selectedPaymentBalance ? 'selected' : ''}>${bt.label} (${displayValue})</option>`;
+                    }).join('')}
+                </select>
+            `;
+            walletWrapper.appendChild(paymentSelector);
 
-            wallets.forEach(wallet => {
+            // Add event listener to payment selector
+            const paymentSelect = paymentSelector.querySelector('#payment-balance-select');
+            paymentSelect.addEventListener('change', (e) => {
+                selectedPaymentBalance = e.target.value;
+                renderAllWallets(); // Re-render to update highlighted wallet
+            });
+
+            // Display up to 2 money-type balances as wallet cards
+            const moneyBalances = userBalanceTypes.filter(bt => bt.type === 'money').slice(0, 2);
+            
+            moneyBalances.forEach(balanceType => {
+                const balance = userBalances[balanceType.id] || 0;
+                const isSelected = balanceType.id === selectedPaymentBalance;
+                
                 const walletEl = document.createElement('div');
-                walletEl.className = 'wallet-container';
-                if (animatedWallet === wallet.id) walletEl.classList.add('hit');
-                walletEl.innerHTML = `<div class="wallet-icon">${wallet.svg}</div><div class="wallet-details"><div class="wallet-label">${wallet.label}</div><div class="wallet-amount">${wallet.currency}${wallet.value.toFixed(2)}</div></div>`;
+                walletEl.className = `wallet-container ${isSelected ? 'selected-wallet' : ''}`;
+                if (animatedWallet === balanceType.id) walletEl.classList.add('hit');
+                
+                // Create appropriate icon based on balance type
+                let iconSvg;
+                if (isDenisonStudent) {
+                    // Use existing icons for Denison balances
+                    if (balanceType.id === 'credits') {
+                        iconSvg = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="6" width="18" height="12" rx="2" fill="#4CAF50" /><circle cx="12" cy="12" r="3" fill="#FFFDF7"/><path d="M12 10.5V13.5M13 11.5H11" stroke="#4A2C2A" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+                    } else if (balanceType.id === 'dining') {
+                        iconSvg = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8.5C18 5.46243 15.3137 3 12 3C8.68629 3 6 5.46243 6 8.5C6 10.4462 6.94878 12.1643 8.40993 13.2218C8.43542 13.2403 8.46154 13.2579 8.48828 13.2747L9 13.5858V16.5C9 17.0523 9.44772 17.5 10 17.5H14C14.5523 17.5 15 17.0523 15 16.5V13.5858L15.5117 13.2747C15.5385 13.2579 15.5646 13.2403 15.5901 13.2218C17.0512 12.1643 18 10.4462 18 8.5Z" fill="#D97706"/><path d="M12 21C13.1046 21 14 20.1046 14 19H10C10 20.1046 10.8954 21 12 21Z" fill="#FBBF24"/><path d="M12 5.5L13.5 8.5L16.5 9L14.5 11L15 14L12 12.5L9 14L9.5 11L7.5 9L10.5 8.5L12 5.5Z" fill="#FBBF24"/></svg>`;
+                    } else {
+                        // Generic money icon for other Denison balances
+                        iconSvg = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" fill="#45A049"/><text x="12" y="16" font-family="Arial" font-size="12" fill="white" text-anchor="middle">$</text></svg>`;
+                    }
+                } else {
+                    // Custom university - use a generic wallet icon
+                    iconSvg = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="7" width="16" height="10" rx="2" fill="#6B46C1"/><path d="M4 9h16" stroke="#8B5CF6" stroke-width="2"/><circle cx="12" cy="13" r="2" fill="#FDE68A"/></svg>`;
+                }
+                
+                // Truncate long labels
+                const displayLabel = balanceType.label.length > 15 
+                    ? balanceType.label.substring(0, 12) + '...' 
+                    : balanceType.label;
+                
+                walletEl.innerHTML = `
+                    <div class="wallet-icon">${iconSvg}</div>
+                    <div class="wallet-details">
+                        <div class="wallet-label" title="${balanceType.label}">${displayLabel}</div>
+                        <div class="wallet-amount">$${balance.toFixed(2)}</div>
+                    </div>
+                `;
+                
                 walletWrapper.appendChild(walletEl);
             });
         }
@@ -368,7 +472,7 @@ async function main() {
                         </div>
                         <div class="cart-item-price">${getPriceLabel(item.price * item.quantity, currentStoreCurrency)}</div>
                         <div class="cart-item-actions">
-                            ${currentStoreId === 'ross' ? `<button class="add-to-subs-btn" data-name="${item.name}" title="Add to weekly subscriptions"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M12 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg></button>` : ''}
+                            ${currentStoreId === 'ross' && isDenisonStudent ? `<button class="add-to-subs-btn" data-name="${item.name}" title="Add to weekly subscriptions"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M12 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg></button>` : ''}
                             <button class="remove-item-btn" data-name="${item.name}" title="Remove from cart">×</button>
                         </div>
                     </div>
@@ -530,21 +634,23 @@ async function main() {
         }
 
         async function logPurchase() {
-            if (cart.length === 0) return;
+            if (cart.length === 0 || !selectedPaymentBalance) return;
+            
             const totalCost = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             const userBalances = userProfile.balances || {};
-        
-            const balanceMap = {
-                'ross': { balance: userBalances.credits || 0, name: 'Campus Credits' },
-                'dollars': { balance: userBalances.dining || 0, name: 'Dining Dollars' },
-                'swipes': { balance: userBalances.swipes || 0, name: 'Meal Swipes' },
-                'bonus_swipes': { balance: userBalances.bonus || 0, name: 'Bonus Swipes' }
-            };
-            const balanceKey = currentStoreId === 'ross' ? 'ross' : currentStoreCurrency;
-            const currentBalance = balanceMap[balanceKey];
-
-            if (totalCost > currentBalance.balance) {
-                showSimpleAlert(`Not enough ${currentBalance.name}!`);
+            
+            // Get the selected balance type info
+            const selectedBalanceType = userBalanceTypes.find(bt => bt.id === selectedPaymentBalance);
+            if (!selectedBalanceType) {
+                showSimpleAlert('Please select a payment method');
+                return;
+            }
+            
+            const currentBalance = userBalances[selectedPaymentBalance] || 0;
+            const balanceName = selectedBalanceType.label;
+            
+            if (totalCost > currentBalance) {
+                showSimpleAlert(`Not enough ${balanceName}!`);
                 return;
             }
         
@@ -560,19 +666,22 @@ async function main() {
                     total: totalCost,
                     store: storeName,
                     currency: currentStoreCurrency,
+                    balanceType: selectedPaymentBalance,
                     purchaseDate: Timestamp.now()
                 });
         
                 let updateData = {};
-                if (currentStoreId === 'ross') {
-                    walletToAnimate = 'credits';
-                    updateData['balances.credits'] = (userBalances.credits || 0) - totalCost;
-                    // Streak Logic
+                updateData[`balances.${selectedPaymentBalance}`] = currentBalance - totalCost;
+                
+                // Only update streak for Ross Market purchases by Denison students
+                if (currentStoreId === 'ross' && isDenisonStudent) {
                     const { currentStreak = 0, longestStreak = 0, lastLogDate = null } = userProfile;
-                    const today = new Date(); today.setHours(0, 0, 0, 0);
+                    const today = new Date(); 
+                    today.setHours(0, 0, 0, 0);
                     let newCurrentStreak = currentStreak;
                     if (lastLogDate) {
-                        const lastDate = lastLogDate.toDate(); lastDate.setHours(0, 0, 0, 0);
+                        const lastDate = lastLogDate.toDate(); 
+                        lastDate.setHours(0, 0, 0, 0);
                         const diffDays = Math.ceil((today - lastDate) / (1000 * 60 * 60 * 24));
                         if (diffDays === 1) newCurrentStreak++;
                         else if (diffDays > 1) newCurrentStreak = 1;
@@ -582,15 +691,12 @@ async function main() {
                     updateData.currentStreak = newCurrentStreak;
                     updateData.longestStreak = Math.max(longestStreak, newCurrentStreak);
                     updateData.lastLogDate = Timestamp.now();
-                } else {
-                    const balanceFieldMap = { 'dollars': 'dining', 'swipes': 'swipes', 'bonus_swipes': 'bonus' };
-                    const field = balanceFieldMap[currentStoreCurrency];
-                    if (field === 'dining') walletToAnimate = 'dining';
-                    updateData[`balances.${field}`] = (userBalances[field] || 0) - totalCost;
                 }
                 
+                walletToAnimate = selectedPaymentBalance;
                 await updateDoc(userDocRef, updateData);
                 await checkAndCreateFrequentWidget(db, storeName);
+                
                 cart = [];
                 await loadPurchaseHistory();
                 renderCart();
@@ -613,6 +719,14 @@ async function main() {
             const chargeSubsBtn = document.getElementById('charge-subs-btn');
             
             if (!weeklySubCostEl || !chargeSubsBtn) return;
+
+            // Only show weekly subscriptions for Denison students
+            if (!isDenisonStudent) {
+                document.getElementById('subs-tab').classList.add('hidden');
+                // Hide the subscriptions tab button
+                document.querySelector('[data-tab="subs"]').style.display = 'none';
+                return;
+            }
 
             const lastPayment = userProfile.subscriptionInfo?.lastPaymentDate?.toDate();
             const startOfWeek = getStartOfWeek();
@@ -663,7 +777,9 @@ async function main() {
 
             const totalCost = subsToCharge.reduce((sum, sub) => sum + (sub.item.price * (sub.quantity || 1)), 0);
 
-            if (totalCost > (userBalances.credits || 0)) {
+            // For subscriptions, always use credits for Denison students
+            const paymentBalance = 'credits';
+            if (totalCost > (userBalances[paymentBalance] || 0)) {
                 showSimpleAlert("Not enough Campus Credits!");
                 return;
             }
@@ -721,6 +837,20 @@ async function main() {
         }
 
         function getPriceLabel(price, currency) {
+            // Check if it's a custom balance type
+            if (currency !== 'dollars' && currency !== 'swipes' && currency !== 'bonus_swipes') {
+                // It's a custom balance ID, find its type
+                const balanceType = userBalanceTypes.find(bt => bt.id === currency);
+                if (balanceType) {
+                    if (balanceType.type === 'money') {
+                        return `$${price.toFixed(2)}`;
+                    } else {
+                        return `${price} ${balanceType.label}${price !== 1 ? 's' : ''}`;
+                    }
+                }
+            }
+            
+            // Default behavior for standard currencies
             switch (currency) {
                 case 'dollars': return `$${price.toFixed(2)}`;
                 case 'swipes': return `${price} Swipe${price !== 1 ? 's' : ''}`;

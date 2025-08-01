@@ -1476,3 +1476,107 @@ body {
 .hidden {
     display: none !important;
 }
+/* ========================================
+   PAYMENT SELECTOR
+   ======================================== */
+.payment-selector-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--wood-dark);
+    padding: 0.4rem 0.8rem;
+    border-radius: 50px;
+    border: 3px solid var(--wood-light);
+    box-shadow: 
+        inset 0 3px 5px rgba(0,0,0,0.4),
+        0 2px 4px rgba(0,0,0,0.3);
+    margin-right: 0.5rem;
+}
+
+.payment-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: rgba(255,253,247,0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.payment-balance-select {
+    background: rgba(255,253,247,0.1);
+    border: 2px solid rgba(255,253,247,0.2);
+    border-radius: 20px;
+    color: var(--bg-primary);
+    padding: 0.3rem 0.8rem;
+    font-family: 'Patrick Hand', cursive;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 120px;
+}
+
+.payment-balance-select:hover {
+    background: rgba(255,253,247,0.2);
+    border-color: rgba(255,253,247,0.4);
+}
+
+.payment-balance-select:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255,253,247,0.3);
+}
+
+.payment-balance-select option {
+    background: var(--wood-dark);
+    color: var(--bg-primary);
+}
+
+/* Selected wallet highlighting */
+.wallet-container.selected-wallet {
+    border-color: var(--brand-primary);
+    box-shadow: 
+        inset 0 3px 5px rgba(0,0,0,0.4),
+        0 2px 4px rgba(0,0,0,0.3),
+        0 0 0 2px rgba(76, 175, 80, 0.5);
+}
+
+/* Hide subscriptions tab for non-Denison students */
+.basket-tab.hidden {
+    display: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+    #wallets-group {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+    
+    .payment-selector-container {
+        margin-right: 0;
+        margin-bottom: 0.5rem;
+    }
+    
+    .payment-balance-select {
+        flex: 1;
+        min-width: auto;
+    }
+}
+
+/* Custom university wallet styles */
+.wallet-container .wallet-icon svg {
+    width: 28px;
+    height: 28px;
+}
+
+/* Ensure long balance names don't break layout */
+.wallet-label {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Currency dropdown updates for custom stores */
+#new-store-currency option {
+    padding: 0.5rem;
+}
