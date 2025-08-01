@@ -16,7 +16,7 @@ let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar,
     customItemName, customItemPrice, customItemStore, customLogCancel, customLogClose, userBioInput,
     quickLogWidgetsContainer, saveAsWidgetCheckbox, openDeleteAccountBtn, deleteConfirmModalOverlay,
     deleteCancelBtn, deleteConfirmBtn, deleteErrorMessage, customPaymentType, pricePrefix,
-    tabletopGrid, universityBadge, justSaveWidgetCheckbox;
+    tabletopGrid, universityBadge, customLogSaveWidgetBtn;
 
 // --- App State ---
 let map = null;
@@ -418,7 +418,7 @@ function assignDOMElements() {
     customLogClose = document.getElementById('custom-log-close');
     quickLogWidgetsContainer = document.getElementById('quick-log-widgets-container');
     saveAsWidgetCheckbox = document.getElementById('save-as-widget-checkbox');
-    justSaveWidgetCheckbox = document.getElementById('just-save-widget-checkbox');
+    customLogSaveWidgetBtn = document.getElementById('custom-log-save-widget');
     openDeleteAccountBtn = document.getElementById('open-delete-account-button');
     deleteConfirmModalOverlay = document.getElementById('delete-confirm-modal-overlay');
     deleteCancelBtn = document.getElementById('delete-cancel-button');
@@ -480,6 +480,7 @@ function setupEventListeners() {
         if (saveWidgetContainer) {
             const widgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
             const snapshot = await getDocs(widgetsRef);
+            // Hide "also create" checkbox if max widgets are reached
             if (snapshot.size >= 3) {
                 saveWidgetContainer.style.display = 'none';
                 saveAsWidgetCheckbox.checked = false;
@@ -497,6 +498,7 @@ function setupEventListeners() {
         e.preventDefault();
         logCustomPurchase(db);
     });
+    if (customLogSaveWidgetBtn) customLogSaveWidgetBtn.addEventListener('click', () => createWidgetOnly(db));
     if (customPaymentType) customPaymentType.addEventListener('change', handlePaymentTypeChange);
 
     if (userBioInput) userBioInput.addEventListener('input', handleBioInput);
@@ -513,18 +515,6 @@ function setupEventListeners() {
         if (e.target === deleteConfirmModalOverlay) deleteConfirmModalOverlay.classList.add('hidden');
     });
     if (deleteConfirmBtn) deleteConfirmBtn.addEventListener('click', deleteUserDataAndLogout);
-
-    // Logic for the new "Just create Favie" checkbox
-    if (justSaveWidgetCheckbox) {
-        justSaveWidgetCheckbox.addEventListener('change', () => {
-            if (justSaveWidgetCheckbox.checked) {
-                saveAsWidgetCheckbox.checked = true;
-                saveAsWidgetCheckbox.disabled = true;
-            } else {
-                saveAsWidgetCheckbox.disabled = false;
-            }
-        });
-    }
 }
 
 async function deleteUserDataAndLogout() {
@@ -714,10 +704,6 @@ function closeCustomLogModal() {
     customLogForm.reset();
     if(saveAsWidgetCheckbox) {
         saveAsWidgetCheckbox.checked = false;
-        saveAsWidgetCheckbox.disabled = false; // Reset disabled state
-    }
-    if (justSaveWidgetCheckbox) {
-        justSaveWidgetCheckbox.checked = false;
     }
 }
 
@@ -886,9 +872,8 @@ async function createWidgetOnly(db) {
         return;
     }
 
-    const submitBtn = customLogForm.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="loading-spinner" style="display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite;"></span> Saving...';
+    customLogSaveWidgetBtn.disabled = true;
+    customLogSaveWidgetBtn.innerHTML = '<span class="loading-spinner" style="display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite;"></span>';
 
     try {
         const quickLogWidgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
@@ -927,18 +912,13 @@ async function createWidgetOnly(db) {
         console.error("Error creating widget:", error);
         showQuickLogError("Failed to create Favie. Please try again.");
     } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<span>Log Purchase</span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+        customLogSaveWidgetBtn.disabled = false;
+        customLogSaveWidgetBtn.innerHTML = `<span>Save Favie</span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
     }
 }
 
 async function logCustomPurchase(db) {
     if (!currentUser) return;
-
-    // Divert to widget-only creation if the checkbox is checked
-    if (justSaveWidgetCheckbox && justSaveWidgetCheckbox.checked) {
-        return await createWidgetOnly(db);
-    }
 
     const itemName = customItemName.value.trim();
     const itemPrice = parseFloat(customItemPrice.value);
