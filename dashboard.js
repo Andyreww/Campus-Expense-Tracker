@@ -17,7 +17,7 @@ let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar,
     quickLogWidgetsContainer, saveAsWidgetCheckbox, openDeleteAccountBtn, deleteConfirmModalOverlay,
     deleteCancelBtn, deleteConfirmBtn, deleteErrorMessage, customPaymentType, pricePrefix,
     tabletopGrid, universityBadge, customLogSaveWidgetBtn, lazyLogModal, lazyLogForm,
-    lazyLogInputsContainer, lazyLogCancelBtn, lazyLogError;
+    lazyLogInputsContainer, lazyLogCancelBtn, lazyLogError, lazyLogTitle, lazyLogSubtitle, eodUpdateBtn;
 
 // --- App State ---
 let map = null;
@@ -114,7 +114,7 @@ function renderDashboard(userData) {
     fetchAndRenderWeather();
     renderQuickLogWidgets(firebaseServices.db);
     populatePaymentDropdown(userData);
-    checkAndTriggerLazyLog(userData); // New Lazy Log check
+    checkAndTriggerLazyLog(userData); // Automatic Lazy Log check
     
     const today = new Date();
     if (newspaperDate) {
@@ -426,12 +426,15 @@ function assignDOMElements() {
     deleteCancelBtn = document.getElementById('delete-cancel-button');
     deleteConfirmBtn = document.getElementById('delete-confirm-button');
     deleteErrorMessage = document.getElementById('delete-error-message');
-    // Lazy Log Elements
+    // Lazy Log & EOD Elements
     lazyLogModal = document.getElementById('lazy-log-modal');
     lazyLogForm = document.getElementById('lazy-log-form');
     lazyLogInputsContainer = document.getElementById('lazy-log-inputs-container');
     lazyLogCancelBtn = document.getElementById('lazy-log-cancel');
     lazyLogError = document.getElementById('lazy-log-error');
+    lazyLogTitle = document.getElementById('lazy-log-title');
+    lazyLogSubtitle = document.getElementById('lazy-log-subtitle');
+    eodUpdateBtn = document.getElementById('eod-update-btn');
 }
 
 function setupEventListeners() {
@@ -524,14 +527,30 @@ function setupEventListeners() {
     });
     if (deleteConfirmBtn) deleteConfirmBtn.addEventListener('click', deleteUserDataAndLogout);
 
-    // Lazy Log Event Listeners
+    // EOD and Lazy Log Event Listeners
+    if (eodUpdateBtn) eodUpdateBtn.addEventListener('click', () => showEODModal(currentUserData));
+
     if (lazyLogForm) lazyLogForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        saveLazyLogData(db);
+        const dateString = lazyLogForm.dataset.logDate;
+        const logDate = dateString ? new Date(dateString) : new Date();
+        saveLazyLogData(db, logDate);
     });
-    if (lazyLogCancelBtn) lazyLogCancelBtn.addEventListener('click', () => lazyLogModal.classList.add('hidden'));
+    if (lazyLogCancelBtn) lazyLogCancelBtn.addEventListener('click', () => {
+        lazyLogModal.classList.add('hidden');
+        if (lazyLogForm.dataset.isLazyLog === 'true') {
+            const userDocRef = doc(db, "users", currentUser.uid);
+            updateDoc(userDocRef, { lazyLogDismissedUntil: Timestamp.now() });
+        }
+    });
     if (lazyLogModal) lazyLogModal.addEventListener('click', e => {
-        if (e.target === lazyLogModal) lazyLogModal.classList.add('hidden');
+        if (e.target === lazyLogModal) {
+             lazyLogModal.classList.add('hidden');
+             if (lazyLogForm.dataset.isLazyLog === 'true') {
+                const userDocRef = doc(db, "users", currentUser.uid);
+                updateDoc(userDocRef, { lazyLogDismissedUntil: Timestamp.now() });
+             }
+        }
     });
 }
 
@@ -589,43 +608,61 @@ async function deleteSubcollection(db, collectionPath) {
     await Promise.all(deletePromises);
 }
 
-// --- LAZY LOG ---
-function isToday(someDate) {
-    if (!someDate) return false;
-    const today = new Date();
-    return someDate.getDate() === today.getDate() &&
-        someDate.getMonth() === today.getMonth() &&
-        someDate.getFullYear() === today.getFullYear();
+// --- LAZY LOG & EOD ---
+function isSameDay(d1, d2) {
+    if (!d1 || !d2) return false;
+    return d1.getFullYear() === d2.getFullYear() &&
+           d1.getMonth() === d2.getMonth() &&
+           d1.getDate() === d2.getDate();
 }
 
 function checkAndTriggerLazyLog(userData) {
-    const { lastLogDate } = userData;
-    if (!lastLogDate || !isToday(lastLogDate.toDate())) {
-        // Only show if the last log was NOT today.
-        // This means if they haven't logged at all, or last log was yesterday or before.
-        showLazyLogModal(userData);
+    const { lastLogDate, lazyLogDismissedUntil } = userData;
+    const today = new Date();
+    
+    if (lazyLogDismissedUntil && isSameDay(lazyLogDismissedUntil.toDate(), today)) {
+        return;
+    }
+
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    
+    const lastLog = lastLogDate ? lastLogDate.toDate() : null;
+
+    if (!lastLog || !isSameDay(lastLog, today) && !isSameDay(lastLog, yesterday)) {
+        showLazyLogModal(userData, yesterday, true);
     }
 }
 
-function showLazyLogModal(userData) {
+function showEODModal(userData) {
+    const today = new Date();
+    showLazyLogModal(userData, today, false);
+}
+
+function showLazyLogModal(userData, date, isLazyLog) {
     if (!lazyLogInputsContainer || !lazyLogModal) return;
 
-    lazyLogInputsContainer.innerHTML = ''; // Clear previous inputs
+    lazyLogInputsContainer.innerHTML = '';
     lazyLogError.classList.add('hidden');
+    lazyLogForm.dataset.logDate = date.toISOString();
+    lazyLogForm.dataset.isLazyLog = isLazyLog;
+
+    if (isLazyLog) {
+        lazyLogTitle.textContent = "Forgot to Log? 😴";
+        lazyLogSubtitle.textContent = `Looks like you missed logging for ${date.toLocaleDateString('en-US', { weekday: 'long' })}. Let's catch up!`;
+    } else {
+        lazyLogTitle.textContent = "End of Day Update 🌙";
+        lazyLogSubtitle.textContent = `Enter your final balances for today.`;
+    }
 
     const balanceTypesToUpdate = userBalanceTypes.filter(bt => userData.balances.hasOwnProperty(bt.id));
-
-    if (balanceTypesToUpdate.length === 0) {
-        return; // Don't show modal if no balances to update
-    }
+    if (balanceTypesToUpdate.length === 0) return;
 
     balanceTypesToUpdate.forEach(balanceType => {
         const currentBalance = userData.balances[balanceType.id];
         const isMoney = balanceType.type === 'money';
-
         const formGroup = document.createElement('div');
         formGroup.className = 'form-group';
-
         formGroup.innerHTML = `
             <label for="lazy-log-${balanceType.id}">
                 ${balanceType.label} 
@@ -633,15 +670,9 @@ function showLazyLogModal(userData) {
             </label>
             <div class="price-input-wrapper">
                 <span class="price-prefix">${isMoney ? '$' : '#'}</span>
-                <input 
-                    type="number" 
-                    id="lazy-log-${balanceType.id}" 
-                    data-balance-id="${balanceType.id}"
+                <input type="number" id="lazy-log-${balanceType.id}" data-balance-id="${balanceType.id}"
                     placeholder="${isMoney ? currentBalance.toFixed(2) : currentBalance}" 
-                    step="${isMoney ? '0.01' : '1'}" 
-                    min="0"
-                    class="lazy-log-input"
-                >
+                    step="${isMoney ? '0.01' : '1'}" min="0" class="lazy-log-input">
             </div>
         `;
         lazyLogInputsContainer.appendChild(formGroup);
@@ -650,7 +681,7 @@ function showLazyLogModal(userData) {
     lazyLogModal.classList.remove('hidden');
 }
 
-async function saveLazyLogData(db) {
+async function saveLazyLogData(db, logDate) {
     const submitBtn = lazyLogForm.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Updating...';
@@ -660,23 +691,24 @@ async function saveLazyLogData(db) {
     const newBalances = {};
     const purchaseLogs = [];
     let hasErrors = false;
+    let hasChanges = false;
 
     const userDocRef = doc(db, "users", currentUser.uid);
     const userDocSnap = await getDoc(userDocRef);
     const userData = userDocSnap.data();
     const oldBalances = userData.balances;
-    const lastLogTimestamp = userData.lastLogDate || Timestamp.now(); // Use last log date for the summary
 
     inputs.forEach(input => {
         const balanceId = input.dataset.balanceId;
-        const newValue = parseFloat(input.value);
         const oldValue = oldBalances[balanceId] || 0;
 
         if (!input.value.trim()) {
-            // If input is empty, assume no change
             newBalances[balanceId] = oldValue;
             return;
         }
+        
+        hasChanges = true;
+        const newValue = parseFloat(input.value);
 
         if (isNaN(newValue) || newValue < 0) {
             lazyLogError.textContent = `Please enter a valid positive number for all balances.`;
@@ -699,8 +731,8 @@ async function saveLazyLogData(db) {
             purchaseLogs.push({
                 items: [{ name: "Daily Spending Summary", price: amountSpent, quantity: 1 }],
                 total: amountSpent,
-                store: "Lazy Log",
-                purchaseDate: lastLogTimestamp,
+                store: lazyLogForm.dataset.isLazyLog === 'true' ? "Lazy Log" : "EOD Update",
+                purchaseDate: Timestamp.fromDate(logDate),
                 isLazyLog: true,
                 balanceType: balanceId,
                 currency: balanceType.type === 'money' ? 'dollars' : 'custom_count',
@@ -714,28 +746,33 @@ async function saveLazyLogData(db) {
         submitBtn.textContent = 'Update Balances';
         return;
     }
+    
+    if (!hasChanges) {
+        lazyLogModal.classList.add('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Update Balances';
+        return;
+    }
 
     try {
         const batch = writeBatch(db);
-
-        // Add all summary purchases
         purchaseLogs.forEach(log => {
             const purchaseRef = doc(collection(db, "users", currentUser.uid, "purchases"));
             batch.set(purchaseRef, log);
         });
 
-        // Update user document with new balances and reset streak
         const updatePayload = {
             balances: { ...oldBalances, ...newBalances },
-            currentStreak: 0, // Streak is broken if they had to use lazy log
-            lastLogDate: Timestamp.now() // Set log date to now
+            lastLogDate: Timestamp.now()
         };
+
+        if (lazyLogForm.dataset.isLazyLog === 'true') {
+             updatePayload.currentStreak = 0;
+        }
+
         batch.update(userDocRef, updatePayload);
-        
-        // Commit all writes at once
         await batch.commit();
 
-        // Update global state and UI
         currentUserData.balances = updatePayload.balances;
         updateBalancesUI(currentUserData.balances);
         

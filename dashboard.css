@@ -816,6 +816,12 @@ body {
     border-color: #FFD4A3;
 }
 
+.fab-secondary#eod-update-btn {
+    background: linear-gradient(180deg, #a29bfe 0%, #6c5ce7 100%);
+    border-color: #4834d4;
+    color: white;
+}
+
 .fab-secondary[href="log_purchase.html"] {
     background: linear-gradient(180deg, #E8F5E9 0%, #C8E6C9 100%);
     border-color: #A5D6A7;
