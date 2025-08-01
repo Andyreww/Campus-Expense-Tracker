@@ -1476,15 +1476,16 @@ body {
 .hidden {
     display: none !important;
 }
+
+
+/* ---------------- */
+
 /* ========================================
-   PAYMENT SELECTOR
+   CUSTOM PAYMENT SELECTOR
    ======================================== */
-.payment-selector-container {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+.custom-payment-wrapper {
+    position: relative;
     background: var(--wood-dark);
-    padding: 0.4rem 0.8rem;
     border-radius: 50px;
     border: 3px solid var(--wood-light);
     box-shadow: 
@@ -1493,43 +1494,134 @@ body {
     margin-right: 0.5rem;
 }
 
+.payment-selector-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    position: relative;
+}
+
 .payment-label {
     font-size: 0.8rem;
     font-weight: 700;
     color: rgba(255,253,247,0.7);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    flex-shrink: 0;
 }
 
-.payment-balance-select {
+.payment-display {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     background: rgba(255,253,247,0.1);
     border: 2px solid rgba(255,253,247,0.2);
     border-radius: 20px;
-    color: var(--bg-primary);
     padding: 0.3rem 0.8rem;
-    font-family: 'Patrick Hand', cursive;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
     min-width: 120px;
+    transition: all 0.2s ease;
 }
 
-.payment-balance-select:hover {
+.custom-payment-wrapper:hover .payment-display {
     background: rgba(255,253,247,0.2);
     border-color: rgba(255,253,247,0.4);
 }
 
-.payment-balance-select:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(255,253,247,0.3);
-}
-
-.payment-balance-select option {
-    background: var(--wood-dark);
+.payment-value {
+    font-family: 'Patrick Hand', cursive;
+    font-size: 1rem;
     color: var(--bg-primary);
+    flex: 1;
 }
 
-/* Selected wallet highlighting */
+.payment-arrow {
+    position: relative;
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
+}
+
+.payment-arrow::before,
+.payment-arrow::after {
+    content: '';
+    position: absolute;
+    bottom: 0px;
+    width: 0.15rem;
+    height: 70%;
+    background-color: var(--bg-primary);
+    transition: all 0.3s ease;
+}
+
+.payment-arrow::before {
+    left: -2px;
+    transform: rotate(-45deg);
+}
+
+.payment-arrow::after {
+    right: -2px;
+    transform: rotate(45deg);
+}
+
+.custom-payment-wrapper.open .payment-arrow::before {
+    transform: rotate(45deg);
+}
+
+.custom-payment-wrapper.open .payment-arrow::after {
+    transform: rotate(-45deg);
+}
+
+.payment-options {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: var(--paper-white);
+    border: 2px solid var(--border-color);
+    border-radius: 0.75rem;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+    z-index: 100;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.custom-payment-wrapper.open .payment-options {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.payment-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    font-family: 'Patrick Hand', cursive;
+    font-size: 1.1rem;
+}
+
+.payment-option:hover {
+    background-color: var(--bg-secondary);
+}
+
+.option-label {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.option-balance {
+    color: var(--brand-primary);
+    font-weight: 700;
+}
+
+/* Selected wallet highlighting (desktop only) */
 .wallet-container.selected-wallet {
     border-color: var(--brand-primary);
     box-shadow: 
@@ -1540,43 +1632,117 @@ body {
 
 /* Hide subscriptions tab for non-Denison students */
 .basket-tab.hidden {
-    display: none;
+    display: none !important;
 }
 
-/* Responsive adjustments */
+/* Disabled items when payment type mismatch */
+.item-card.disabled-item {
+    opacity: 0.5;
+    cursor: not-allowed;
+    position: relative;
+}
+
+.item-card.disabled-item:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: var(--border-color);
+}
+
+.disabled-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(231, 76, 60, 0.9);
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.3rem;
+    text-align: center;
+    font-weight: 700;
+    border-radius: 0 0 0.5rem 0.5rem;
+}
+
+/* Mobile specific adjustments */
 @media (max-width: 640px) {
+    /* Hide wallet containers on mobile */
+    .wallet-container {
+        display: none !important;
+    }
+    
     #wallets-group {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.5rem;
+        flex-direction: row;
+        align-items: center;
+        gap: 0;
     }
     
-    .payment-selector-container {
+    .custom-payment-wrapper {
         margin-right: 0;
-        margin-bottom: 0.5rem;
+        flex: 1;
+        max-width: none;
     }
     
-    .payment-balance-select {
+    .payment-selector-trigger {
+        padding: 0.35rem 0.6rem;
+    }
+    
+    .payment-label {
+        font-size: 0.7rem;
+    }
+    
+    .payment-display {
         flex: 1;
         min-width: auto;
+        padding: 0.25rem 0.6rem;
     }
-}
-
-/* Custom university wallet styles */
-.wallet-container .wallet-icon svg {
-    width: 28px;
-    height: 28px;
+    
+    .payment-value {
+        font-size: 0.9rem;
+    }
+    
+    .payment-options {
+        left: 0.5rem;
+        right: 0.5rem;
+        max-height: 40vh;
+    }
+    
+    .payment-option {
+        font-size: 1rem;
+        padding: 0.6rem 0.8rem;
+    }
 }
 
 /* Ensure long balance names don't break layout */
-.wallet-label {
-    max-width: 120px;
+.wallet-label,
+.option-label,
+.payment-value {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-/* Currency dropdown updates for custom stores */
-#new-store-currency option {
-    padding: 0.5rem;
+/* Custom scrollbar for payment options */
+.payment-options::-webkit-scrollbar {
+    width: 6px;
+}
+
+.payment-options::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 3px;
+}
+
+.payment-options::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.payment-options::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
+
+/* Animation for wallet hit effect */
+@keyframes walletHit {
+    0% { transform: scale(1); }
+    25% { transform: scale(1.1) rotate(3deg); }
+    50% { transform: scale(0.95); }
+    100% { transform: scale(1); }
 }
