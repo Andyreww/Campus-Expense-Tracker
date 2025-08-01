@@ -214,7 +214,6 @@ async function main() {
                     customStoreActions.classList.remove('hidden');
                     categorySidebar.classList.add('hidden');
         
-                    // --- FIX STARTS HERE ---
                     // When switching to a custom store, reset the payment balance.
                     // Default to the store's currency if available, otherwise the first available balance.
                     const storeBalanceExists = userBalanceTypes.some(bt => bt.id === store.currency);
@@ -230,7 +229,6 @@ async function main() {
                     
                     // Re-render wallets to show all available options for this custom store
                     renderAllWallets(); 
-                    // --- FIX ENDS HERE ---
         
                     await loadCustomStoreItems(currentStoreId);
                 }
@@ -411,14 +409,35 @@ async function main() {
             const userBalances = userProfile.balances || {};
             if (!walletWrapper) return;
             walletWrapper.innerHTML = '';
-
-            // Filter available balance types based on store
-            let availableBalanceTypes = userBalanceTypes;
-            if (isDenisonStudent && currentStoreId === 'ross') {
+        
+            // --- FIX STARTS HERE ---
+            // Determine which balance types are available for the current context.
+            let availableBalanceTypes = [];
+            let isSelectorLocked = false;
+        
+            if (currentStoreId === 'ross') {
                 // Ross Market only accepts Campus Credits for Denison students
-                availableBalanceTypes = userBalanceTypes.filter(bt => bt.id === 'credits');
+                if (isDenisonStudent) {
+                    availableBalanceTypes = userBalanceTypes.filter(bt => bt.id === 'credits');
+                    isSelectorLocked = true;
+                } else {
+                    // Non-Denison students can use any of their balances at a "Ross-like" store if we ever add one.
+                    availableBalanceTypes = userBalanceTypes;
+                }
+            } else {
+                // This is a custom store.
+                const store = customStores.find(s => s.id === currentStoreId);
+                if (store) {
+                    // Only show the balance type that matches the store's currency.
+                    availableBalanceTypes = userBalanceTypes.filter(bt => bt.id === store.currency);
+                    isSelectorLocked = true;
+                } else {
+                    // Fallback: if store not found (shouldn't happen), show all.
+                    availableBalanceTypes = userBalanceTypes;
+                }
             }
-
+            // --- FIX ENDS HERE ---
+        
             // Create custom payment selector
             const paymentSelector = document.createElement('div');
             paymentSelector.className = 'custom-payment-wrapper';
@@ -427,7 +446,7 @@ async function main() {
                     <span class="payment-label">Pay with:</span>
                     <div class="payment-display">
                         <span class="payment-value"></span>
-                        <div class="payment-arrow"></div>
+                        ${!isSelectorLocked ? '<div class="payment-arrow"></div>' : ''}
                     </div>
                 </div>
                 <div class="payment-options">
@@ -442,7 +461,7 @@ async function main() {
                 </div>
             `;
             walletWrapper.appendChild(paymentSelector);
-
+        
             // Setup payment selector functionality
             const trigger = paymentSelector.querySelector('.payment-selector-trigger');
             const optionsContainer = paymentSelector.querySelector('.payment-options');
@@ -457,39 +476,45 @@ async function main() {
                     const balance = userBalances[selected.id] || 0;
                     const displayText = selected.type === 'money' ? `$${balance.toFixed(2)}` : `${balance}`;
                     displayValue.textContent = `${selected.label} (${displayText})`;
+                } else {
+                    displayValue.textContent = "No balance available";
                 }
             }
             
-            trigger.addEventListener('click', (e) => {
-                e.stopPropagation();
-                paymentSelector.classList.toggle('open');
-            });
-            
-            paymentSelector.querySelectorAll('.payment-option').forEach(option => {
-                option.addEventListener('click', (e) => {
+            if (!isSelectorLocked) {
+                trigger.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    const balanceId = option.dataset.balanceId;
-                    selectedPaymentBalance = balanceId;
-                    paymentSelector.classList.remove('open');
-                    updatePaymentDisplay();
-                    
-                    // Clear cart if switching between money and count types
-                    const newBalanceType = userBalanceTypes.find(bt => bt.id === balanceId);
-                    if (cart.length > 0 && newBalanceType) {
-                        const cartHasMoneyItems = cart.some(item => item.priceType === 'money');
-                        const switchingToCount = newBalanceType.type === 'count';
-                        
-                        if ((cartHasMoneyItems && switchingToCount) || (!cartHasMoneyItems && !switchingToCount)) {
-                            cart = [];
-                            renderCart();
-                            showSimpleAlert('Cart cleared due to payment type change');
-                        }
-                    }
-                    
-                    renderAllWallets();
+                    paymentSelector.classList.toggle('open');
                 });
-            });
-
+            
+                paymentSelector.querySelectorAll('.payment-option').forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const balanceId = option.dataset.balanceId;
+                        selectedPaymentBalance = balanceId;
+                        paymentSelector.classList.remove('open');
+                        updatePaymentDisplay();
+                        
+                        // Clear cart if switching between money and count types
+                        const newBalanceType = userBalanceTypes.find(bt => bt.id === balanceId);
+                        if (cart.length > 0 && newBalanceType) {
+                            const cartHasMoneyItems = cart.some(item => item.priceType === 'money');
+                            const switchingToCount = newBalanceType.type === 'count';
+                            
+                            if ((cartHasMoneyItems && switchingToCount) || (!cartHasMoneyItems && !switchingToCount)) {
+                                cart = [];
+                                renderCart();
+                                showSimpleAlert('Cart cleared due to payment type change');
+                            }
+                        }
+                        
+                        renderAllWallets();
+                    });
+                });
+            } else {
+                trigger.style.cursor = 'default';
+            }
+        
             // Desktop only: Display wallet cards
             const isMobile = window.innerWidth <= 640;
             if (!isMobile) {
@@ -1066,7 +1091,7 @@ async function main() {
 
         function getEmojiForItem(name) {
             const lowerName = name.toLowerCase();
-            const keywords = { '☕': ['coffee', 'latte', 'espresso'], '🍵': ['tea', 'matcha'], '🥤': ['soda', 'coke', 'pepsi'], '🧃': ['juice', 'lemonade'], '💧': ['water'], '🍔': ['burger'], '🍕': ['pizza'], '🥪': ['sandwich', 'sub', 'wrap'], '🌮': ['taco', 'burrito'], '🍪': ['cookie'], '🍫': ['chocolate', 'candy'], '🥨': ['pretzel', 'chip'], '🍦': ['ice cream'], '🍎': ['apple'], '🍌': ['banana'] };
+            const keywords = { '☕': ['coffee', 'latte', 'espresso'], '🍵': ['tea', 'matcha'], '🥤': ['soda', 'coke', 'pepsi'], '🧃': ['juice', 'lemonade'], '💧': ['water'], '🍔': ['burger'], '🍕': ['pizza'], '🥪': ['sandwich', 'sub', 'wrap'], '🌮': ['taco', 'burrito'], '🍪': ['cookie'], '�': ['chocolate', 'candy'], '🥨': ['pretzel', 'chip'], '🍦': ['ice cream'], '🍎': ['apple'], '🍌': ['banana'] };
             for (const emoji in keywords) {
                 if (keywords[emoji].some(keyword => lowerName.includes(keyword))) return emoji;
             }
