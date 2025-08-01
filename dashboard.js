@@ -1,6 +1,6 @@
 // --- IMPORTS ---
 import { firebaseReady, logout } from './auth.js';
-import { doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc, addDoc, Timestamp, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc, addDoc, Timestamp, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 import { updateProfile, deleteUser } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
@@ -16,7 +16,8 @@ let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar,
     customItemName, customItemPrice, customItemStore, customLogCancel, customLogClose, userBioInput,
     quickLogWidgetsContainer, saveAsWidgetCheckbox, openDeleteAccountBtn, deleteConfirmModalOverlay,
     deleteCancelBtn, deleteConfirmBtn, deleteErrorMessage, customPaymentType, pricePrefix,
-    tabletopGrid, universityBadge, customLogSaveWidgetBtn;
+    tabletopGrid, universityBadge, customLogSaveWidgetBtn, lazyLogModal, lazyLogForm,
+    lazyLogInputsContainer, lazyLogCancelBtn, lazyLogError;
 
 // --- App State ---
 let map = null;
@@ -113,6 +114,7 @@ function renderDashboard(userData) {
     fetchAndRenderWeather();
     renderQuickLogWidgets(firebaseServices.db);
     populatePaymentDropdown(userData);
+    checkAndTriggerLazyLog(userData); // New Lazy Log check
     
     const today = new Date();
     if (newspaperDate) {
@@ -424,6 +426,12 @@ function assignDOMElements() {
     deleteCancelBtn = document.getElementById('delete-cancel-button');
     deleteConfirmBtn = document.getElementById('delete-confirm-button');
     deleteErrorMessage = document.getElementById('delete-error-message');
+    // Lazy Log Elements
+    lazyLogModal = document.getElementById('lazy-log-modal');
+    lazyLogForm = document.getElementById('lazy-log-form');
+    lazyLogInputsContainer = document.getElementById('lazy-log-inputs-container');
+    lazyLogCancelBtn = document.getElementById('lazy-log-cancel');
+    lazyLogError = document.getElementById('lazy-log-error');
 }
 
 function setupEventListeners() {
@@ -515,6 +523,16 @@ function setupEventListeners() {
         if (e.target === deleteConfirmModalOverlay) deleteConfirmModalOverlay.classList.add('hidden');
     });
     if (deleteConfirmBtn) deleteConfirmBtn.addEventListener('click', deleteUserDataAndLogout);
+
+    // Lazy Log Event Listeners
+    if (lazyLogForm) lazyLogForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        saveLazyLogData(db);
+    });
+    if (lazyLogCancelBtn) lazyLogCancelBtn.addEventListener('click', () => lazyLogModal.classList.add('hidden'));
+    if (lazyLogModal) lazyLogModal.addEventListener('click', e => {
+        if (e.target === lazyLogModal) lazyLogModal.classList.add('hidden');
+    });
 }
 
 async function deleteUserDataAndLogout() {
@@ -570,6 +588,170 @@ async function deleteSubcollection(db, collectionPath) {
 
     await Promise.all(deletePromises);
 }
+
+// --- LAZY LOG ---
+function isToday(someDate) {
+    if (!someDate) return false;
+    const today = new Date();
+    return someDate.getDate() === today.getDate() &&
+        someDate.getMonth() === today.getMonth() &&
+        someDate.getFullYear() === today.getFullYear();
+}
+
+function checkAndTriggerLazyLog(userData) {
+    const { lastLogDate } = userData;
+    if (!lastLogDate || !isToday(lastLogDate.toDate())) {
+        // Only show if the last log was NOT today.
+        // This means if they haven't logged at all, or last log was yesterday or before.
+        showLazyLogModal(userData);
+    }
+}
+
+function showLazyLogModal(userData) {
+    if (!lazyLogInputsContainer || !lazyLogModal) return;
+
+    lazyLogInputsContainer.innerHTML = ''; // Clear previous inputs
+    lazyLogError.classList.add('hidden');
+
+    const balanceTypesToUpdate = userBalanceTypes.filter(bt => userData.balances.hasOwnProperty(bt.id));
+
+    if (balanceTypesToUpdate.length === 0) {
+        return; // Don't show modal if no balances to update
+    }
+
+    balanceTypesToUpdate.forEach(balanceType => {
+        const currentBalance = userData.balances[balanceType.id];
+        const isMoney = balanceType.type === 'money';
+
+        const formGroup = document.createElement('div');
+        formGroup.className = 'form-group';
+
+        formGroup.innerHTML = `
+            <label for="lazy-log-${balanceType.id}">
+                ${balanceType.label} 
+                <small>(Currently: ${isMoney ? '$' : ''}${isMoney ? currentBalance.toFixed(2) : currentBalance})</small>
+            </label>
+            <div class="price-input-wrapper">
+                <span class="price-prefix">${isMoney ? '$' : '#'}</span>
+                <input 
+                    type="number" 
+                    id="lazy-log-${balanceType.id}" 
+                    data-balance-id="${balanceType.id}"
+                    placeholder="${isMoney ? currentBalance.toFixed(2) : currentBalance}" 
+                    step="${isMoney ? '0.01' : '1'}" 
+                    min="0"
+                    class="lazy-log-input"
+                >
+            </div>
+        `;
+        lazyLogInputsContainer.appendChild(formGroup);
+    });
+
+    lazyLogModal.classList.remove('hidden');
+}
+
+async function saveLazyLogData(db) {
+    const submitBtn = lazyLogForm.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Updating...';
+    lazyLogError.classList.add('hidden');
+
+    const inputs = lazyLogForm.querySelectorAll('.lazy-log-input');
+    const newBalances = {};
+    const purchaseLogs = [];
+    let hasErrors = false;
+
+    const userDocRef = doc(db, "users", currentUser.uid);
+    const userDocSnap = await getDoc(userDocRef);
+    const userData = userDocSnap.data();
+    const oldBalances = userData.balances;
+    const lastLogTimestamp = userData.lastLogDate || Timestamp.now(); // Use last log date for the summary
+
+    inputs.forEach(input => {
+        const balanceId = input.dataset.balanceId;
+        const newValue = parseFloat(input.value);
+        const oldValue = oldBalances[balanceId] || 0;
+
+        if (!input.value.trim()) {
+            // If input is empty, assume no change
+            newBalances[balanceId] = oldValue;
+            return;
+        }
+
+        if (isNaN(newValue) || newValue < 0) {
+            lazyLogError.textContent = `Please enter a valid positive number for all balances.`;
+            hasErrors = true;
+            return;
+        }
+
+        if (newValue > oldValue) {
+            const balanceType = userBalanceTypes.find(bt => bt.id === balanceId);
+            lazyLogError.textContent = `New balance for ${balanceType.label} cannot be higher than the current one.`;
+            hasErrors = true;
+            return;
+        }
+
+        const amountSpent = oldValue - newValue;
+        newBalances[balanceId] = newValue;
+
+        if (amountSpent > 0) {
+            const balanceType = userBalanceTypes.find(bt => bt.id === balanceId);
+            purchaseLogs.push({
+                items: [{ name: "Daily Spending Summary", price: amountSpent, quantity: 1 }],
+                total: amountSpent,
+                store: "Lazy Log",
+                purchaseDate: lastLogTimestamp,
+                isLazyLog: true,
+                balanceType: balanceId,
+                currency: balanceType.type === 'money' ? 'dollars' : 'custom_count',
+            });
+        }
+    });
+
+    if (hasErrors) {
+        lazyLogError.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Update Balances';
+        return;
+    }
+
+    try {
+        const batch = writeBatch(db);
+
+        // Add all summary purchases
+        purchaseLogs.forEach(log => {
+            const purchaseRef = doc(collection(db, "users", currentUser.uid, "purchases"));
+            batch.set(purchaseRef, log);
+        });
+
+        // Update user document with new balances and reset streak
+        const updatePayload = {
+            balances: { ...oldBalances, ...newBalances },
+            currentStreak: 0, // Streak is broken if they had to use lazy log
+            lastLogDate: Timestamp.now() // Set log date to now
+        };
+        batch.update(userDocRef, updatePayload);
+        
+        // Commit all writes at once
+        await batch.commit();
+
+        // Update global state and UI
+        currentUserData.balances = updatePayload.balances;
+        updateBalancesUI(currentUserData.balances);
+        
+        lazyLogModal.classList.add('hidden');
+        showSuccessMessage('✓ Balances updated!');
+
+    } catch (error) {
+        console.error("Error saving lazy log:", error);
+        lazyLogError.textContent = 'Failed to save. Please try again.';
+        lazyLogError.classList.remove('hidden');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Update Balances';
+    }
+}
+
 
 // --- HELPERS ---
 function getPriceLabel(price, currency) {

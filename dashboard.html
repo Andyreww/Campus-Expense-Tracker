@@ -200,6 +200,24 @@
         </div>
     </div>
     
+    <!-- Lazy Log Modal -->
+    <div id="lazy-log-modal" class="modal-overlay hidden">
+        <div class="lazy-log-modal">
+            <h2>Forgot to Log? 😴</h2>
+            <p class="lazy-log-subtitle">No worries! Just enter your current balances to catch up.</p>
+            <form id="lazy-log-form">
+                <div id="lazy-log-inputs-container">
+                    <!-- JS will inject balance inputs here -->
+                </div>
+                <div id="lazy-log-error" class="error-message hidden"></div>
+                <div class="lazy-log-actions">
+                    <button type="button" id="lazy-log-cancel" class="lazy-log-btn cancel">Maybe Later</button>
+                    <button type="submit" class="lazy-log-btn save">Update Balances</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="public-leaderboard-container" class="public-leaderboard-container hidden">
         <label class="public-leaderboard-toggle">
             <input type="checkbox" id="public-leaderboard-checkbox">
