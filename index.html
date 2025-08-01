@@ -11,7 +11,7 @@
     <!-- Google Fonts (Cafe Vibe) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Special+Elite&family=Patrick+Hand&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Special+Elite&family=Patrick+Hand&display=swap" rel="stylesheet">
     
     <!-- 3D Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -24,7 +24,9 @@
         <div class="container">
             <a href="#" class="logo-link">
                 <h1 class="logo-text">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="logo-icon"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+                    <svg class="logo-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20.92,8.34a7.42,7.42,0,0,0-9.61-6.19,7.4,7.4,0,0,0-5.13,5.13A7.42,7.42,0,0,0,12.37,20.9a1.49,1.49,0,0,0,2.1-.45,1.5,1.5,0,0,0-.45-2.1,4.43,4.43,0,0,1-3-5.49,4.42,4.42,0,0,1,5.49-3,4.43,4.43,0,0,1,3,5.49,1.5,1.5,0,0,0,.45,2.1,1.49,1.49,0,0,0,2.1-.45A7.42,7.42,0,0,0,20.92,8.34Z"/>
+                    </svg>
                     Nooksii
                 </h1>
             </a>
@@ -38,7 +40,7 @@
                 <!-- Desktop Nav -->
                 <div class="desktop-nav-container">
                     <nav class="desktop-nav">
-                        <a href="#menu" class="nav-link">Menu</a>
+                        <a href="#features" class="nav-link">Features</a>
                         <a href="#how-it-works" class="nav-link">Our Method</a>
                         <a href="#faq" class="nav-link">FAQ</a>
                     </nav>
@@ -54,7 +56,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
                     </button>
                     <div id="scrolled-menu-panel" class="scrolled-menu-panel">
-                         <a href="#menu" class="nav-link">Menu</a>
+                         <a href="#features" class="nav-link">Features</a>
                          <a href="#how-it-works" class="nav-link">Our Method</a>
                          <a href="#faq" class="nav-link">FAQ</a>
                          <a href="login.html" id="scrolled-cta-button" class="desktop-cta-button">Get Started</a>
@@ -67,7 +69,7 @@
     <!-- Mobile Menu Panel (Unscrolled) -->
     <div id="mobile-menu-overlay" class="mobile-menu-overlay"></div>
     <div id="mobile-menu" class="mobile-menu-panel">
-        <a href="#menu" class="mobile-menu-link">Menu</a>
+        <a href="#features" class="mobile-menu-link">Features</a>
         <a href="#how-it-works" class="mobile-menu-link">Our Method</a>
         <a href="#faq" class="mobile-menu-link">FAQ</a>
         <a href="login.html" class="mobile-menu-button">Get Started</a>
@@ -107,51 +109,79 @@
             </div>
         </section>
 
-        <!-- Cafe Menu Section -->
-        <section id="menu" class="menu-section">
+        <!-- Features Section -->
+        <section id="features" class="features-section">
             <div class="container">
                 <div class="section-header">
-                    <h2 class="section-title">Today's Specials</h2>
-                    <p class="section-subtitle">Freshly brewed features to help you thrive.</p>
+                    <h2 class="section-title">Your Nook's Toolkit</h2>
+                    <p class="section-subtitle">Essential tools to keep your campus life cozy and organized.</p>
                 </div>
 
-                <div class="cafe-menu-board">
-                    <!-- Menu Item 1 -->
-                    <div class="menu-item">
-                        <div class="menu-item-header">
-                            <h3 class="menu-item-title">The Daily Grind Tracker</h3>
-                            <span class="menu-item-dots"></span>
-                            <span class="menu-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12" y2="18"></line><path d="M12 14v-4"></path><path d="M12 8h.01"></path></svg></span>
+                <div class="features-grid">
+                    <!-- Feature Card 1 -->
+                    <div class="feature-card">
+                        <div class="feature-icon-wrapper">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
                         </div>
-                        <p class="menu-item-description">Your one-stop-shop to see Campus Credits, Dining Dollars, and Meal Swipes.</p>
+                        <h3 class="feature-title">Bell Counter</h3>
+                        <p class="feature-description">Keep an eye on your Campus Credits, Dining Dollars, and Meal Swipes. Never run low on bells again.</p>
                     </div>
-                    <!-- Menu Item 2 -->
-                    <div class="menu-item">
-                        <div class="menu-item-header">
-                            <h3 class="menu-item-title">The Campus Compass</h3>
-                            <span class="menu-item-dots"></span>
-                            <span class="menu-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-1.265.813l-1.886 6.13a1 1 0 0 1-1.041.814l-5.432-.822a1 1 0 0 0-1.118 1.036l1.24 5.441a1 1 0 0 1-.53 1.154l-2.223 1.112a1 1 0 0 1-1.265-.813l-1.886-6.13a1 1 0 0 1 1.041-.814l5.432.822a1 1 0 0 0 1.118-1.036L9.83 3.75a1 1 0 0 1 .53-1.154l2.223-1.112a1 1 0 0 1 1.265.813Z"></path></svg></span>
+                    <!-- Feature Card 2 -->
+                    <div class="feature-card">
+                        <div class="feature-icon-wrapper">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg>
                         </div>
-                        <p class="menu-item-description">Find every spot that takes your funds, on or off campus. Never guess again.</p>
+                        <h3 class="feature-title">Town Map</h3>
+                        <p class="feature-description">Discover all the spots on and off-campus that accept your funds. Your next adventure awaits!</p>
                     </div>
-                    <!-- Menu Item 3 -->
-                    <div class="menu-item">
-                        <div class="menu-item-header">
-                            <h3 class="menu-item-title">The Weather Window</h3>
-                            <span class="menu-item-dots"></span>
-                            <span class="menu-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path><path d="M22 10a4.5 4.5 0 0 0-8-2.3V6a4 4 0 0 0-8 0"></path></svg></span>
+                    <!-- Feature Card 3 -->
+                    <div class="feature-card">
+                        <div class="feature-icon-wrapper">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg>
                         </div>
-                        <p class="menu-item-description">Check the campus forecast before you make the trek to the dining hall.</p>
+                        <h3 class="feature-title">Window View</h3>
+                        <p class="feature-description">Check the campus forecast before you head out. No surprise rain showers on our watch.</p>
                     </div>
-                    <!-- Menu Item 4 -->
-                    <div class="menu-item">
-                        <div class="menu-item-header">
-                            <h3 class="menu-item-title">The Daily Deal</h3>
-                            <span class="menu-item-dots"></span>
-                            <span class="menu-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2.86 2.86 0 0 0-2.86 2.86v0a2.86 2.86 0 0 0 2.86 2.86h0a2.86 2.86 0 0 0 2.86-2.86v0A2.86 2.86 0 0 0 12 2Z"></path><path d="M12 22a8 8 0 0 0 8-8V9a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v5a8 8 0 0 0 8 8Z"></path><path d="M12 12a3 3 0 0 0-3 3"></path></svg></span>
+                    <!-- Feature Card 4 -->
+                    <div class="feature-card">
+                        <div class="feature-icon-wrapper">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                         </div>
-                        <p class="menu-item-description">We find the best deals at local spots so you can save your bells.</p>
+                        <h3 class="feature-title">Nook's Finds</h3>
+                        <p class="feature-description">We scout out the best deals at local shops so you can save your bells for what matters.</p>
                     </div>
+                    <!-- Feature Card 5 -->
+                    <div class="feature-card">
+                        <div class="feature-icon-wrapper">
+                           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v6l4 2"></path><circle cx="12" cy="12" r="10"></circle><path d="M16 16l1.5 1.5"></path></svg>
+                        </div>
+                        <h3 class="feature-title">Future Forecast</h3>
+                        <p class="feature-description">See where your balance is headed. Our projections help you plan ahead and stay on track for the semester.</p>
+                    </div>
+                    <!-- Feature Card 6 -->
+                    <div class="feature-card">
+                        <div class="feature-icon-wrapper">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 15h16"></path><path d="M16 15v1a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-1"></path><path d="M12 12V3"></path></svg>
+                        </div>
+                        <h3 class="feature-title">Leaderboard</h3>
+                        <p class="feature-description">Log your purchases daily to build your streak and climb the ranks. See how you stack up against others!</p>
+                    </div>
+                     <!-- Feature Card 7 --> 
+                     <div class="feature-card"> 
+                         <div class="feature-icon-wrapper"> 
+                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 15h16"></path><path d="M16 15v1a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-1"></path><path d="M12 12V3"></path></svg> 
+                         </div> 
+                         <h3 class="feature-title">Dynamic Widgets</h3> 
+                         <p class="feature-description">Frequent purchases become dynamic widgets making it easier to log purchases</p> 
+                     </div> 
+                     <!-- Feature Card 8 --> 
+                     <div class="feature-card"> 
+                         <div class="feature-icon-wrapper"> 
+                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 15h16"></path><path d="M16 15v1a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-1"></path><path d="M12 12V3"></path></svg> 
+                         </div> 
+                         <h3 class="feature-title">Custom Stores!</h3> 
+                         <p class="feature-description">Is there a location we don't have yet? Then you can add it yourself with custom stores!</p> 
+                     </div>
                 </div>
             </div>
         </section>
@@ -424,8 +454,8 @@ This website is built by a student for students. You’re safe here.</p>
     
     <!-- Page-specific Scripts -->
     <script>
-        // FAQ Accordion Logic
         document.addEventListener('DOMContentLoaded', () => {
+            // FAQ Accordion Logic
             const faqItems = document.querySelectorAll('.faq-item');
 
             faqItems.forEach(item => {

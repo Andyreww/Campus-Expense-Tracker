@@ -57,13 +57,15 @@ body {
     background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
-h1, h2, h3, h4, h5, h6, .logo-text {
+h1, h2, h3, h4, h5, h6 {
     font-family: 'Nunito', sans-serif;
 }
 
 .logo-icon {
     vertical-align: -4px;
     margin-right: 0.5rem;
+    transition: all 0.5s cubic-bezier(0.65, 0, 0.35, 1);
+    color: var(--brand-primary);
 }
 
 .container {
@@ -136,24 +138,36 @@ h1, h2, h3, h4, h5, h6, .logo-text {
 
 #main-header.header-scrolled .logo-text,
 #main-header.header-scrolled .nav-link,
-#main-header.header-scrolled .scrolled-menu-trigger {
+#main-header.header-scrolled .scrolled-menu-trigger,
+#main-header.header-scrolled .logo-icon {
     color: var(--bg-primary);
     text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
     transition: color 0.5s ease;
 }
+
+/* Special override for scrolled logo text shadow */
+#main-header.header-scrolled .logo-text {
+    text-shadow: 1px 1px 0px rgba(0,0,0,0.4);
+}
+
+
 #main-header.header-scrolled .nav-link:hover {
     color: #fff;
 }
 
 .logo-link, .nav-link, .mobile-menu-link { text-decoration: none; }
 .logo-text {
-    font-size: 1.75rem;
-    font-weight: 900;
-    letter-spacing: -0.05em;
+    font-family: 'Fredoka One', cursive;
+    font-size: 2rem;
+    font-weight: 400; /* Fredoka One is a single-weight font */
+    letter-spacing: 0.02em;
     color: var(--text-primary);
     display: flex;
     align-items: center;
+    transition: all 0.5s cubic-bezier(0.65, 0, 0.35, 1);
+    text-shadow: 2px 2px 0 var(--bg-secondary), 3px 3px 0 var(--border-color); /* Layered shadow for pop */
 }
+
 .mobile-menu-toggle {
     background-color: transparent; border: none; padding: 0.5rem; margin: -0.5rem;
     cursor: pointer; color: var(--text-secondary); transition: color 0.3s ease;
@@ -419,13 +433,38 @@ h1, h2, h3, h4, h5, h6, .logo-text {
     transform: rotate(15deg) scale(1.1);
 }
 
+/* ========================================
+   SECTION STYLING
+   ======================================== */
+.section-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    max-width: 650px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.section-title {
+    font-family: 'Nunito', sans-serif;
+    font-size: clamp(2.25rem, 5vw, 2.75rem);
+    font-weight: 900;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.section-subtitle {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+section {
+    padding: 5rem 0;
+}
 
 /* ========================================
    WALL OF FAME (RECEIPT STYLE)
    ======================================== */
-.wall-of-fame-section { 
-    padding: 5rem 0; 
-}
 
 .wall-of-fame-card {
     background-color: #fdfaf2; /* Off-white paper color */
@@ -525,84 +564,103 @@ h1, h2, h3, h4, h5, h6, .logo-text {
 }
 
 /* ========================================
-   CAFE MENU SECTION (FIXED)
+   FEATURES SECTION (REVAMPED)
    ======================================== */
-.menu-section {
-    padding: 5rem 0;
+.features-section {
+    background-color: var(--bg-primary); /* Reverted background */
+    padding-bottom: 7rem; /* Add extra padding for rotated elements */
 }
 
-.menu-section .section-header {
-    text-align: center;
-    margin-bottom: 3rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 2px solid var(--border-color);
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 3rem 2rem; /* More vertical gap */
 }
 
-.menu-section .section-title {
-    font-family: 'Nunito', sans-serif;
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-weight: 900;
-    color: var(--text-primary);
-    text-shadow: none;
-    margin-bottom: 0.5rem;
-}
-
-.menu-section .section-subtitle {
-    color: var(--text-secondary);
-    font-size: 1.1rem;
-}
-
-.cafe-menu-board {
+.feature-card {
     background: var(--bg-primary);
-    border: 2px solid var(--border-color);
-    border-radius: 1rem;
-    padding: 2rem 3rem;
-    max-width: 800px;
-    margin: 0 auto;
-    box-shadow: 0 8px 25px rgba(74, 44, 42, 0.1);
+    border-radius: 0.5rem;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    box-shadow: 3px 3px 8px rgba(0,0,0,0.15);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
 }
-.menu-item {
-    padding: 1.5rem 0;
-    border-bottom: 1px dashed var(--border-color);
+
+/* Add pushpin */
+.feature-card::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
+    border: 2px solid white;
 }
-.menu-item:last-child {
-    border-bottom: none;
+
+/* Random rotations and pin colors */
+.feature-card:nth-of-type(6n+1) { transform: rotate(-2deg); }
+.feature-card:nth-of-type(6n+1)::before { background-color: var(--pin-red); }
+.feature-card:nth-of-type(6n+2) { transform: rotate(1.5deg); }
+.feature-card:nth-of-type(6n+2)::before { background-color: var(--pin-blue); }
+.feature-card:nth-of-type(6n+3) { transform: rotate(2.5deg); }
+.feature-card:nth-of-type(6n+3)::before { background-color: var(--pin-yellow); }
+.feature-card:nth-of-type(6n+4) { transform: rotate(-1deg); }
+.feature-card:nth-of-type(6n+4)::before { background-color: var(--pin-olive); }
+.feature-card:nth-of-type(6n+5) { transform: rotate(2deg); }
+.feature-card:nth-of-type(6n+5)::before { background-color: var(--pin-mocha); }
+.feature-card:nth-of-type(6n+6) { transform: rotate(-1.5deg); }
+.feature-card:nth-of-type(6n+6)::before { background-color: var(--pin-orange); }
+
+
+.feature-card:hover {
+    transform: translateY(-10px) rotate(0deg) scale(1.05);
+    box-shadow: 0 12px 25px rgba(0,0,0,0.15);
+    z-index: 10;
 }
-.menu-item-header {
+
+.feature-icon-wrapper {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 1.5rem;
+    border-radius: 12px;
+    background: var(--bg-secondary);
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
+    align-items: center;
+    justify-content: center;
+    color: var(--highlight-green);
+    border: 1px solid var(--border-color);
 }
-.menu-item-title {
+.feature-icon-wrapper svg {
+    width: 28px;
+    height: 28px;
+}
+
+.feature-title {
     font-family: 'Special Elite', monospace;
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     color: var(--text-primary);
-    margin: 0;
+    margin-bottom: 0.75rem;
 }
-.menu-item-dots {
-    flex-grow: 1;
-    border-bottom: 2px dotted var(--border-color);
-    margin: 0 1rem;
-    transform: translateY(-4px);
-}
-.menu-item-icon {
-    color: var(--text-primary);
-}
-.menu-item-description {
-    font-family: 'Lato', sans-serif;
+
+.feature-description {
     color: var(--text-secondary);
-    margin: 0.5rem 0 0 0;
-    padding-right: 3rem; /* Keep it from overlapping the icon */
+    line-height: 1.6;
+    margin: 0;
+    font-size: 0.95rem;
 }
+
 
 /* ========================================
    HOW IT WORKS SECTION (A-FRAME SIGN)
    ======================================== */
-.how-it-works-section { 
-    padding: 5rem 0; 
+
+.how-it-works-section .container {
+    padding-top: 5rem;
+    padding-bottom: 5rem;
 }
 
 .cafe-sign-board {
@@ -750,10 +808,6 @@ h1, h2, h3, h4, h5, h6, .logo-text {
 /* ========================================
    FAQ SECTION (CORKBOARD STYLE)
    ======================================== */
-.faq-section {
-    padding: 5rem 0;
-    background-color: transparent;
-}
 
 .faq-board {
     background-color: #d2b48c; /* Tan / Cork color */
@@ -900,8 +954,9 @@ h1, h2, h3, h4, h5, h6, .logo-text {
    FOOTER & BACK TO TOP
    ======================================== */
 .footer {
-    text-align: center; padding: 2.5rem 1.5rem; margin-top: 5rem;
+    text-align: center; padding: 2.5rem 1.5rem;
     border-top: 1px solid var(--border-color); color: var(--text-secondary);
+    background-color: var(--bg-primary);
 }
 .footer-subtext { font-size: 0.875rem; opacity: 0.7; margin-top: 0.5rem; }
 
