@@ -198,41 +198,34 @@ async function main() {
             renderCart();
         
             if (currentStoreId === 'ross') {
-                currentStoreCurrency = 'dollars';
+                currentStoreCurrency = 'dollars'; // Ross items are priced in dollars
+                if (isDenisonStudent) {
+                    selectedPaymentBalance = 'credits'; // But paid for with credits for Denison users
+                }
                 customStoreActions.classList.add('hidden');
                 categorySidebar.classList.remove('hidden');
-                // For Denison students at Ross Market, force credits and re-render wallets
-                if (isDenisonStudent) {
-                    selectedPaymentBalance = 'credits';
-                    renderAllWallets(); 
-                }
                 await loadRossStoreData();
             } else {
                 const store = customStores.find(s => s.id === currentStoreId);
                 if (store) {
-                    currentStoreCurrency = store.currency;
+                    let storeBalanceId = store.currency;
+        
+                    // --- BACKWARD COMPATIBILITY & MAPPING ---
+                    // For old Denison stores that saved 'dollars' instead of 'dining'
+                    if (isDenisonStudent && storeBalanceId === 'dollars') {
+                        storeBalanceId = 'dining';
+                    }
+        
+                    currentStoreCurrency = storeBalanceId; // This is the ID of the balance to use
+                    selectedPaymentBalance = storeBalanceId; // Lock payment to this balance
+                    
                     customStoreActions.classList.remove('hidden');
                     categorySidebar.classList.add('hidden');
-        
-                    // When switching to a custom store, reset the payment balance.
-                    // Default to the store's currency if available, otherwise the first available balance.
-                    const storeBalanceExists = userBalanceTypes.some(bt => bt.id === store.currency);
-                    if (storeBalanceExists) {
-                        selectedPaymentBalance = store.currency;
-                    } else if (userBalanceTypes.length > 0) {
-                        // Fallback to a sensible default if the store's currency isn't an option for the user
-                        const moneyBalance = userBalanceTypes.find(bt => bt.type === 'money');
-                        selectedPaymentBalance = moneyBalance ? moneyBalance.id : userBalanceTypes[0].id;
-                    } else {
-                        selectedPaymentBalance = null;
-                    }
-                    
-                    // Re-render wallets to show all available options for this custom store
-                    renderAllWallets(); 
-        
                     await loadCustomStoreItems(currentStoreId);
                 }
             }
+            // This needs to be called AFTER the state is updated
+            renderAllWallets(); 
             rebuildCustomOptions();
         }
         
@@ -363,43 +356,30 @@ async function main() {
             
             newStoreCurrencyInput.innerHTML = '';
             
-            if (isDenisonStudent) {
-                // For Denison students, show the standard options
-                newStoreCurrencyInput.innerHTML = `
-                    <option value="dollars">Dining Dollars ($)</option>
-                    <option value="swipes">Meal Swipes</option>
-                    <option value="bonus_swipes">Bonus Swipes</option>
-                `;
-            } else {
-                // For custom university students, show their balance types
-                const addedOptions = new Set();
-                
+            // For ALL users, iterate through their defined balance types
+            // This makes the logic consistent and removes the isDenisonStudent fork
+            if (userBalanceTypes && userBalanceTypes.length > 0) {
                 userBalanceTypes.forEach(balanceType => {
-                    let optionValue, optionText;
+                    // Skip the generic 'credits' balance for Denison students, as it's not a real currency for a store
+                    if (isDenisonStudent && balanceType.id === 'credits') {
+                        return;
+                    }
+
+                    const option = document.createElement('option');
+                    option.value = balanceType.id; // The value is the unique balance ID
                     
                     if (balanceType.type === 'money') {
-                        optionValue = 'dollars';
-                        optionText = `${balanceType.label} ($)`;
+                        option.textContent = `${balanceType.label} ($)`;
                     } else {
-                        // For count types, use the balance ID as the value
-                        optionValue = balanceType.id;
-                        optionText = balanceType.label;
+                        option.textContent = balanceType.label;
                     }
-                    
-                    // Avoid duplicate options
-                    if (!addedOptions.has(optionValue)) {
-                        const option = document.createElement('option');
-                        option.value = optionValue;
-                        option.textContent = optionText;
-                        newStoreCurrencyInput.appendChild(option);
-                        addedOptions.add(optionValue);
-                    }
+                    newStoreCurrencyInput.appendChild(option);
                 });
-                
-                // If no balance types, show a default option
-                if (newStoreCurrencyInput.options.length === 0) {
-                    newStoreCurrencyInput.innerHTML = '<option value="dollars">Currency ($)</option>';
-                }
+            }
+            
+            // If after filtering, there are no options, show a message/default
+            if (newStoreCurrencyInput.options.length === 0) {
+                newStoreCurrencyInput.innerHTML = '<option value="" disabled>No balances available to create a store</option>';
             }
         }
 
@@ -410,33 +390,24 @@ async function main() {
             if (!walletWrapper) return;
             walletWrapper.innerHTML = '';
         
-            // --- FIX STARTS HERE ---
-            // Determine which balance types are available for the current context.
             let availableBalanceTypes = [];
             let isSelectorLocked = false;
         
             if (currentStoreId === 'ross') {
-                // Ross Market only accepts Campus Credits for Denison students
                 if (isDenisonStudent) {
                     availableBalanceTypes = userBalanceTypes.filter(bt => bt.id === 'credits');
                     isSelectorLocked = true;
                 } else {
-                    // Non-Denison students can use any of their balances at a "Ross-like" store if we ever add one.
+                    // This case is for a non-Denison user, who shouldn't see Ross Market anyway,
+                    // but as a fallback, we show all their balances, unlocked.
                     availableBalanceTypes = userBalanceTypes;
                 }
-            } else {
-                // This is a custom store.
-                const store = customStores.find(s => s.id === currentStoreId);
-                if (store) {
-                    // Only show the balance type that matches the store's currency.
-                    availableBalanceTypes = userBalanceTypes.filter(bt => bt.id === store.currency);
-                    isSelectorLocked = true;
-                } else {
-                    // Fallback: if store not found (shouldn't happen), show all.
-                    availableBalanceTypes = userBalanceTypes;
-                }
+            } else { // It's a custom store
+                // For custom stores, the selector is always locked to the designated balance.
+                // selectedPaymentBalance is already set correctly in handleStoreChange.
+                availableBalanceTypes = userBalanceTypes.filter(bt => bt.id === selectedPaymentBalance);
+                isSelectorLocked = true;
             }
-            // --- FIX ENDS HERE ---
         
             // Create custom payment selector
             const paymentSelector = document.createElement('div');
@@ -1091,7 +1062,7 @@ async function main() {
 
         function getEmojiForItem(name) {
             const lowerName = name.toLowerCase();
-            const keywords = { '☕': ['coffee', 'latte', 'espresso'], '🍵': ['tea', 'matcha'], '🥤': ['soda', 'coke', 'pepsi'], '🧃': ['juice', 'lemonade'], '💧': ['water'], '🍔': ['burger'], '🍕': ['pizza'], '🥪': ['sandwich', 'sub', 'wrap'], '🌮': ['taco', 'burrito'], '🍪': ['cookie'], '�': ['chocolate', 'candy'], '🥨': ['pretzel', 'chip'], '🍦': ['ice cream'], '🍎': ['apple'], '🍌': ['banana'] };
+            const keywords = { '☕': ['coffee', 'latte', 'espresso'], '🍵': ['tea', 'matcha'], '🥤': ['soda', 'coke', 'pepsi'], '🧃': ['juice', 'lemonade'], '💧': ['water'], '🍔': ['burger'], '🍕': ['pizza'], '🥪': ['sandwich', 'sub', 'wrap'], '🌮': ['taco', 'burrito'], '🍪': ['cookie'], '🍫': ['chocolate', 'candy'], '🥨': ['pretzel', 'chip'], '🍦': ['ice cream'], '🍎': ['apple'], '🍌': ['banana'] };
             for (const emoji in keywords) {
                 if (keywords[emoji].some(keyword => lowerName.includes(keyword))) return emoji;
             }
