@@ -182,7 +182,7 @@ async function main() {
         
         async function handleStoreChange() {
             const selectedValue = storeSelect.value;
-
+        
             if (selectedValue === 'create-new') {
                 createStoreModal.classList.remove('hidden');
                 // Revert to previous store if exists
@@ -192,19 +192,19 @@ async function main() {
                 rebuildCustomOptions();
                 return;
             }
-
+        
             currentStoreId = selectedValue;
             cart = [];
             renderCart();
-
+        
             if (currentStoreId === 'ross') {
                 currentStoreCurrency = 'dollars';
                 customStoreActions.classList.add('hidden');
                 categorySidebar.classList.remove('hidden');
-                // For Denison students at Ross Market, force credits
+                // For Denison students at Ross Market, force credits and re-render wallets
                 if (isDenisonStudent) {
                     selectedPaymentBalance = 'credits';
-                    renderAllWallets();
+                    renderAllWallets(); 
                 }
                 await loadRossStoreData();
             } else {
@@ -213,6 +213,25 @@ async function main() {
                     currentStoreCurrency = store.currency;
                     customStoreActions.classList.remove('hidden');
                     categorySidebar.classList.add('hidden');
+        
+                    // --- FIX STARTS HERE ---
+                    // When switching to a custom store, reset the payment balance.
+                    // Default to the store's currency if available, otherwise the first available balance.
+                    const storeBalanceExists = userBalanceTypes.some(bt => bt.id === store.currency);
+                    if (storeBalanceExists) {
+                        selectedPaymentBalance = store.currency;
+                    } else if (userBalanceTypes.length > 0) {
+                        // Fallback to a sensible default if the store's currency isn't an option for the user
+                        const moneyBalance = userBalanceTypes.find(bt => bt.type === 'money');
+                        selectedPaymentBalance = moneyBalance ? moneyBalance.id : userBalanceTypes[0].id;
+                    } else {
+                        selectedPaymentBalance = null;
+                    }
+                    
+                    // Re-render wallets to show all available options for this custom store
+                    renderAllWallets(); 
+                    // --- FIX ENDS HERE ---
+        
                     await loadCustomStoreItems(currentStoreId);
                 }
             }
