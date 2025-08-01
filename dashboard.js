@@ -16,11 +16,12 @@ let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar,
     customItemName, customItemPrice, customItemStore, customLogCancel, customLogClose, userBioInput,
     quickLogWidgetsContainer, saveAsWidgetCheckbox, openDeleteAccountBtn, deleteConfirmModalOverlay,
     deleteCancelBtn, deleteConfirmBtn, deleteErrorMessage, customPaymentType, pricePrefix,
-    tabletopGrid, universityBadge;
+    tabletopGrid, universityBadge, justSaveWidgetCheckbox;
 
 // --- App State ---
 let map = null;
 let currentUser = null;
+let currentUserData = null; // To store user profile data globally
 let selectedPfpFile = null;
 let firebaseServices = null;
 let isDeleteModeActive = false;
@@ -87,6 +88,7 @@ async function checkProfile() {
 }
 
 function renderDashboard(userData) {
+    currentUserData = userData; // Store user data globally
     const { balances, displayName, photoURL, showOnWallOfFame, bio, university, isDenisonStudent, classYear } = userData;
     
     welcomeMessage.innerHTML = `<span class="wave">👋</span> Welcome back, <span class="user-name">${displayName}</span>!`;
@@ -416,6 +418,7 @@ function assignDOMElements() {
     customLogClose = document.getElementById('custom-log-close');
     quickLogWidgetsContainer = document.getElementById('quick-log-widgets-container');
     saveAsWidgetCheckbox = document.getElementById('save-as-widget-checkbox');
+    justSaveWidgetCheckbox = document.getElementById('just-save-widget-checkbox');
     openDeleteAccountBtn = document.getElementById('open-delete-account-button');
     deleteConfirmModalOverlay = document.getElementById('delete-confirm-modal-overlay');
     deleteCancelBtn = document.getElementById('delete-cancel-button');
@@ -446,6 +449,7 @@ function setupEventListeners() {
     
     if (publicLeaderboardCheckbox) publicLeaderboardCheckbox.addEventListener('change', (e) => handlePublicToggle(e, db));
 
+    if (mapOpener) mapOpener.addEventListener('click', openMapModal);
     if (mapCloseButton) mapCloseButton.addEventListener('click', closeMapModal);
     if (mapModalOverlay) mapModalOverlay.addEventListener('click', (e) => {
         if(e.target === mapModalOverlay) closeMapModal();
@@ -509,6 +513,18 @@ function setupEventListeners() {
         if (e.target === deleteConfirmModalOverlay) deleteConfirmModalOverlay.classList.add('hidden');
     });
     if (deleteConfirmBtn) deleteConfirmBtn.addEventListener('click', deleteUserDataAndLogout);
+
+    // Logic for the new "Just create Favie" checkbox
+    if (justSaveWidgetCheckbox) {
+        justSaveWidgetCheckbox.addEventListener('change', () => {
+            if (justSaveWidgetCheckbox.checked) {
+                saveAsWidgetCheckbox.checked = true;
+                saveAsWidgetCheckbox.disabled = true;
+            } else {
+                saveAsWidgetCheckbox.disabled = false;
+            }
+        });
+    }
 }
 
 async function deleteUserDataAndLogout() {
@@ -696,7 +712,13 @@ function closeModal() {
 function closeCustomLogModal() {
     customLogModal.classList.add('hidden');
     customLogForm.reset();
-    if(saveAsWidgetCheckbox) saveAsWidgetCheckbox.checked = false;
+    if(saveAsWidgetCheckbox) {
+        saveAsWidgetCheckbox.checked = false;
+        saveAsWidgetCheckbox.disabled = false; // Reset disabled state
+    }
+    if (justSaveWidgetCheckbox) {
+        justSaveWidgetCheckbox.checked = false;
+    }
 }
 
 function handlePfpUpload(e) {
@@ -824,10 +846,13 @@ async function populateLocationsDropdown(db) {
 
         customItemStore.innerHTML = '';
 
-        const rossOption = document.createElement('option');
-        rossOption.value = "Ross Granville Market";
-        rossOption.textContent = "Ross Granville Market";
-        customItemStore.appendChild(rossOption);
+        // Add Denison-specific stores only if the user is a Denison student
+        if (currentUserData && currentUserData.isDenisonStudent) {
+            const rossOption = document.createElement('option');
+            rossOption.value = "Ross Granville Market";
+            rossOption.textContent = "Ross Granville Market";
+            customItemStore.appendChild(rossOption);
+        }
 
         querySnapshot.forEach(doc => {
             const store = doc.data();
@@ -848,8 +873,72 @@ async function populateLocationsDropdown(db) {
     }
 }
 
+async function createWidgetOnly(db) {
+    if (!currentUser) return;
+    
+    const itemName = customItemName.value.trim();
+    const itemPrice = parseFloat(customItemPrice.value);
+    const storeName = customItemStore.value;
+    const paymentType = customPaymentType.value;
+
+    if (!itemName || isNaN(itemPrice) || itemPrice < 0) {
+        showQuickLogError('Please fill in a valid item name and price.');
+        return;
+    }
+
+    const submitBtn = customLogForm.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="loading-spinner" style="display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite;"></span> Saving...';
+
+    try {
+        const quickLogWidgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
+        const snapshot = await getDocs(quickLogWidgetsRef);
+        
+        if (snapshot.size >= 3) {
+            showQuickLogError("You can only have up to 3 Favies.");
+            return;
+        }
+        
+        const q = query(quickLogWidgetsRef, where("itemName", "==", itemName));
+        const existingWidgets = await getDocs(q);
+        if (!existingWidgets.empty) {
+            showQuickLogError("A Favie with this name already exists.");
+            return;
+        }
+
+        const balanceTypeInfo = userBalanceTypes.find(bt => bt.id === paymentType);
+        const isMoneyType = balanceTypeInfo && balanceTypeInfo.type === 'money';
+        const currency = isMoneyType ? 'dollars' : 'custom_count';
+
+        await addDoc(quickLogWidgetsRef, {
+            itemName,
+            itemPrice,
+            storeName,
+            currency: currency,
+            balanceType: paymentType,
+            createdAt: Timestamp.now()
+        });
+
+        await renderQuickLogWidgets(db);
+        closeCustomLogModal();
+        showSuccessMessage(`✓ Created Favie: ${itemName}`);
+
+    } catch (error) {
+        console.error("Error creating widget:", error);
+        showQuickLogError("Failed to create Favie. Please try again.");
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>Log Purchase</span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+    }
+}
+
 async function logCustomPurchase(db) {
     if (!currentUser) return;
+
+    // Divert to widget-only creation if the checkbox is checked
+    if (justSaveWidgetCheckbox && justSaveWidgetCheckbox.checked) {
+        return await createWidgetOnly(db);
+    }
 
     const itemName = customItemName.value.trim();
     const itemPrice = parseFloat(customItemPrice.value);
@@ -858,7 +947,6 @@ async function logCustomPurchase(db) {
     const paymentType = customPaymentType.value;
 
     if (!itemName || isNaN(itemPrice) || itemPrice <= 0) {
-        // Replaced alert with a custom message box or similar UI
         showQuickLogError('Please fill in all fields correctly');
         return;
     }
@@ -870,9 +958,8 @@ async function logCustomPurchase(db) {
     const currentBalance = balances[paymentType] || 0;
 
     if (itemPrice > currentBalance) {
-        const balanceType = userBalanceTypes.find(bt => bt.id === paymentType);
-        const balanceName = balanceType ? balanceType.label : paymentType;
-        // Replaced alert with a custom message box or similar UI
+        const balanceTypeInfo = userBalanceTypes.find(bt => bt.id === paymentType);
+        const balanceName = balanceTypeInfo ? balanceTypeInfo.label : paymentType;
         showQuickLogError(`Not enough ${balanceName}!`);
         return;
     }
@@ -900,9 +987,8 @@ async function logCustomPurchase(db) {
         }
         if (currentStreak > longestStreak) longestStreak = currentStreak;
 
-        // Determine currency based on balance type
-        const balanceType = userBalanceTypes.find(bt => bt.id === paymentType);
-        const isMoneyType = balanceType && balanceType.type === 'money';
+        const balanceTypeInfo = userBalanceTypes.find(bt => bt.id === paymentType);
+        const isMoneyType = balanceTypeInfo && balanceTypeInfo.type === 'money';
         const currency = isMoneyType ? 'dollars' : 'custom_count';
 
         const purchaseRef = collection(db, "users", currentUser.uid, "purchases");
@@ -968,7 +1054,6 @@ async function logCustomPurchase(db) {
 
     } catch (error) {
         console.error("Error logging custom purchase:", error);
-        // Replaced alert with a custom message box or similar UI
         showQuickLogError("Failed to log purchase. Please try again.");
     } finally {
         submitBtn.disabled = false;
@@ -1013,23 +1098,19 @@ async function renderQuickLogWidgets(db) {
         const { itemPrice, currency, balanceType } = widgetData;
         let priceLabel;
 
-        // Find the balance type to determine label
         const balanceTypeInfo = userBalanceTypes.find(bt => bt.id === balanceType);
         
         if (balanceTypeInfo) {
             if (balanceTypeInfo.type === 'money') {
-                // Abbreviate long balance type names
                 const abbrev = balanceTypeInfo.label.split(' ').map(word => word[0]).join('');
                 priceLabel = `${abbrev} ${itemPrice.toFixed(2)}`;
             } else {
-                // For count types, show the number and abbreviated type
                 const shortLabel = balanceTypeInfo.label.length > 10 
                     ? balanceTypeInfo.label.substring(0, 10) + '...' 
                     : balanceTypeInfo.label;
                 priceLabel = `${itemPrice} ${shortLabel}`;
             }
         } else {
-            // Fallback
             priceLabel = getPriceLabel(itemPrice, currency);
         }
 
@@ -1079,9 +1160,7 @@ async function renderQuickLogWidgets(db) {
         buttonWrapper.appendChild(button);
     });
 
-    // New function to calculate and set shelf width
     function updateShelfWidth() {
-        // Use a timeout to allow the DOM to update after adding/removing buttons
         setTimeout(() => {
             const buttons = buttonWrapper.querySelectorAll('.quick-log-widget-btn');
             if (buttons.length === 0) {
@@ -1089,11 +1168,9 @@ async function renderQuickLogWidgets(db) {
                 return;
             }
             
-            // Calculate total width of buttons plus gaps
             let totalWidth = 0;
-            // Get the computed style of the buttonWrapper to find the gap
             const computedStyle = window.getComputedStyle(buttonWrapper);
-            const gap = parseFloat(computedStyle.getPropertyValue('gap')) || 16; // Default to 16px if not found
+            const gap = parseFloat(computedStyle.getPropertyValue('gap')) || 16;
 
             buttons.forEach((btn, index) => {
                 totalWidth += btn.offsetWidth;
@@ -1102,14 +1179,12 @@ async function renderQuickLogWidgets(db) {
                 }
             });
             
-            // Add some padding to the shelf width
-            // Ensure shelf doesn't exceed the container's width
-            const shelfWidth = Math.min(totalWidth + 30, quickLogWidgetsContainer.offsetWidth * 0.95); // Added more padding
+            const shelfWidth = Math.min(totalWidth + 30, quickLogWidgetsContainer.offsetWidth * 0.95);
             quickLogWidgetsContainer.style.setProperty('--shelf-width', `${shelfWidth}px`);
         }, 50);
     }
 
-    updateShelfWidth(); // Initial call
+    updateShelfWidth();
 }
 
 function toggleDeleteMode(enable) {
@@ -1162,7 +1237,8 @@ async function logFromWidget(db, widgetData, buttonEl) {
             store: widgetData.storeName,
             currency: currency,
             purchaseDate: Timestamp.now(),
-            isFromWidget: true
+            isFromWidget: true,
+            balanceType: balanceType // Also log which balance was used
         });
 
         const newBalance = currentBalance - itemPrice;
@@ -1292,7 +1368,6 @@ async function handlePublicToggle(e, db) {
 
 
 function updateBalancesUI(balances) {
-    // Update any balance element that exists
     Object.keys(balances).forEach(balanceId => {
         const balanceEl = document.getElementById(`${balanceId}-balance`);
         if (balanceEl) {
@@ -1301,12 +1376,11 @@ function updateBalancesUI(balances) {
             let newValue;
             
             if (balanceType && balanceType.type === 'money') {
-                newValue = `${balances[balanceId].toFixed(2)}`;
+                newValue = `$${balances[balanceId].toFixed(2)}`;
             } else {
                 newValue = balances[balanceId].toString();
             }
             
-            // Only animate if value actually changed
             if (oldValue !== newValue) {
                 balanceEl.textContent = newValue;
                 balanceEl.classList.add('updating');
