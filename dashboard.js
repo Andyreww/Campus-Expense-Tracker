@@ -567,12 +567,14 @@ async function deleteUserDataAndLogout() {
         const userId = currentUser.uid;
         const purchasesPath = `users/${userId}/purchases`;
         const widgetsPath = `users/${userId}/quickLogWidgets`;
+        const storesPath = `users/${userId}/customStores`; // Path for custom stores
         const userDocRef = doc(db, "users", userId);
         const wallOfFameDocRef = doc(db, "wallOfFame", userId);
 
         await Promise.all([
             deleteSubcollection(db, purchasesPath),
             deleteSubcollection(db, widgetsPath),
+            deleteSubcollection(db, storesPath), // Delete custom stores
             deleteDoc(wallOfFameDocRef).catch(err => console.log("No Wall of Fame doc to delete:", err.message)),
             deleteDoc(userDocRef)
         ]);
