@@ -64,7 +64,133 @@ body {
 .insights-card { grid-area: insights; }
 .history-card { grid-area: history; }
 
-/* Chart Styles */
+/* Chart Controls & Custom Dropdown */
+.chart-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    font-family: 'Nunito', sans-serif;
+    transform: rotate(0.5deg); /* Counter-rotate the card's tilt */
+}
+
+.chart-controls label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-weight: 700;
+}
+
+.custom-select-wrapper {
+    position: relative;
+    user-select: none;
+    display: inline-block;
+}
+
+.custom-select {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border: 3px solid var(--wood-dark);
+    border-radius: 12px;
+    background-color: var(--paper-white);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+.custom-select-trigger {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1.25rem;
+    font-size: 1.2rem;
+    font-family: 'Patrick Hand', cursive;
+    font-weight: 400;
+    color: var(--text-primary);
+    cursor: pointer;
+    background-color: var(--bg-secondary);
+    border-radius: 9px;
+    transition: box-shadow 0.2s ease;
+}
+
+.custom-select.open .custom-select-trigger {
+    box-shadow: 0 0 5px rgba(100,150,100,0.5);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.custom-select-trigger .arrow {
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 7px solid var(--wood-dark);
+    transition: transform 0.2s ease-out;
+    margin-left: 1rem;
+}
+
+.custom-select.open .custom-select-trigger .arrow {
+    transform: rotate(180deg);
+}
+
+
+.custom-options {
+    position: absolute;
+    top: 100%;
+    left: -3px; /* Align with border */
+    right: -3px; /* Align with border */
+    border: 3px solid var(--wood-dark);
+    border-top: 0;
+    /* FIX: Changed to a guaranteed opaque background variable */
+    background-color: var(--bg-primary); 
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-10px);
+    /* FIX: Increased z-index and added shadow to lift it off the page */
+    z-index: 100;
+    box-shadow: 0 8px 16px -4px rgba(0,0,0,0.2);
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.custom-select.open .custom-options {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+.custom-option {
+    position: relative;
+    display: block;
+    padding: 0.75rem 1.25rem;
+    font-size: 1.1rem;
+    font-family: 'Special Elite', monospace;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    border-bottom: 1px dashed var(--border-color);
+}
+.custom-option:last-of-type {
+    border-bottom: 0;
+}
+
+/* FIX: Made hover/selected background different from the main dropdown bg */
+.custom-option:hover {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.custom-option.selected {
+    color: var(--brand-primary);
+    font-weight: bold;
+    background-color: var(--bg-secondary);
+}
+
 .chart-container {
     position: relative;
     height: 300px;
@@ -83,7 +209,7 @@ body {
     text-align: center;
     border: 2px solid var(--wood-dark);
     border-bottom: 5px solid var(--wood-dark);
-    max-width: 350px;
+    max-width: 400px;
     margin: 5px auto 0; /* Added small top margin to prevent clipping */
     transform: rotate(0.5deg); /* Counter-rotate the card's tilt */
 }

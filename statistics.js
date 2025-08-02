@@ -8,13 +8,17 @@ import { updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 let loadingIndicator, statsContainer, pageTitle, welcomeMessage, userAvatar, avatarButton,
     historyList, insightsList, spendingChartCanvas, logoutButton,
     pfpModalOverlay, pfpPreview, pfpUploadInput, pfpSaveButton,
-    pfpCloseButton, pfpError, userBioInput;
+    pfpCloseButton, pfpError, userBioInput, customBalanceSelector;
 
 // --- App State ---
 let currentUser = null;
 let firebaseServices = null;
 let spendingChart = null;
 let selectedPfpFile = null;
+let selectedBalanceType = null;
+let purchaseData = null;
+let userDataCache = null;
+let userBalanceTypes = [];
 
 // --- Main App Initialization ---
 async function main() {
@@ -50,13 +54,51 @@ async function checkProfile() {
     if (userDoc.exists()) {
         const userData = userDoc.data();
         currentUser.bio = userData.bio || '';
+        
+        // Set up balance types based on user type
+        setupBalanceTypes(userData);
+        
         renderStatistics(userData);
     } else {
         window.location.href = "questionnaire.html";
     }
 }
 
+function setupBalanceTypes(userData) {
+    const { balanceTypes, isDenisonStudent, classYear } = userData;
+    
+    if (isDenisonStudent) {
+        // For Denison students
+        if (classYear === 'Senior') {
+            // Seniors only see credits and dining
+            userBalanceTypes = [
+                { id: 'credits', label: 'Campus Credits', type: 'money' },
+                { id: 'dining', label: 'Dining Dollars', type: 'money' }
+            ];
+        } else {
+            // Other years see all 4 standard types
+            userBalanceTypes = [
+                { id: 'credits', label: 'Campus Credits', type: 'money' },
+                { id: 'dining', label: 'Dining Dollars', type: 'money' },
+                { id: 'swipes', label: 'Meal Swipes', type: 'count', resetsWeekly: true, resetDay: 'Sunday' },
+                { id: 'bonus', label: 'Bonus Swipes', type: 'count', resetsWeekly: true, resetDay: 'Sunday' }
+            ];
+        }
+    } else {
+        // For custom universities, use their balance types
+        userBalanceTypes = balanceTypes || [];
+    }
+    
+    // Set default selected balance type
+    if (userBalanceTypes.length > 0) {
+        selectedBalanceType = userBalanceTypes[0].id;
+    }
+}
+
 async function renderStatistics(userData) {
+    // Store user data for later use
+    userDataCache = userData;
+    
     // Fetch purchase history
     const purchasesRef = collection(firebaseServices.db, "users", currentUser.uid, "purchases");
     const q = query(purchasesRef, orderBy("purchaseDate", "desc"));
@@ -66,11 +108,17 @@ async function renderStatistics(userData) {
         const data = doc.data();
         return { ...data, purchaseDate: data.purchaseDate.toDate() };
     });
+    
+    // Store purchase data for later use
+    purchaseData = purchaseHistory;
 
     // Update bio input if it exists
     if (userBioInput) {
         userBioInput.value = userData.bio || '';
     }
+
+    // Initialize balance type dropdown
+    initializeBalanceDropdown();
 
     // Render all components
     renderAllComponents(userData, purchaseHistory);
@@ -80,6 +128,95 @@ async function renderStatistics(userData) {
     
     setupEventListeners();
     handleBioInput();
+}
+
+// --- Balance Dropdown Functions ---
+function initializeBalanceDropdown() {
+    if (!customBalanceSelector || userBalanceTypes.length === 0) return;
+    
+    const customSelect = customBalanceSelector.querySelector('.custom-select');
+    const trigger = customSelect.querySelector('.custom-select-trigger span');
+    const optionsContainer = customSelect.querySelector('.custom-options');
+    
+    // Find the selected balance type
+    const selectedBalance = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
+    trigger.textContent = selectedBalance ? selectedBalance.label : 'Select Balance';
+    
+    // Clear and populate options
+    optionsContainer.innerHTML = '';
+    userBalanceTypes.forEach(balanceType => {
+        const option = document.createElement('div');
+        option.className = 'custom-option';
+        option.dataset.value = balanceType.id;
+        option.textContent = balanceType.label;
+        if (balanceType.id === selectedBalanceType) {
+            option.classList.add('selected');
+        }
+        optionsContainer.appendChild(option);
+    });
+    
+    // Remove any existing event listeners by cloning
+    const newCustomSelect = customSelect.cloneNode(true);
+    customSelect.parentNode.replaceChild(newCustomSelect, customSelect);
+    
+    // Re-query elements after cloning
+    const newTrigger = newCustomSelect.querySelector('.custom-select-trigger');
+    const newOptionsContainer = newCustomSelect.querySelector('.custom-options');
+    
+    // Click handler for trigger
+    newTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        newCustomSelect.classList.toggle('open');
+    });
+    
+    // Click handler for options
+    newOptionsContainer.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const option = e.target.closest('.custom-option');
+        if (option) {
+            // Update selected state
+            newOptionsContainer.querySelectorAll('.custom-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            option.classList.add('selected');
+            
+            // Update trigger text
+            const newBalanceType = option.dataset.value;
+            const balanceInfo = userBalanceTypes.find(bt => bt.id === newBalanceType);
+            newTrigger.querySelector('span').textContent = balanceInfo ? balanceInfo.label : 'Select Balance';
+            
+            // Close dropdown
+            newCustomSelect.classList.remove('open');
+            
+            // Update selected balance and refresh components
+            if (newBalanceType !== selectedBalanceType) {
+                selectedBalanceType = newBalanceType;
+                if (purchaseData && userDataCache) {
+                    // Re-render components that depend on the selected balance
+                    renderChart(userDataCache, purchaseData);
+                    renderInsights(purchaseData);
+                    renderHistory(purchaseData);
+                }
+            }
+        }
+    });
+    
+    // Click outside to close
+    document.addEventListener('click', (e) => {
+        if (!customBalanceSelector.contains(e.target)) {
+            newCustomSelect.classList.remove('open');
+        }
+    });
+}
+
+function formatBalanceValue(value, balanceType) {
+    if (!balanceType) return value.toString();
+    
+    if (balanceType.type === 'money') {
+        return `$${value.toFixed(2)}`;
+    } else {
+        return value.toString();
+    }
 }
 
 function assignDOMElements() {
@@ -100,6 +237,7 @@ function assignDOMElements() {
     pfpCloseButton = document.getElementById('pfp-close-button');
     pfpError = document.getElementById('pfp-error');
     userBioInput = document.getElementById('user-bio-input');
+    customBalanceSelector = document.getElementById('custom-currency-selector'); // Using existing ID
 }
 
 function setupEventListeners() {
@@ -360,13 +498,19 @@ function renderHistory(purchases) {
     if (!historyList) return;
     historyList.innerHTML = '';
 
-    if (purchases.length === 0) {
+    // Filter purchases for the selected balance type
+    const filteredPurchases = purchases.filter(p => 
+        !p.balanceType || p.balanceType === selectedBalanceType
+    );
+
+    if (filteredPurchases.length === 0) {
+        const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
         historyList.innerHTML = `
             <div class="data-gate">
                 <div class="data-gate-icon">🛒</div>
                 <div class="data-gate-title">No History Yet</div>
                 <div class="data-gate-text">
-                    Log your first purchase to see your history build up here!
+                    Log your first ${balanceInfo ? balanceInfo.label : 'purchase'} transaction to see your history here!
                 </div>
             </div>
         `;
@@ -375,13 +519,16 @@ function renderHistory(purchases) {
     
     const categoryIcons = { 'Coffee': '☕', 'Food': '🥐', 'Drinks': '🥤', 'Default': '🛒' };
 
-    purchases.forEach(purchase => {
+    filteredPurchases.forEach(purchase => {
         const itemElement = document.createElement('div');
         itemElement.className = 'history-item';
         
         const formattedDate = purchase.purchaseDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         const mainItemName = purchase.items.length > 1 ? `${purchase.items[0].name} & more` : purchase.items[0].name;
         const category = purchase.items[0]?.category || 'Default';
+        
+        const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
+        const priceDisplay = formatBalanceValue(purchase.total, balanceInfo);
 
         itemElement.innerHTML = `
             <div class="history-item-icon">${categoryIcons[category] || categoryIcons['Default']}</div>
@@ -389,7 +536,7 @@ function renderHistory(purchases) {
                 <div class="history-item-name">${mainItemName}</div>
                 <div class="history-item-date">${purchase.store} on ${formattedDate}</div>
             </div>
-            <div class="history-item-price">$${purchase.total.toFixed(2)}</div>
+            <div class="history-item-price">${priceDisplay}</div>
         `;
         historyList.appendChild(itemElement);
     });
@@ -399,20 +546,27 @@ function renderInsights(purchases) {
     if (!insightsList) return;
     insightsList.innerHTML = '';
 
-    if (purchases.length === 0) {
+    // Filter purchases for the selected balance type
+    const filteredPurchases = purchases.filter(p => 
+        !p.balanceType || p.balanceType === selectedBalanceType
+    );
+
+    const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
+
+    if (filteredPurchases.length === 0) {
         insightsList.innerHTML = `
             <div class="data-gate">
                 <div class="data-gate-icon">💡</div>
                 <div class="data-gate-title">Unlock Insights</div>
                 <div class="data-gate-text">
-                    Start logging purchases to discover your spending habits.
+                    Start logging ${balanceInfo ? balanceInfo.label : 'purchases'} to discover your spending habits.
                 </div>
             </div>
         `;
         return;
     }
 
-    const allItems = purchases.flatMap(p => p.items);
+    const allItems = filteredPurchases.flatMap(p => p.items);
 
     // Insight 1: Most frequent purchase
     const purchaseCounts = allItems.reduce((acc, item) => {
@@ -436,13 +590,16 @@ function renderInsights(purchases) {
     // Insight 2: Total spending this week
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    const weeklySpending = purchases
+    const weeklySpending = filteredPurchases
         .filter(p => p.purchaseDate > oneWeekAgo)
         .reduce((sum, p) => sum + p.total, 0);
 
+    const weeklyDisplay = formatBalanceValue(weeklySpending, balanceInfo);
+
     const insight2 = document.createElement('li');
     insight2.className = 'insight-item';
-    insight2.innerHTML = `<span class="insight-icon">💸</span><span class="insight-text">You've spent $${weeklySpending.toFixed(2)} in the last 7 days.</span>`;
+    const spentText = balanceInfo && balanceInfo.type === 'count' ? 'used' : 'spent';
+    insight2.innerHTML = `<span class="insight-icon">💸</span><span class="insight-text">You've ${spentText} ${weeklyDisplay} in the last 7 days.</span>`;
     insightsList.appendChild(insight2);
 
     // Insight 3: Most expensive time of day
@@ -453,7 +610,7 @@ function renderInsights(purchases) {
         "Late Night": 0
     };
 
-    purchases.forEach(p => {
+    filteredPurchases.forEach(p => {
         const hour = p.purchaseDate.getHours();
         if (hour >= 5 && hour <= 11) {
             spendingByTime["Morning"] += p.total;
@@ -477,7 +634,8 @@ function renderInsights(purchases) {
 
         const insight3 = document.createElement('li');
         insight3.className = 'insight-item';
-        insight3.innerHTML = `<span class="insight-icon">${timeEmoji}</span><span class="insight-text">${topTime} seems to be your prime spending time.</span>`;
+        const useText = balanceInfo && balanceInfo.type === 'count' ? 'using' : 'spending';
+        insight3.innerHTML = `<span class="insight-icon">${timeEmoji}</span><span class="insight-text">${topTime} seems to be your prime ${useText} time.</span>`;
         insightsList.appendChild(insight3);
     }
 }
@@ -485,11 +643,23 @@ function renderInsights(purchases) {
 function renderChart(userData, purchases) {
     if (!spendingChartCanvas) return;
     const chartContainer = spendingChartCanvas.parentElement;
-    const currentBalance = userData.balances?.credits || 0;
+    
+    const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
+    if (!balanceInfo) {
+        chartContainer.innerHTML = '<p style="text-align:center; padding: 2rem;">No balance type selected.</p>';
+        return;
+    }
+    
+    const currentBalance = userData.balances?.[selectedBalanceType] || 0;
+
+    // Filter purchases for the selected balance type
+    const filteredPurchases = purchases.filter(p => 
+        !p.balanceType || p.balanceType === selectedBalanceType
+    );
 
     // 1. Aggregate purchases by day
     const spendingByDay = {};
-    purchases.forEach(p => {
+    filteredPurchases.forEach(p => {
         const day = p.purchaseDate.toISOString().split('T')[0];
         if (!spendingByDay[day]) {
             spendingByDay[day] = 0;
@@ -508,7 +678,7 @@ function renderChart(userData, purchases) {
                 </div>
                 <div class="data-gate-title">Unlock Your Forecast</div>
                 <div class="data-gate-text">
-                    Log your spending for <strong>${daysNeeded} more day${daysNeeded > 1 ? 's' : ''}</strong> to see your projection. The more you log, the smarter it gets!
+                    Log ${balanceInfo.label} usage for <strong>${daysNeeded} more day${daysNeeded > 1 ? 's' : ''}</strong> to see your projection. The more you log, the smarter it gets!
                 </div>
             </div>
         `;
@@ -516,7 +686,7 @@ function renderChart(userData, purchases) {
     }
 
     // 3. Reconstruct actual balance history on a daily basis
-    const totalSpent = purchases.reduce((sum, p) => sum + p.total, 0);
+    const totalSpent = filteredPurchases.reduce((sum, p) => sum + p.total, 0);
     let runningBalance = currentBalance + totalSpent;
     
     const labels = [];
@@ -547,7 +717,10 @@ function renderChart(userData, purchases) {
     let dayCounter = 1;
     let zeroDate = lastActualDate;
 
-    while (projectedBalance > 0) {
+    // Limit projection to 90 days to prevent performance issues
+    const maxProjectionDays = 90;
+    
+    while (projectedBalance > 0 && dayCounter <= maxProjectionDays) {
         const nextDay = new Date(lastActualDate);
         nextDay.setDate(lastActualDate.getDate() + dayCounter);
         
@@ -570,6 +743,12 @@ function renderChart(userData, purchases) {
         chartContainer.appendChild(newCanvas);
         spendingChartCanvas = newCanvas;
     }
+
+    const zeroDateText = dayCounter > maxProjectionDays 
+        ? `More than ${maxProjectionDays} days`
+        : zeroDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+
+    const zeroValueDisplay = formatBalanceValue(0, balanceInfo);
 
     spendingChart = new Chart(spendingChartCanvas, {
         type: 'line',
@@ -607,7 +786,7 @@ function renderChart(userData, purchases) {
             plugins: {
                 title: {
                     display: true,
-                    text: `Projected to reach $0 around ${zeroDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`,
+                    text: `Projected to reach ${zeroValueDisplay} around ${zeroDateText}`,
                     font: { size: 16, family: "'Patrick Hand', cursive" },
                     color: 'var(--text-primary)',
                     padding: { bottom: 15 }
@@ -615,7 +794,10 @@ function renderChart(userData, purchases) {
                 legend: { display: true, position: 'bottom' },
                 tooltip: {
                     callbacks: {
-                        label: (context) => `${context.dataset.label}: $${Number(context.raw).toFixed(2)}`
+                        label: (context) => {
+                            const value = formatBalanceValue(Number(context.raw), balanceInfo);
+                            return `${context.dataset.label}: ${value}`;
+                        }
                     }
                 }
             },
@@ -627,7 +809,12 @@ function renderChart(userData, purchases) {
                 },
                 y: {
                     beginAtZero: true,
-                    ticks: { callback: (value) => '$' + value }
+                    ticks: { 
+                        callback: (value) => {
+                            // Format Y-axis ticks based on balance type
+                            return formatBalanceValue(value, balanceInfo);
+                        }
+                    }
                 }
             }
         }

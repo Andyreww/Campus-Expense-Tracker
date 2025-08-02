@@ -63,6 +63,21 @@
             <!-- Spending Chart Section -->
             <section class="stats-card chart-card">
                 <h2 class="card-title">Spending Forecast</h2>
+                <!-- Balance Type Selector -->
+                <div class="chart-controls">
+                    <label for="custom-currency-selector">Show Projection For:</label>
+                    <div id="custom-currency-selector" class="custom-select-wrapper">
+                        <div class="custom-select">
+                            <div class="custom-select-trigger">
+                                <span>Loading...</span>
+                                <div class="arrow"></div>
+                            </div>
+                            <div class="custom-options">
+                                <!-- JS will populate this -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="chart-container">
                     <canvas id="spending-chart"></canvas>
                 </div>
