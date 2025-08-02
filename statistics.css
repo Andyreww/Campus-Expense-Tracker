@@ -45,17 +45,8 @@ body {
     padding: 1.5rem;
     box-shadow: 0 10px 20px rgba(0,0,0,0.2);
     transform: rotate(-0.5deg);
-    position: relative; /* Allows z-index to work */
-    z-index: 1; /* Default stacking order */
-    transition: transform 0.2s ease-in-out; /* ADDED: For a smooth effect */
+    position: relative; /* This is needed for z-index on children to work correctly */
 }
-
-/* MODIFIED: This rule is the fix. It flattens the card and raises it. */
-.stats-card.dropdown-active {
-    z-index: 2;
-    transform: none;
-}
-
 
 .card-title {
     font-family: 'Patrick Hand', cursive;
@@ -83,6 +74,8 @@ body {
     margin-bottom: 1rem;
     font-family: 'Nunito', sans-serif;
     transform: rotate(0.5deg); /* Counter-rotate the card's tilt */
+    position: relative; /* FIX: Establish a stacking context */
+    z-index: 10; /* FIX: Lift the controls above the chart container */
 }
 
 .chart-controls label {
@@ -159,7 +152,7 @@ body {
     visibility: hidden;
     pointer-events: none;
     transform: translateY(-10px);
-    z-index: 100;
+    z-index: 100; /* High z-index to appear over trigger */
     box-shadow: 0 8px 16px -4px rgba(0,0,0,0.2);
     max-height: 150px;
     overflow-y: auto;
@@ -205,6 +198,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 1; /* FIX: Keep the chart/gate behind the controls */
 }
 
 /* Reusable Data Gate Styles */
@@ -217,7 +211,7 @@ body {
     border: 2px solid var(--wood-dark);
     border-bottom: 5px solid var(--wood-dark);
     max-width: 400px;
-    margin: 5px auto 0; /* Added small top margin to prevent clipping */
+    margin: 5px auto 0;
     transform: rotate(0.5deg); /* Counter-rotate the card's tilt */
 }
 
@@ -282,9 +276,8 @@ body {
 }
 
 .insight-icon {
-   font-size: 2rem; /* Made emoji slightly larger */
+   font-size: 2rem;
    flex-shrink: 0;
-   /* Removed background, border, etc. */
 }
 
 .insight-text {
