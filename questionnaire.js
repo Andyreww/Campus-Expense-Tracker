@@ -560,6 +560,8 @@ async function main() {
 
             // Collect balances
             let finalBalances = {};
+            let resetAmounts = {}; // New: store original amounts for reset
+            
             if (hasSpentMoney) {
                 elements.balanceInputsContainer.querySelectorAll('.balance-input').forEach(input => {
                     const balanceId = input.dataset.balanceId;
@@ -569,6 +571,11 @@ async function main() {
                             ? parseFloat(input.value) || 0 
                             : parseInt(input.value) || 0;
                         finalBalances[balanceId] = Math.max(0, value); // Ensure non-negative
+                        
+                        // Store reset amount if this balance resets
+                        if (balanceTypeInfo.resetsWeekly) {
+                            resetAmounts[balanceId] = finalBalances[balanceId];
+                        }
                     }
                 });
             } else if (isDenison) {
@@ -579,6 +586,12 @@ async function main() {
                     swipes: selectedYear !== 'Senior' ? defaults.swipes : 0,
                     bonus: selectedYear !== 'Senior' ? defaults.bonus : 0
                 };
+                
+                // For Denison, swipes and bonus reset weekly
+                if (selectedYear !== 'Senior') {
+                    resetAmounts.swipes = defaults.swipes;
+                    resetAmounts.bonus = defaults.bonus;
+                }
             }
 
             // Create user document
@@ -591,6 +604,8 @@ async function main() {
                 classYear: selectedYear,
                 balanceTypes: activeBalanceTypes,
                 balances: finalBalances,
+                resetAmounts: resetAmounts, // New: store reset amounts
+                lastResetDates: {}, // New: track when each balance was last reset
                 uid: currentUser.uid,
                 email: currentUser.email,
                 createdAt: new Date(),

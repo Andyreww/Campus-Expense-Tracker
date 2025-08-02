@@ -65,7 +65,15 @@ async function checkProfile() {
             const userData = userDoc.data();
             currentUser.bio = userData.bio || '';
             userBalanceTypes = userData.balanceTypes || [];
-            renderDashboard(userData);
+            
+            // Check and perform balance resets if needed
+            await checkAndPerformBalanceResets(userData);
+            
+            // Re-fetch data after potential resets
+            const updatedDoc = await getDoc(userDocRef);
+            const updatedData = updatedDoc.exists() ? updatedDoc.data() : userData;
+            
+            renderDashboard(updatedData);
         } else {
             window.location.href = "questionnaire.html";
         }
@@ -319,8 +327,8 @@ function createBalanceCard(balanceType, currentBalance) {
         const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
         const isToday = today === balanceType.resetDay;
         const resetClass = isToday ? 'resets-today' : '';
-        const dayText = isToday ? 'Today!' : `${balanceType.resetDay}s`;
-        resetInfo = `<div class="reset-info ${resetClass}">Resets ${dayText}</div>`;
+        const dayText = isToday ? 'Resets Today!' : `Resets ${balanceType.resetDay}s`;
+        resetInfo = `<div class="reset-info ${resetClass}">${dayText}</div>`;
     }
     
     card.innerHTML = `
@@ -611,6 +619,44 @@ async function deleteSubcollection(db, collectionPath) {
 }
 
 // --- LAZY LOG & EOD ---
+async function checkAndPerformBalanceResets(userData) {
+    const { balanceTypes, balances, resetAmounts = {}, lastResetDates = {} } = userData;
+    const today = new Date();
+    const todayDayName = today.toLocaleDateString('en-US', { weekday: 'long' });
+    
+    let hasResets = false;
+    const updatedBalances = { ...balances };
+    const updatedLastResetDates = { ...lastResetDates };
+    
+    // Check each balance type for resets
+    balanceTypes.forEach(balanceType => {
+        if (balanceType.resetsWeekly && balanceType.resetDay === todayDayName) {
+            const lastResetDate = lastResetDates[balanceType.id];
+            const shouldReset = !lastResetDate || !isSameDay(new Date(lastResetDate), today);
+            
+            if (shouldReset && resetAmounts[balanceType.id] !== undefined) {
+                // Perform the reset
+                updatedBalances[balanceType.id] = resetAmounts[balanceType.id];
+                updatedLastResetDates[balanceType.id] = today.toISOString();
+                hasResets = true;
+                console.log(`Reset ${balanceType.label} to ${resetAmounts[balanceType.id]}`);
+            }
+        }
+    });
+    
+    // Update database if there were resets
+    if (hasResets) {
+        const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
+        await updateDoc(userDocRef, {
+            balances: updatedBalances,
+            lastResetDates: updatedLastResetDates
+        });
+        
+        // Show notification
+        showSuccessMessage('✓ Weekly balances have been reset!');
+    }
+}
+
 function isSameDay(d1, d2) {
     if (!d1 || !d2) return false;
     return d1.getFullYear() === d2.getFullYear() &&
@@ -699,6 +745,7 @@ async function saveLazyLogData(db, logDate) {
     const userDocSnap = await getDoc(userDocRef);
     const userData = userDocSnap.data();
     const oldBalances = userData.balances;
+    const resetAmounts = userData.resetAmounts || {};
 
     inputs.forEach(input => {
         const balanceId = input.dataset.balanceId;
@@ -767,6 +814,18 @@ async function saveLazyLogData(db, logDate) {
             balances: { ...oldBalances, ...newBalances },
             lastLogDate: Timestamp.now()
         };
+
+        // If this is an EOD update and the balance has a reset amount, update it
+        if (lazyLogForm.dataset.isLazyLog === 'false') {
+            const updatedResetAmounts = { ...resetAmounts };
+            Object.keys(newBalances).forEach(balanceId => {
+                const balanceType = userBalanceTypes.find(bt => bt.id === balanceId);
+                if (balanceType && balanceType.resetsWeekly) {
+                    updatedResetAmounts[balanceId] = newBalances[balanceId];
+                }
+            });
+            updatePayload.resetAmounts = updatedResetAmounts;
+        }
 
         if (lazyLogForm.dataset.isLazyLog === 'true') {
              updatePayload.currentStreak = 0;
