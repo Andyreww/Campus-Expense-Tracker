@@ -478,7 +478,7 @@ body {
 .bill-2 { top: 3px; left: 5px; transform: rotate(3deg); }
 .bill-3 { top: 6px; left: 10px; transform: rotate(-2deg); }
 .coaster-stack { position: relative; width: 100px; height: 100px; }
-.coaster { position: absolute; width: 90px; height: 90px; background-color: #D2B48C; background-image: radial-gradient(circle at center, transparent 15%, #D2B48C 15%), url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIj48ZmlsdGVyIGlkPSJub2lzZSI+PGZlVHVyYnVsZW5jZSB0eXBlPSJmcmFjdGFsTm9pc2UiIGJhc2VGcmVxdWVuY3k9IjAuOCIgbnVtT2N0YXZlcz0iMyIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNub2lzZSkiIG9wYWNpdHk9IjAuMTUiLz48L3N2Zz4='); border: 3px solid #b39a7c; border-radius: 50%; box-shadow: inset 0 0 15px rgba(0,0,0,0.1), 0 2px 5px rgba(0,0,0,0.2); left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.coaster { position: absolute; width: 90px; height: 90px; background-color: #D2B48C; background-image: radial-gradient(circle at center, transparent 15%, #D2B48C 15%), url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIj48ZmlsdGVyIGlkPSJub2lzZSI+PGZlVHVyYnVsZW5jZSB0eXBlPSJmcmFjdGFsTm9pc2UiIGJhc2VGcmVxdWVuY3k9IjAuOCIgbnVtT2N0YXZlcz0iMyIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNub2lzZSkiIG9wYWNpdHk9IjAuMTUiLz48L3N2Zz4='); border: 3px solid #b39a7c; border-radius: 50%; box-shadow: inset 0 0 15px rgba(0,0,0,0.1), 0 2px 5px rgba(0,0,0,0.2); left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .coaster::before { content: ''; position: absolute; top: 20%; left: 20%; right: 20%; bottom: 20%; border: 2px solid rgba(0,0,0,0.1); border-radius: 50%; }
 .coaster:nth-child(2) { transform: translate(-45%, -55%) rotate(15deg); }
 .coaster:nth-child(3) { transform: translate(-40%, -60%) rotate(-10deg); }
@@ -1503,6 +1503,7 @@ body {
     }
 
     /* FIXED: Reset desktop-specific grid spanning for balance cards on mobile */
+    .tabletop > .table-item:nth-child(5):nth-last-child(2),
     .tabletop > .table-item:nth-child(5):nth-last-child(3),
     .tabletop > .table-item:nth-child(6):nth-last-child(2) {
         grid-column: auto;
