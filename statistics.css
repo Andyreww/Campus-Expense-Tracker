@@ -156,24 +156,16 @@ body {
     box-shadow: 0 8px 16px -4px rgba(0,0,0,0.2);
     max-height: 150px;
     overflow-y: auto;
-    padding-right: 4px; /* Add some space for the scrollbar */
+    /* REMOVED padding-right since scrollbar is hidden */
 }
 
-/* FIX: Custom scrollbar for dropdown options to prevent confusion with arrows */
+/* FIX: Hide scrollbar on dropdown to prevent visual confusion with arrow */
+.custom-options {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
 .custom-options::-webkit-scrollbar {
-    width: 8px;
-}
-.custom-options::-webkit-scrollbar-track {
-    background: transparent; /* Make track invisible */
-}
-.custom-options::-webkit-scrollbar-thumb {
-    background: var(--wood-dark);
-    border-radius: 10px;
-    border: 2px solid var(--bg-primary); /* Add padding around thumb */
-}
-/* This hides the scrollbar's own up/down arrows */
-.custom-options::-webkit-scrollbar-button {
-    display: none;
+    display: none; /* Chrome, Safari, and Opera */
 }
 
 
