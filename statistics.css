@@ -136,7 +136,7 @@ body {
     transform: rotate(180deg);
 }
 
-
+/* FIX: Merged two separate rules into one and hid the scrollbar */
 .custom-options {
     position: absolute;
     top: 100%;
@@ -156,18 +156,15 @@ body {
     box-shadow: 0 8px 16px -4px rgba(0,0,0,0.2);
     max-height: 150px;
     overflow-y: auto;
-    /* REMOVED padding-right since scrollbar is hidden */
-}
-
-/* FIX: Hide scrollbar on dropdown to prevent visual confusion with arrow */
-.custom-options {
+    
+    /* Hide scrollbar across browsers */
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
 }
+
 .custom-options::-webkit-scrollbar {
     display: none; /* Chrome, Safari, and Opera */
 }
-
 
 .custom-select.open .custom-options {
     opacity: 1;
