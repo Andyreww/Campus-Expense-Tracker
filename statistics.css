@@ -45,13 +45,15 @@ body {
     padding: 1.5rem;
     box-shadow: 0 10px 20px rgba(0,0,0,0.2);
     transform: rotate(-0.5deg);
-    position: relative; /* ADDED: Allows z-index to work */
-    z-index: 1; /* ADDED: Default stacking order */
+    position: relative; /* Allows z-index to work */
+    z-index: 1; /* Default stacking order */
+    transition: transform 0.2s ease-in-out; /* ADDED: For a smooth effect */
 }
 
-/* ADDED: New rule to bring the card forward when the dropdown is active */
+/* MODIFIED: This rule is the fix. It flattens the card and raises it. */
 .stats-card.dropdown-active {
     z-index: 2;
+    transform: none;
 }
 
 
@@ -149,7 +151,6 @@ body {
     right: -3px; /* Align with border */
     border: 3px solid var(--wood-dark);
     border-top: 0;
-    /* FIX: Changed to a guaranteed opaque background variable */
     background-color: var(--bg-primary); 
     border-bottom-left-radius: 12px;
     border-bottom-right-radius: 12px;
@@ -158,7 +159,6 @@ body {
     visibility: hidden;
     pointer-events: none;
     transform: translateY(-10px);
-    /* FIX: Increased z-index and added shadow to lift it off the page */
     z-index: 100;
     box-shadow: 0 8px 16px -4px rgba(0,0,0,0.2);
     max-height: 150px;
@@ -187,7 +187,6 @@ body {
     border-bottom: 0;
 }
 
-/* FIX: Made hover/selected background different from the main dropdown bg */
 .custom-option:hover {
     background-color: var(--bg-secondary);
     color: var(--text-primary);
