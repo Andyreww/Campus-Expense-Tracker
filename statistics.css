@@ -171,6 +171,10 @@ body {
     border-radius: 10px;
     border: 2px solid var(--bg-primary); /* Add padding around thumb */
 }
+/* This hides the scrollbar's own up/down arrows */
+.custom-options::-webkit-scrollbar-button {
+    display: none;
+}
 
 
 .custom-select.open .custom-options {
