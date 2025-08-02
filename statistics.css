@@ -156,7 +156,22 @@ body {
     box-shadow: 0 8px 16px -4px rgba(0,0,0,0.2);
     max-height: 150px;
     overflow-y: auto;
+    padding-right: 4px; /* Add some space for the scrollbar */
 }
+
+/* FIX: Custom scrollbar for dropdown options to prevent confusion with arrows */
+.custom-options::-webkit-scrollbar {
+    width: 8px;
+}
+.custom-options::-webkit-scrollbar-track {
+    background: transparent; /* Make track invisible */
+}
+.custom-options::-webkit-scrollbar-thumb {
+    background: var(--wood-dark);
+    border-radius: 10px;
+    border: 2px solid var(--bg-primary); /* Add padding around thumb */
+}
+
 
 .custom-select.open .custom-options {
     opacity: 1;
