@@ -1502,12 +1502,23 @@ body {
         grid-column: 1 / -1;
     }
 
-    /* FIXED: Reset desktop-specific grid spanning for balance cards on mobile */
+    /* FIXED: Reset desktop-specific grid spanning for ALL card counts on mobile */
+    .tabletop[data-card-count="3"],
+    .tabletop[data-card-count="4"],
     .tabletop > .table-item:nth-child(5):nth-last-child(2),
     .tabletop > .table-item:nth-child(5):nth-last-child(3),
     .tabletop > .table-item:nth-child(6):nth-last-child(2) {
         grid-column: auto;
+        /* Also ensure the grid template is correct */
+        grid-template-columns: repeat(2, 1fr);
     }
+    
+    /* This rule ensures that for 3 or 4 cards, the grid is 2 columns wide */
+    .tabletop[data-card-count="3"],
+    .tabletop[data-card-count="4"] {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
 
     .tabletop[data-card-count="1"] {
         grid-template-columns: 1fr;
