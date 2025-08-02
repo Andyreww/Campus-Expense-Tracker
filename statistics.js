@@ -162,11 +162,15 @@ function initializeBalanceDropdown() {
     // Re-query elements after cloning
     const newTrigger = newCustomSelect.querySelector('.custom-select-trigger');
     const newOptionsContainer = newCustomSelect.querySelector('.custom-options');
-    
+    const chartCard = newCustomSelect.closest('.stats-card'); // Get the parent card
+
     // Click handler for trigger
     newTrigger.addEventListener('click', (e) => {
         e.stopPropagation();
-        newCustomSelect.classList.toggle('open');
+        const isOpen = newCustomSelect.classList.toggle('open');
+        if (chartCard) {
+            chartCard.classList.toggle('dropdown-active', isOpen);
+        }
     });
     
     // Click handler for options
@@ -187,6 +191,9 @@ function initializeBalanceDropdown() {
             
             // Close dropdown
             newCustomSelect.classList.remove('open');
+            if (chartCard) {
+                chartCard.classList.remove('dropdown-active');
+            }
             
             // Update selected balance and refresh components
             if (newBalanceType !== selectedBalanceType) {
@@ -204,10 +211,16 @@ function initializeBalanceDropdown() {
     // Click outside to close
     document.addEventListener('click', (e) => {
         if (!customBalanceSelector.contains(e.target)) {
-            newCustomSelect.classList.remove('open');
+            if (newCustomSelect.classList.contains('open')) {
+                newCustomSelect.classList.remove('open');
+                if (chartCard) {
+                    chartCard.classList.remove('dropdown-active');
+                }
+            }
         }
     });
 }
+
 
 function formatBalanceValue(value, balanceType) {
     if (!balanceType) return value.toString();

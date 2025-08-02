@@ -45,7 +45,15 @@ body {
     padding: 1.5rem;
     box-shadow: 0 10px 20px rgba(0,0,0,0.2);
     transform: rotate(-0.5deg);
+    position: relative; /* ADDED: Allows z-index to work */
+    z-index: 1; /* ADDED: Default stacking order */
 }
+
+/* ADDED: New rule to bring the card forward when the dropdown is active */
+.stats-card.dropdown-active {
+    z-index: 2;
+}
+
 
 .card-title {
     font-family: 'Patrick Hand', cursive;
