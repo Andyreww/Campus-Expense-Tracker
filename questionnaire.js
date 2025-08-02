@@ -104,13 +104,36 @@ async function main() {
     }
 
     // --- Auth Listener ---
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
         if (user) {
             currentUser = user;
-            console.log("User is logged in:", currentUser);
+            console.log("User is logged in:", currentUser.uid);
+
+            // Check if user data already exists in Firestore.
+            const userDocRef = doc(db, "users", user.uid);
+            try {
+                const docSnap = await getDoc(userDocRef);
+                if (docSnap.exists()) {
+                    // If the document exists, the user has already completed the questionnaire.
+                    console.log("User has already completed the questionnaire. Redirecting to dashboard.");
+                    window.location.href = "dashboard.html";
+                    return; // Stop executing the rest of the script.
+                }
+                // If doc doesn't exist, this is a new user, so we continue.
+                console.log("New user detected. Proceeding with questionnaire.");
+            } catch (error) {
+                console.error("Error checking for existing user document:", error);
+                showError("There was a problem verifying your account. Please refresh.");
+                elements.saveButton.disabled = true;
+                return;
+            }
+
+            // If we're here, it's a new user. Proceed with setup.
             if (currentUser.displayName) {
                 elements.nameInput.value = currentUser.displayName;
             }
+            // Now that we've confirmed it's a new user, initialize the page fully.
+            initializePage(); 
             validateForm();
         } else {
             console.log("No user logged in, redirecting to login.");
@@ -608,7 +631,6 @@ async function main() {
         
         // Initial form setup
         updateBalanceInputs();
-        validateForm();
         
         // Handle window resize
         let resizeTimer;
@@ -640,8 +662,6 @@ async function main() {
             }
         });
     }
-    
-    initializePage();
 }
 
 // Start the app when DOM is ready
