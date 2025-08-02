@@ -573,30 +573,34 @@ section {
 }
 
 /* ========================================
-   FEATURES SECTION (REVAMPED)
+   FEATURES SECTION (3D BUTTON STYLE)
    ======================================== */
 .features-section {
-    background-color: var(--bg-primary); /* Reverted background */
-    padding-bottom: 7rem; /* Add extra padding for rotated elements */
+    background-color: var(--bg-primary);
+    padding-bottom: 7rem;
 }
 
 .features-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 3rem 2rem; /* More vertical gap */
+    gap: 3rem 2rem;
 }
 
 .feature-card {
-    background: var(--bg-primary);
-    border-radius: 0.5rem;
+    background: var(--bg-secondary);
+    border-radius: 12px;
     padding: 2rem 1.5rem;
     text-align: center;
-    box-shadow: 3px 3px 8px rgba(0,0,0,0.15);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: all 0.15s ease-out;
     position: relative;
+    cursor: pointer;
+    color: var(--text-primary);
+    border: 2px solid var(--wood-dark);
+    border-bottom: 7px solid var(--wood-dark);
+    box-shadow: inset 0 -2px 1px rgba(0,0,0,0.1);
 }
 
-/* Add pushpin */
+/* Pushpin styles */
 .feature-card::before {
     content: '';
     position: absolute;
@@ -608,27 +612,31 @@ section {
     border-radius: 50%;
     box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
     border: 2px solid white;
+    z-index: 1;
 }
 
-/* Random rotations and pin colors */
-.feature-card:nth-of-type(6n+1) { transform: rotate(-2deg); }
-.feature-card:nth-of-type(6n+1)::before { background-color: var(--pin-red); }
-.feature-card:nth-of-type(6n+2) { transform: rotate(1.5deg); }
-.feature-card:nth-of-type(6n+2)::before { background-color: var(--pin-blue); }
-.feature-card:nth-of-type(6n+3) { transform: rotate(2.5deg); }
-.feature-card:nth-of-type(6n+3)::before { background-color: var(--pin-yellow); }
-.feature-card:nth-of-type(6n+4) { transform: rotate(-1deg); }
-.feature-card:nth-of-type(6n+4)::before { background-color: var(--pin-olive); }
-.feature-card:nth-of-type(6n+5) { transform: rotate(2deg); }
-.feature-card:nth-of-type(6n+5)::before { background-color: var(--pin-mocha); }
-.feature-card:nth-of-type(6n+6) { transform: rotate(-1.5deg); }
-.feature-card:nth-of-type(6n+6)::before { background-color: var(--pin-orange); }
+/* Random pin colors */
+.feature-card:nth-of-type(8n+1)::before { background-color: var(--pin-red); }
+.feature-card:nth-of-type(8n+2)::before { background-color: var(--pin-blue); }
+.feature-card:nth-of-type(8n+3)::before { background-color: var(--pin-yellow); }
+.feature-card:nth-of-type(8n+4)::before { background-color: var(--pin-olive); }
+.feature-card:nth-of-type(8n+5)::before { background-color: var(--pin-mocha); }
+.feature-card:nth-of-type(8n+6)::before { background-color: var(--pin-orange); }
+.feature-card:nth-of-type(8n+7)::before { background-color: var(--pin-coral); }
+.feature-card:nth-of-type(8n+8)::before { background-color: var(--pin-sage); }
 
-
+/* 3D button press effect */
 .feature-card:hover {
-    transform: translateY(-10px) rotate(0deg) scale(1.05);
-    box-shadow: 0 12px 25px rgba(0,0,0,0.15);
-    z-index: 10;
+    background-color: #f7f2e5;
+    transform: translateY(-3px);
+    border-bottom-width: 9px;
+}
+
+.feature-card:active {
+    transform: translateY(2px);
+    border-bottom-width: 3px;
+    box-shadow: inset 0 1px 1px rgba(0,0,0,0.2);
+    transition-duration: 0.05s;
 }
 
 .feature-icon-wrapper {
@@ -636,13 +644,14 @@ section {
     height: 60px;
     margin: 0 auto 1.5rem;
     border-radius: 12px;
-    background: var(--bg-secondary);
+    background: var(--bg-primary);
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--highlight-green);
     border: 1px solid var(--border-color);
 }
+
 .feature-icon-wrapper svg {
     width: 28px;
     height: 28px;
