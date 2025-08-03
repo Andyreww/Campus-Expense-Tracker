@@ -101,9 +101,9 @@
         import { firebaseReady } from './auth.js';
         // Import necessary Firestore functions
         import { 
-            getFirestore, collection, getDocs, doc, getDoc,
+            getFirestore, collection, doc,
             runTransaction, arrayUnion, serverTimestamp, onSnapshot,
-            deleteDoc, arrayRemove
+            arrayRemove
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -185,50 +185,39 @@
                     await runTransaction(db, async (transaction) => {
                         const pollDoc = await transaction.get(pollRef);
                         
-                        if (!pollDoc.exists() && !hasVoted) {
-                             const newVoter = {
+                        if (hasVoted) {
+                            // --- UNVOTE LOGIC ---
+                            if (pollDoc.exists()) {
+                                const newVoteCount = Math.max(0, (pollDoc.data().voteCount || 0) - 1);
+                                const updatedVoters = (pollDoc.data().recentVoters || []).filter(v => v.uid !== currentUser.uid);
+                                transaction.update(pollRef, {
+                                    voteCount: newVoteCount,
+                                    recentVoters: updatedVoters
+                                });
+                            }
+                            // Always delete the user's vote record, even if the poll doc was removed
+                            transaction.delete(userVoteRef);
+                        } else {
+                            // --- VOTE LOGIC ---
+                            const voterInfo = {
                                 uid: currentUser.uid,
                                 displayName: currentUser.displayName || 'A Villager',
                                 photoURL: currentUser.photoURL || null
                             };
-                            transaction.set(pollRef, { voteCount: 1, recentVoters: [newVoter] });
-                            transaction.set(userVoteRef, { votedAt: serverTimestamp() });
-                            return;
-                        }
-
-                        if (!pollDoc.exists()) {
-                            throw new Error("Poll does not exist!");
-                        }
-
-                        let newVoteCount = pollDoc.data().voteCount || 0;
-                        const voterInfo = {
-                            uid: currentUser.uid,
-                            displayName: currentUser.displayName || 'A Villager',
-                            photoURL: currentUser.photoURL || null
-                        };
-                        
-                        const recentVoters = pollDoc.data().recentVoters || [];
-                        const voterIndex = recentVoters.findIndex(v => v.uid === currentUser.uid);
-
-                        if (hasVoted) {
-                            // --- Unvote Logic ---
-                            newVoteCount = Math.max(0, newVoteCount - 1);
-                            
-                            // Create a new array without the un-voting user
-                            const updatedVoters = recentVoters.filter(v => v.uid !== currentUser.uid);
-
-                            transaction.update(pollRef, {
-                                voteCount: newVoteCount,
-                                recentVoters: updatedVoters
-                            });
-                            transaction.delete(userVoteRef);
-                        } else {
-                            // --- Vote Logic ---
-                            newVoteCount += 1;
-                            transaction.update(pollRef, { 
-                                voteCount: newVoteCount,
-                                recentVoters: arrayUnion(voterInfo)
-                            });
+                            if (pollDoc.exists()) {
+                                const newVoteCount = (pollDoc.data().voteCount || 0) + 1;
+                                transaction.update(pollRef, { 
+                                    voteCount: newVoteCount,
+                                    recentVoters: arrayUnion(voterInfo)
+                                });
+                            } else {
+                                // Create the document if it doesn't exist
+                                transaction.set(pollRef, { 
+                                    voteCount: 1, 
+                                    recentVoters: [voterInfo] 
+                                });
+                            }
+                            // In both cases, record the user's vote
                             transaction.set(userVoteRef, { votedAt: serverTimestamp() });
                         }
                     });
@@ -251,6 +240,9 @@
                 onSnapshot(pollRef, (doc) => {
                     if (doc.exists()) {
                         updatePollUI(pollId, doc.data());
+                    } else {
+                        // If doc doesn't exist (e.g., all votes removed), reset its UI
+                        updatePollUI(pollId, { voteCount: 0, recentVoters: [] });
                     }
                 }, (error) => {
                     console.error(`Error listening to poll ${pollId}:`, error);
