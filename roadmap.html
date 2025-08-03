@@ -50,7 +50,7 @@
                                 <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
                                 <div class="poll-voters"></div>
                             </div>
-                            <div class="poll-action"><button class="poll-vote-button"><svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button></div>
+                            <div class="poll-action" style="display: none;"><button class="poll-vote-button"><svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button></div>
                         </div>
                         
                         <div class="poll-item" data-poll-id="achievement-system">
@@ -60,7 +60,7 @@
                                 <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
                                 <div class="poll-voters"></div>
                             </div>
-                            <div class="poll-action"><button class="poll-vote-button"><svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button></div>
+                            <div class="poll-action" style="display: none;"><button class="poll-vote-button"><svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button></div>
                         </div>
 
                         <div class="poll-item" data-poll-id="low-balance-alerts">
@@ -70,7 +70,7 @@
                                 <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
                                 <div class="poll-voters"></div>
                             </div>
-                            <div class="poll-action"><button class="poll-vote-button"><svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button></div>
+                            <div class="poll-action" style="display: none;"><button class="poll-vote-button"><svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button></div>
                         </div>
 
                         <div class="poll-item" data-poll-id="smart-predictive-items">
@@ -80,7 +80,7 @@
                                 <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
                                 <div class="poll-voters"></div>
                             </div>
-                            <div class="poll-action"><button class="poll-vote-button"><svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button></div>
+                            <div class="poll-action" style="display: none;"><button class="poll-vote-button"><svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button></div>
                         </div>
                         
                     </div>
@@ -160,6 +160,16 @@
             }
 
             /**
+             * Shows or hides all vote buttons based on login status.
+             */
+            function toggleVoteButtonsVisibility(isLoggedIn) {
+                const allPollActions = document.querySelectorAll('.poll-action');
+                allPollActions.forEach(action => {
+                    action.style.display = isLoggedIn ? 'flex' : 'none';
+                });
+            }
+
+            /**
              * Handles the logic when a user clicks the vote button.
              */
             async function handleVote(e) {
@@ -167,6 +177,7 @@
                 if (!button) return;
 
                 if (!currentUser) {
+                    // This case should not be reachable if buttons are hidden, but serves as a backup.
                     window.location.href = 'login.html?redirect=roadmap.html';
                     return;
                 }
@@ -198,7 +209,7 @@
                                     recentVoters: updatedVoters
                                 });
                             }
-                            // Always delete the user's vote record, even if the main poll doc was removed
+                            // Always delete the user's vote record
                             transaction.delete(userVoteRef);
                         } else {
                             // --- VOTE LOGIC ---
@@ -222,7 +233,6 @@
                                     recentVoters: [voterInfo] 
                                 });
                             }
-                            // In both cases, record the user's vote
                             transaction.set(userVoteRef, { votedAt: serverTimestamp() });
                         }
                     });
@@ -246,7 +256,6 @@
                     if (doc.exists()) {
                         updatePollUI(pollId, doc.data());
                     } else {
-                        // If doc doesn't exist (e.g., all votes removed), reset its UI
                         updatePollUI(pollId, { voteCount: 0, recentVoters: [] });
                     }
                 }, (error) => {
@@ -257,12 +266,14 @@
             // 2. Set up the auth listener
             auth.onAuthStateChanged((user) => {
                 currentUser = user;
+                toggleVoteButtonsVisibility(!!user); // Show/hide buttons
                 
                 if (userVotesListener) {
                     userVotesListener(); 
                 }
 
                 if (user) {
+                    // If user is logged in, listen for their specific votes
                     const votesRef = collection(db, 'users', user.uid, 'featureVotes');
                     userVotesListener = onSnapshot(votesRef, (snapshot) => {
                         const newUserVotes = {};
@@ -275,6 +286,7 @@
                         console.error("Error listening to user votes:", error);
                     });
                 } else {
+                    // If user logs out, clear local vote data and update UI
                     userVotes = {};
                     updateUserVoteStatus();
                 }
