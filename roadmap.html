@@ -125,9 +125,12 @@
                     pollListContainer.innerHTML = `<p class="error-text">No construction projects available right now. Check back soon!</p>`;
                     return;
                 }
+                
+                // Sort data here instead of in the query
+                const sortedPolls = [...pollsData].sort((a, b) => (b.voteCount || 0) - (a.voteCount || 0));
 
-                for (const poll of pollsData) {
-                    const pollElement = createPollElement(poll);
+                for (const poll of sortedPolls) {
+                    const pollElement = createPollElement(poll, sortedPolls);
                     pollListContainer.appendChild(pollElement);
                 }
             }
@@ -138,11 +141,13 @@
             async function fetchAndCachePolls() {
                 try {
                     const pollsRef = collection(db, "featurePolls");
-                    const q = query(pollsRef, orderBy("voteCount", "desc"));
-                    const querySnapshot = await getDocs(q);
+                    // **DEBUGGING STEP**: Removed orderBy from the query temporarily.
+                    // This avoids the potential index error and helps us see if data is loading at all.
+                    const querySnapshot = await getDocs(pollsRef);
                     pollsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 } catch (error) {
-                    console.error("Error fetching polls:", error);
+                    console.error("🔥🔥🔥 FIREBASE ERROR! Is an index missing? 🔥🔥🔥");
+                    console.error("If the error message below mentions an index, click the link in the error to create it in Firebase.", error);
                     pollsData = []; // Clear data on error
                 }
             }
@@ -150,7 +155,7 @@
             /**
              * Creates the HTML element for a single poll item.
              */
-            function createPollElement(poll) {
+            function createPollElement(poll, allPolls) {
                 const item = document.createElement('div');
                 item.className = 'poll-item';
                 item.dataset.pollId = poll.id;
@@ -158,8 +163,8 @@
                 const hasVoted = userVotes[poll.id] || false;
 
                 const totalVotes = poll.voteCount || 0;
-                const maxVotes = Math.max(50, ...pollsData.map(p => p.voteCount || 0));
-                const progress = Math.min((totalVotes / maxVotes) * 100, 100);
+                const maxVotes = Math.max(50, ...allPolls.map(p => p.voteCount || 0));
+                const progress = maxVotes > 0 ? Math.min((totalVotes / maxVotes) * 100, 100) : 0;
                 
                 const voters = poll.recentVoters || [];
                 let votersHTML = voters.slice(-5).reverse().map(voter => 
