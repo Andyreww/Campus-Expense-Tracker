@@ -40,25 +40,49 @@
                          <p class="section-subtitle">Vote on which town projects you want to see next. Your bells... err, votes... decide our priorities!</p>
                     </div>
                     <div id="poll-list" class="poll-list">
-                        <!-- Poll items will be dynamically inserted here by JS -->
-                        <div class="poll-item-placeholder">
-                            <div class="placeholder-line title"></div>
-                            <div class="placeholder-line"></div>
-                            <div class="placeholder-line short"></div>
-                            <div class="placeholder-progress"></div>
+                        <!-- Features are now hardcoded in the HTML -->
+                        <!-- The script will fetch vote counts and update these elements -->
+                        
+                        <div class="poll-item" data-poll-id="monthly-questionnaire">
+                            <div class="poll-content">
+                                <h3 class="poll-title">Monthly Questionnaire</h3>
+                                <p class="poll-description">Answer fun monthly questions and see how your anonymous answers compare to others on campus.</p>
+                                <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
+                                <div class="poll-voters"></div>
+                            </div>
+                            <div class="poll-action"><button class="poll-vote-button"><svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button></div>
                         </div>
-                         <div class="poll-item-placeholder">
-                            <div class="placeholder-line title"></div>
-                            <div class="placeholder-line"></div>
-                            <div class="placeholder-line short"></div>
-                            <div class="placeholder-progress"></div>
+                        
+                        <div class="poll-item" data-poll-id="achievement-system">
+                            <div class="poll-content">
+                                <h3 class="poll-title">Achievement System</h3>
+                                <p class="poll-description">Unlock badges and rewards for logging consistently, exploring new places, and managing your funds.</p>
+                                <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
+                                <div class="poll-voters"></div>
+                            </div>
+                            <div class="poll-action"><button class="poll-vote-button"><svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button></div>
                         </div>
-                         <div class="poll-item-placeholder">
-                            <div class="placeholder-line title"></div>
-                            <div class="placeholder-line"></div>
-                            <div class="placeholder-line short"></div>
-                            <div class="placeholder-progress"></div>
+
+                        <div class="poll-item" data-poll-id="low-balance-alerts">
+                            <div class="poll-content">
+                                <h3 class="poll-title">Low Balance Alerts</h3>
+                                <p class="poll-description">Get a friendly notification when your dining dollars or meal swipes are running low so you're never caught off guard.</p>
+                                <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
+                                <div class="poll-voters"></div>
+                            </div>
+                            <div class="poll-action"><button class="poll-vote-button"><svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button></div>
                         </div>
+
+                        <div class="poll-item" data-poll-id="smart-predictive-items">
+                            <div class="poll-content">
+                                <h3 class="poll-title">Smart Predictive Items</h3>
+                                <p class="poll-description">Nooksii will learn your routine and predict items you might be buying based on the time and day.</p>
+                                <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
+                                <div class="poll-voters"></div>
+                            </div>
+                            <div class="poll-action"><button class="poll-vote-button"><svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button></div>
+                        </div>
+                        
                     </div>
                 </div>
             </div>
@@ -77,66 +101,61 @@
         import { firebaseReady } from './auth.js';
         // Import necessary Firestore functions
         import { 
-            getFirestore, collection, getDocs, doc, getDoc, setDoc,
-            runTransaction, orderBy, query, arrayUnion, serverTimestamp
+            getFirestore, collection, getDocs, doc, getDoc,
+            runTransaction, arrayUnion, serverTimestamp, onSnapshot
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         document.addEventListener('DOMContentLoaded', async () => {
             // Wait for Firebase to be ready
             const { auth, db } = await firebaseReady;
             const pollListContainer = document.getElementById('poll-list');
-            let currentUser = null; // Start with null user
-            let pollsData = []; // Cache for poll data
+            let currentUser = null; 
+            let userVotes = {};
 
-            // --- User State ---
-            let userVotes = {}; // Cache user's votes to prevent re-fetching
-
-            // --- Main Functions ---
-            
             /**
-             * WARNING: This function creates documents from the client-side.
-             * This requires insecure Firebase rules and is not recommended for production.
-             * It's included here for testing purposes as requested.
-             * The best practice is to add these initial documents manually in the Firebase Console.
+             * Updates the UI for a single poll item with data from Firestore.
              */
-            async function seedDatabaseWithInitialPolls() {
-                const initialPolls = [
-                    { id: 'monthly-questionnaire', title: 'Monthly Questionnaire', description: 'Answer fun monthly questions and see how your anonymous answers compare to others on campus.' },
-                    { id: 'monthly-trending-picks', title: 'Monthly Trending Picks', description: 'Discover the most popular songs, movies, or campus spots that everyone is talking about each month.' },
-                    { id: 'community-help-requests', title: 'Community Help Requests', description: 'Ask for or offer help to fellow students for things like notes, study groups, or campus advice.' },
-                    { id: 'achievement-system', title: 'Achievement System', description: 'Unlock badges and rewards for logging consistently, exploring new places, and managing your funds.' },
-                    { id: 'friend-spending-comparison', title: 'Friend Spending Comparison (Opt-in)', description: 'Opt-in to see how your spending habits compare to your friends for friendly competition and budgeting insights.' },
-                    { id: 'low-balance-alerts', title: 'Low Balance Alerts', description: 'Get a friendly notification when your dining dollars or meal swipes are running low so you\'re never caught off guard.' },
-                    { id: 'club-badges', title: 'Club Badges', description: 'Show off your involvement by displaying badges for the campus clubs and organizations you\'re a part of.' },
-                    { id: 'colored-usernames', title: 'Colored Usernames', description: 'Personalize your profile by choosing a unique color for your username to stand out on the leaderboard.' },
-                    { id: 'spending-advice', title: 'Spending Advice', description: 'Get personalized tips and advice on how to balance your spending based on your habits.' },
-                    { id: 'campus-spending-stats', title: 'Campus Spending Statistics', description: 'See anonymous, aggregated stats on what students are spending their dining dollars on around campus.' },
-                    { id: 'recent-history-suggestions', title: 'Recent History Suggestions', description: 'Quickly log frequent purchases with smart suggestions based on your recent history.' },
-                    { id: 'smart-predictive-items', title: 'Smart Predictive Items', description: 'Nooksii will learn your routine and predict items you might be buying based on the time and day.' },
-                    { id: 'reminders-feature', title: 'Reminders', description: 'Set custom reminders to log your expenses or check your balance to help you stay on track.' },
-                    { id: 'leaderboard-design-change', title: 'Internal Leaderboard Redesign', description: 'A complete visual and functional overhaul of the leaderboard to make it more engaging and fun.' }
-                ];
+            function updatePollUI(pollId, data) {
+                const pollElement = document.querySelector(`.poll-item[data-poll-id="${pollId}"]`);
+                if (!pollElement) return;
 
-                const pollsRef = collection(db, "featurePolls");
-                const promises = initialPolls.map(async (poll) => {
-                    const pollDocRef = doc(pollsRef, poll.id);
-                    const docSnap = await getDoc(pollDocRef);
+                const totalVotes = data.voteCount || 0;
+                const voteCountEl = pollElement.querySelector('.poll-vote-count');
+                const progressFillEl = pollElement.querySelector('.poll-progress-fill');
+                const votersEl = pollElement.querySelector('.poll-voters');
 
-                    if (!docSnap.exists()) {
-                        try {
-                            await setDoc(pollDocRef, {
-                                title: poll.title,
-                                description: poll.description,
-                                voteCount: 0,
-                                recentVoters: []
-                            });
-                            console.log(`SEEDING: Added new project: ${poll.title}`);
-                        } catch (error) {
-                            console.error(`SEEDING FAILED for ${poll.title}. Do you have the correct (insecure) Firebase rules?`, error);
-                        }
-                    }
+                voteCountEl.textContent = `${totalVotes} Votes`;
+
+                // Simple progress calculation (can be improved)
+                const maxVotes = 50; 
+                const progress = Math.min((totalVotes / maxVotes) * 100, 100);
+                progressFillEl.style.width = `${progress}%`;
+
+                // Update voter avatars
+                const voters = data.recentVoters || [];
+                let votersHTML = voters.slice(-5).reverse().map(voter => 
+                    `<img src="${voter.photoURL || `https://i.pravatar.cc/40?u=${voter.uid}`}" alt="${voter.displayName}" class="voter-avatar" title="${voter.displayName}" onerror="this.onerror=null;this.src='https://i.pravatar.cc/40';">`
+                ).join('');
+
+                if (totalVotes > 5) {
+                    votersHTML += `<div class="voter-avatar more-votes">+${totalVotes - 5}</div>`;
+                }
+                votersEl.innerHTML = votersHTML;
+            }
+
+            /**
+             * Updates the state of all vote buttons based on the user's votes.
+             */
+            function updateUserVoteStatus() {
+                const allPollItems = document.querySelectorAll('.poll-item');
+                allPollItems.forEach(item => {
+                    const pollId = item.dataset.pollId;
+                    const button = item.querySelector('.poll-vote-button');
+                    const hasVoted = userVotes[pollId] || false;
+                    
+                    button.classList.toggle('voted', hasVoted);
+                    button.disabled = hasVoted;
                 });
-                await Promise.all(promises);
             }
 
             /**
@@ -144,7 +163,7 @@
              */
             async function fetchUserVotes() {
                 if (!currentUser) {
-                    userVotes = {}; // Clear votes if user logs out
+                    userVotes = {};
                     return;
                 }
                 try {
@@ -161,92 +180,12 @@
             }
 
             /**
-             * Renders polls from the cached data. This function is now separate from fetching.
-             */
-            function renderPollsFromCache() {
-                if (!pollListContainer) return;
-                pollListContainer.innerHTML = ''; // Clear placeholders
-
-                if (pollsData.length === 0) {
-                    pollListContainer.innerHTML = `<p class="error-text">No construction projects available right now. Check back soon!</p>`;
-                    return;
-                }
-                
-                // Sort data here instead of in the query
-                const sortedPolls = [...pollsData].sort((a, b) => (b.voteCount || 0) - (a.voteCount || 0));
-
-                for (const poll of sortedPolls) {
-                    const pollElement = createPollElement(poll, sortedPolls);
-                    pollListContainer.appendChild(pollElement);
-                }
-            }
-
-            /**
-             * Fetches polls from Firestore and stores them in the cache.
-             */
-            async function fetchAndCachePolls() {
-                try {
-                    const pollsRef = collection(db, "featurePolls");
-                    const querySnapshot = await getDocs(pollsRef);
-                    pollsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                } catch (error) {
-                    console.error("Error fetching polls:", error);
-                    pollsData = []; // Clear data on error
-                }
-            }
-
-            /**
-             * Creates the HTML element for a single poll item.
-             */
-            function createPollElement(poll, allPolls) {
-                const item = document.createElement('div');
-                item.className = 'poll-item';
-                item.dataset.pollId = poll.id;
-
-                const hasVoted = userVotes[poll.id] || false;
-
-                const totalVotes = poll.voteCount || 0;
-                const maxVotes = Math.max(50, ...allPolls.map(p => p.voteCount || 0));
-                const progress = maxVotes > 0 ? Math.min((totalVotes / maxVotes) * 100, 100) : 0;
-                
-                const voters = poll.recentVoters || [];
-                let votersHTML = voters.slice(-5).reverse().map(voter => 
-                    `<img src="${voter.photoURL || `https://i.pravatar.cc/40?u=${voter.uid}`}" alt="${voter.displayName}" class="voter-avatar" title="${voter.displayName}" onerror="this.onerror=null;this.src='https://i.pravatar.cc/40';">`
-                ).join('');
-
-                if (totalVotes > 5) {
-                    votersHTML += `<div class="voter-avatar more-votes">+${totalVotes - 5}</div>`;
-                }
-
-                item.innerHTML = `
-                    <div class="poll-content">
-                        <h3 class="poll-title">${poll.title}</h3>
-                        <p class="poll-description">${poll.description}</p>
-                        <div class="poll-progress-bar">
-                            <div class="poll-progress-fill" style="width: ${progress}%;"></div>
-                            <span class="poll-vote-count">${totalVotes} Votes</span>
-                        </div>
-                        <div class="poll-voters">
-                            ${votersHTML}
-                        </div>
-                    </div>
-                    <div class="poll-action">
-                        <button class="poll-vote-button ${hasVoted ? 'voted' : ''}" ${hasVoted ? 'disabled' : ''}>
-                             <svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-                        </button>
-                    </div>
-                `;
-                return item;
-            }
-
-            /**
              * Handles the logic when a user clicks the vote button.
              */
             async function handleVote(e) {
                 if (!e.target.closest('.poll-vote-button')) return;
 
                 if (!currentUser) {
-                    // Redirect to login if not authenticated
                     window.location.href = 'login.html?redirect=roadmap.html';
                     return;
                 }
@@ -255,10 +194,9 @@
                 const pollItem = e.target.closest('.poll-item');
                 const pollId = pollItem.dataset.pollId;
 
-                if (button.classList.contains('voted')) return; // Already voted
+                if (button.classList.contains('voted')) return;
 
                 button.disabled = true;
-                button.classList.add('voted');
 
                 try {
                     const pollRef = doc(db, "featurePolls", pollId);
@@ -267,69 +205,72 @@
                     await runTransaction(db, async (transaction) => {
                         const pollDoc = await transaction.get(pollRef);
                         if (!pollDoc.exists()) {
-                            throw "Poll does not exist!";
-                        }
-                        
-                        const userVoteDoc = await transaction.get(userVoteRef);
-                        if (userVoteDoc.exists()) {
-                            console.log("User has already voted for this feature.");
-                            return; 
-                        }
+                            // If the poll doc doesn't exist, create it.
+                            const newVoter = {
+                                uid: currentUser.uid,
+                                displayName: currentUser.displayName || 'A Villager',
+                                photoURL: currentUser.photoURL || null
+                            };
+                            transaction.set(pollRef, {
+                                voteCount: 1,
+                                recentVoters: [newVoter]
+                            });
+                        } else {
+                            // If it exists, update it.
+                            const userVoteDoc = await transaction.get(userVoteRef);
+                            if (userVoteDoc.exists()) {
+                                console.log("User has already voted for this feature.");
+                                return; 
+                            }
 
-                        const newVoteCount = (pollDoc.data().voteCount || 0) + 1;
-                        const newVoter = {
-                            uid: currentUser.uid,
-                            displayName: currentUser.displayName || 'A Villager',
-                            photoURL: currentUser.photoURL || null
-                        };
+                            const newVoteCount = (pollDoc.data().voteCount || 0) + 1;
+                            const newVoter = {
+                                uid: currentUser.uid,
+                                displayName: currentUser.displayName || 'A Villager',
+                                photoURL: currentUser.photoURL || null
+                            };
 
-                        transaction.update(pollRef, { 
-                            voteCount: newVoteCount,
-                            recentVoters: arrayUnion(newVoter)
-                        });
+                            transaction.update(pollRef, { 
+                                voteCount: newVoteCount,
+                                recentVoters: arrayUnion(newVoter)
+                            });
+                        }
                         
                         transaction.set(userVoteRef, { votedAt: serverTimestamp() });
                     });
-
-                    // Update local cache and re-render to reflect the vote
-                    const votedPoll = pollsData.find(p => p.id === pollId);
-                    if (votedPoll) {
-                        votedPoll.voteCount++;
-                        if (!votedPoll.recentVoters) votedPoll.recentVoters = [];
-                        votedPoll.recentVoters.push({uid: currentUser.uid, displayName: currentUser.displayName, photoURL: currentUser.photoURL});
-                    }
+                    
                     userVotes[pollId] = true;
-                    renderPollsFromCache();
-
+                    updateUserVoteStatus();
 
                 } catch (error) {
                     console.error("Transaction failed: ", error);
                     alert("There was an error casting your vote. Please try again.");
-                    // Revert UI changes on failure
                     button.disabled = false;
-                    button.classList.remove('voted');
                 }
             }
 
             // --- Initial Load Logic ---
             
-            // Set up the auth listener to run the main logic.
-            // This ensures we always know the user's status before acting.
+            // 1. Set up real-time listeners for each poll
+            const allPollItems = document.querySelectorAll('.poll-item');
+            allPollItems.forEach(item => {
+                const pollId = item.dataset.pollId;
+                const pollRef = doc(db, "featurePolls", pollId);
+                onSnapshot(pollRef, (doc) => {
+                    if (doc.exists()) {
+                        updatePollUI(pollId, doc.data());
+                    }
+                });
+            });
+
+            // 2. Set up the auth listener
             auth.onAuthStateChanged(async (user) => {
                 currentUser = user;
-                
-                // Only the first authenticated user should attempt to seed.
-                if (user) {
-                    await seedDatabaseWithInitialPolls();
-                }
-
-                await fetchAndCachePolls();
                 await fetchUserVotes(); 
-                renderPollsFromCache();
+                updateUserVoteStatus();
             });
 
             pollListContainer.addEventListener('click', handleVote);
-
         });
     </script>
 </body>
