@@ -987,7 +987,7 @@ section {
     border-radius: 1rem;
     padding: 2rem;
     box-shadow: 0 15px 35px rgba(0,0,0,0.3), inset 0 0 20px rgba(0,0,0,0.4);
-    max-width: 850px;
+    max-width: 1200px; /* Widen the board for 3 columns */
     margin: 0 auto;
 }
 
@@ -1022,6 +1022,8 @@ section {
     position: relative;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     display: flex;
+    flex-direction: column; /* Ensure content stacks vertically */
+    justify-content: space-between; /* Pushes content to top and bottom */
     gap: 1rem;
     padding: 1.5rem;
     border: 1px solid var(--border-color);
@@ -1053,6 +1055,8 @@ section {
 .poll-content {
     flex-grow: 1;
     min-width: 0; /* Fix for flexbox overflow */
+    display: flex;
+    flex-direction: column;
 }
 
 .poll-title {
@@ -1068,6 +1072,7 @@ section {
     line-height: 1.6;
     margin: 0 0 1.5rem;
     font-size: 1rem;
+    flex-grow: 1; /* Allows description to take up space */
 }
 
 .poll-progress-bar {
@@ -1150,9 +1155,31 @@ section {
     justify-content: center;
     transition: all 0.2s ease;
     box-shadow: 0 4px 0 var(--wood-dark), 0 5px 8px rgba(0,0,0,0.2);
+    position: relative; /* For icon positioning */
 }
 
-.poll-vote-button:hover:not(:disabled) {
+.poll-vote-button svg {
+    position: absolute;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.poll-vote-button .x-icon {
+    opacity: 0;
+    transform: scale(0.5);
+}
+
+.poll-vote-button.voted .checkmark-icon {
+    opacity: 0;
+    transform: scale(0.5);
+}
+
+.poll-vote-button.voted .x-icon {
+    opacity: 1;
+    transform: scale(1);
+}
+
+
+.poll-vote-button:hover:not(.voted) {
     transform: translateY(-2px);
     box-shadow: 0 6px 0 var(--wood-dark), 0 7px 10px rgba(0,0,0,0.2);
     background: var(--brand-secondary);
@@ -1166,18 +1193,79 @@ section {
 
 .poll-vote-button .checkmark-icon {
     stroke: white;
-    transition: transform 0.3s ease;
+}
+.poll-vote-button .x-icon {
+    stroke: white;
 }
 
 .poll-vote-button.voted {
-    background: #a5d6a7; /* Muted green */
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
-    border-color: #556b2f;
+    background: var(--pin-red);
+    box-shadow: 0 4px 0 #a55d4a, 0 5px 8px rgba(0,0,0,0.2);
+    border-color: #a55d4a;
+}
+.poll-vote-button.voted:hover {
+    background: #d17c64;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 #a55d4a, 0 7px 10px rgba(0,0,0,0.2);
 }
 
-.poll-vote-button.voted .checkmark-icon {
-    transform: scale(1.2);
+/* --- Suggestion Card Specific Styles --- */
+.poll-item-suggestion {
+    background: var(--bg-secondary);
+    border-style: dashed;
+    border-width: 2px;
+    border-color: var(--border-color);
+    justify-content: center;
+    align-items: center;
+    text-align: center;
 }
+.suggestion-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+.suggestion-icon {
+    width: 50px;
+    height: 50px;
+    background: var(--bg-primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--highlight-green);
+    border: 1px solid var(--border-color);
+}
+.suggestion-icon svg {
+    width: 24px;
+    height: 24px;
+}
+.suggestion-title {
+    font-family: 'Special Elite', monospace;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    margin: 0;
+}
+.suggestion-text {
+    color: var(--text-secondary);
+    max-width: 250px;
+    margin: 0;
+}
+.suggestion-button {
+    margin-top: 0.5rem;
+    background-color: var(--brand-primary);
+    color: white;
+    padding: 0.6rem 1.2rem;
+    border-radius: 9999px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+    text-decoration: none;
+}
+.suggestion-button:hover {
+    background-color: var(--brand-secondary);
+    transform: scale(1.05);
+}
+
 
 /* --- MOBILE FIXES FOR ROADMAP --- */
 @media (max-width: 767px) {
@@ -1190,7 +1278,8 @@ section {
     .poll-item:nth-child(3n),
     .poll-item:nth-child(4n) {
         transform: none; /* Straighten out the notes */
-        gap: 1.5rem;
+        flex-direction: row; /* Keep side-by-side on mobile */
+        gap: 1rem;
         padding: 1rem;
     }
     .poll-item:hover {
