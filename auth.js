@@ -79,11 +79,16 @@ firebaseReady.then(({ auth, db }) => {
     onAuthStateChanged(auth, async (user) => {
         const path = window.location.pathname;
 
-        const onAuthPage = path.endsWith('/login.html') || path.endsWith('/signup.html');
-        const onLandingPage = path === '/' || path.endsWith('/index.html') || path.endsWith('/roadmap.html');
-        const onQuestionnairePage = path.endsWith('/questionnaire.html');
-        // A page is "protected" if it's NOT the landing, auth, or questionnaire page.
-        const onProtectedPage = !onAuthPage && !onLandingPage && !onQuestionnairePage;
+        // --- NEW, MORE ROBUST PATH CHECKING ---
+        const publicPaths = ['/', '/index.html', '/roadmap.html', '/roadmap'];
+        const authPaths = ['/login.html', '/signup.html'];
+        const questionnairePath = '/questionnaire.html';
+
+        const onPublicPage = publicPaths.includes(path);
+        const onAuthPage = authPaths.includes(path);
+        const onQuestionnairePage = path.endsWith(questionnairePath);
+        const onProtectedPage = !onPublicPage && !onAuthPage && !onQuestionnairePage;
+
 
         if (user) {
             // --- USER IS LOGGED IN ---
@@ -105,19 +110,15 @@ firebaseReady.then(({ auth, db }) => {
                     window.location.replace('/dashboard.html');
                 }
             }
-            // If a logged-in user is on any other page (landing, dashboard, etc.), they can stay.
         } else {
             // --- USER IS LOGGED OUT ---
             console.log(`Auth Guard: User is logged out. Path: ${path}`);
             
-            // --- REVISED LOGIC ---
-            // If a logged-out user tries to access a PROTECTED page (like the dashboard),
-            // redirect them to the login page.
+            // If a logged-out user tries to access a PROTECTED page, redirect them.
             if (onProtectedPage) {
                 console.log(`User on protected page "${path}" while logged out. Redirecting to login page.`);
                 window.location.replace('/login.html');
             }
-            // If they are on the landing page (index.html) or an auth page, they can stay. No redirect needed.
         }
     });
 });
