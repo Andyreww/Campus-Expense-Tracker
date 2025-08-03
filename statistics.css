@@ -428,7 +428,7 @@ body {
 }
 
 .tooltip-paper {
-    background: var(--paper-white);
+    background-color: var(--bg-primary); /* FIX: Set solid background color */
     background-image: 
         repeating-linear-gradient(
             0deg,
