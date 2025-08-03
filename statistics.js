@@ -653,6 +653,119 @@ function renderInsights(purchases) {
     }
 }
 
+// Smart prediction algorithm with pattern recognition
+function calculateSmartProjection(purchases, currentBalance, userData) {
+    const now = new Date();
+    
+    // Group purchases by date and calculate daily spending
+    const dailySpending = {};
+    purchases.forEach(p => {
+        const dateKey = p.purchaseDate.toISOString().split('T')[0];
+        dailySpending[dateKey] = (dailySpending[dateKey] || 0) + p.total;
+    });
+    
+    const spendingDays = Object.keys(dailySpending).sort();
+    const dayCount = spendingDays.length;
+    
+    // Get all spending values for statistical analysis
+    const spendingValues = Object.values(dailySpending);
+    
+    // Calculate basic statistics
+    const totalSpent = spendingValues.reduce((sum, val) => sum + val, 0);
+    const simpleAverage = totalSpent / dayCount;
+    
+    // Calculate weighted average (recent days weighted more)
+    let weightedSum = 0;
+    let weightSum = 0;
+    spendingDays.forEach((day, index) => {
+        const weight = Math.pow(1.5, index / dayCount); // Exponential weighting
+        weightedSum += dailySpending[day] * weight;
+        weightSum += weight;
+    });
+    const weightedAverage = weightedSum / weightSum;
+    
+    // Analyze day-of-week patterns
+    const weekdaySpending = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+    purchases.forEach(p => {
+        const dayOfWeek = p.purchaseDate.getDay();
+        weekdaySpending[dayOfWeek].push(p.total);
+    });
+    
+    // Calculate average spending per weekday
+    const weekdayAverages = {};
+    let hasWeekdayPattern = false;
+    for (let day = 0; day < 7; day++) {
+        if (weekdaySpending[day].length > 0) {
+            weekdayAverages[day] = weekdaySpending[day].reduce((sum, val) => sum + val, 0) / weekdaySpending[day].length;
+            if (weekdaySpending[day].length >= 2) hasWeekdayPattern = true;
+        } else {
+            weekdayAverages[day] = simpleAverage; // Use simple average as fallback
+        }
+    }
+    
+    // Detect outliers using IQR method
+    const sortedValues = [...spendingValues].sort((a, b) => a - b);
+    const q1Index = Math.floor(sortedValues.length * 0.25);
+    const q3Index = Math.floor(sortedValues.length * 0.75);
+    const q1 = sortedValues[q1Index];
+    const q3 = sortedValues[q3Index];
+    const iqr = q3 - q1;
+    const outlierThreshold = q3 + 1.5 * iqr;
+    
+    // Remove outliers and recalculate
+    const nonOutlierValues = spendingValues.filter(val => val <= outlierThreshold);
+    const adjustedAverage = nonOutlierValues.length > 0 
+        ? nonOutlierValues.reduce((sum, val) => sum + val, 0) / nonOutlierValues.length
+        : simpleAverage;
+    
+    // Determine projection method based on data quality
+    let projectionMethod;
+    let dailyBurnRate;
+    let confidence;
+    
+    if (dayCount < 3) {
+        // Very limited data - use conservative estimate
+        dailyBurnRate = Math.min(simpleAverage, currentBalance / 120); // Don't project less than 4 months
+        projectionMethod = "conservative";
+        confidence = "low";
+    } else if (dayCount < 7) {
+        // Limited data - blend simple and weighted averages
+        dailyBurnRate = (simpleAverage + weightedAverage + adjustedAverage) / 3;
+        projectionMethod = "blended";
+        confidence = "medium";
+    } else if (hasWeekdayPattern && dayCount >= 14) {
+        // Good data with patterns - use day-of-week based projection
+        projectionMethod = "pattern-based";
+        confidence = "high";
+        // Will calculate per-day in the projection loop
+    } else {
+        // Moderate data - use weighted average with outlier adjustment
+        dailyBurnRate = (weightedAverage * 0.7 + adjustedAverage * 0.3);
+        projectionMethod = "weighted";
+        confidence = "medium-high";
+    }
+    
+    // For Denison students, apply semester awareness
+    if (userData.isDenisonStudent) {
+        const semesterMonths = 4; // August to December
+        const targetDays = semesterMonths * 30;
+        const maxReasonableBurn = currentBalance / targetDays;
+        
+        // Cap the burn rate for semester students
+        if (dailyBurnRate && dailyBurnRate > maxReasonableBurn * 1.5) {
+            dailyBurnRate = maxReasonableBurn * 1.2; // Allow 20% faster than ideal
+        }
+    }
+    
+    return {
+        dailyBurnRate,
+        weekdayAverages,
+        projectionMethod,
+        confidence,
+        hasWeekdayPattern: hasWeekdayPattern && dayCount >= 14
+    };
+}
+
 function renderChart(userData, purchases) {
     if (!spendingChartCanvas) return;
     const chartContainer = spendingChartCanvas.parentElement;
@@ -670,7 +783,7 @@ function renderChart(userData, purchases) {
         !p.balanceType || p.balanceType === selectedBalanceType
     );
 
-    // 1. Aggregate purchases by day
+    // Check if we have enough data
     const spendingByDay = {};
     filteredPurchases.forEach(p => {
         const day = p.purchaseDate.toISOString().split('T')[0];
@@ -681,7 +794,7 @@ function renderChart(userData, purchases) {
     });
     const uniqueSpendingDays = Object.keys(spendingByDay).sort();
 
-    // 2. Prediction Gate: Wait for at least 3 unique days of data
+    // Show data gate if not enough data
     if (uniqueSpendingDays.length < 3) {
         const daysNeeded = 3 - uniqueSpendingDays.length;
         chartContainer.innerHTML = `
@@ -698,7 +811,10 @@ function renderChart(userData, purchases) {
         return;
     }
 
-    // 3. Reconstruct actual balance history on a daily basis
+    // Get smart projection
+    const projection = calculateSmartProjection(filteredPurchases, currentBalance, userData);
+    
+    // Reconstruct actual balance history
     const totalSpent = filteredPurchases.reduce((sum, p) => sum + p.total, 0);
     let runningBalance = currentBalance + totalSpent;
     
@@ -711,15 +827,7 @@ function renderChart(userData, purchases) {
         actualData.push(runningBalance);
     });
 
-    // 4. Calculate new average daily spending
-    const avgDailySpending = totalSpent / uniqueSpendingDays.length;
-
-    if (avgDailySpending <= 0) {
-        chartContainer.innerHTML = '<p style="text-align:center; padding: 2rem;">Your balance is safe! No recent spending detected.</p>';
-        return;
-    }
-
-    // 5. Create detailed projection
+    // Create projection
     const lastActualBalance = actualData[actualData.length - 1];
     const lastActualDate = new Date(uniqueSpendingDays[uniqueSpendingDays.length - 1]);
 
@@ -728,26 +836,51 @@ function renderChart(userData, purchases) {
 
     let projectedBalance = lastActualBalance;
     let dayCounter = 1;
-    let zeroDate = lastActualDate;
+    let zeroDate = null;
 
-    // Limit projection to 90 days to prevent performance issues
-    const maxProjectionDays = 90;
+    const maxProjectionDays = 180; // 6 months max
     
     while (projectedBalance > 0 && dayCounter <= maxProjectionDays) {
-        const nextDay = new Date(lastActualDate);
-        nextDay.setDate(lastActualDate.getDate() + dayCounter);
+        const projectionDate = new Date(lastActualDate);
+        projectionDate.setDate(lastActualDate.getDate() + dayCounter);
         
-        labels.push(nextDay.toISOString().split('T')[0]);
-        projectedBalance -= avgDailySpending;
+        labels.push(projectionDate.toISOString().split('T')[0]);
+        
+        // Calculate daily burn based on projection method
+        let dailyBurn;
+        if (projection.hasWeekdayPattern) {
+            // Use day-of-week specific spending
+            const dayOfWeek = projectionDate.getDay();
+            dailyBurn = projection.weekdayAverages[dayOfWeek];
+        } else {
+            dailyBurn = projection.dailyBurnRate;
+        }
+        
+        projectedBalance -= dailyBurn;
         projectionData.push(Math.max(0, projectedBalance));
         
-        if (projectedBalance <= 0) {
-            zeroDate = nextDay;
+        if (projectedBalance <= 0 && !zeroDate) {
+            zeroDate = projectionDate;
         }
         dayCounter++;
     }
 
-    // 6. Render the chart
+    // Prepare chart title with confidence indicator
+    let titleText;
+    const zeroDateText = !zeroDate ? "More than 6 months" :
+        zeroDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const zeroValueDisplay = formatBalanceValue(0, balanceInfo);
+    
+    const confidenceEmoji = {
+        'low': '🔮',
+        'medium': '📊',
+        'medium-high': '📈',
+        'high': '🎯'
+    }[projection.confidence];
+    
+    titleText = `${confidenceEmoji} Projected to reach ${zeroValueDisplay} around ${zeroDateText}`;
+
+    // Destroy existing chart if any
     if (spendingChart) spendingChart.destroy();
     if (!document.getElementById('spending-chart')) {
         const newCanvas = document.createElement('canvas');
@@ -757,12 +890,7 @@ function renderChart(userData, purchases) {
         spendingChartCanvas = newCanvas;
     }
 
-    const zeroDateText = dayCounter > maxProjectionDays 
-        ? `More than ${maxProjectionDays} days`
-        : zeroDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-
-    const zeroValueDisplay = formatBalanceValue(0, balanceInfo);
-
+    // Create the chart
     spendingChart = new Chart(spendingChartCanvas, {
         type: 'line',
         data: {
@@ -779,12 +907,12 @@ function renderChart(userData, purchases) {
                     pointBackgroundColor: '#4CAF50',
                 },
                 {
-                    label: 'Projected Balance',
+                    label: `Projected (${projection.projectionMethod})`,
                     data: projectionData,
                     borderColor: '#E74C3C',
                     backgroundColor: 'rgba(231, 76, 60, 0.1)',
                     fill: { target: 'origin', above: 'rgba(231, 76, 60, 0.1)' },
-                    borderDash: [5, 5],
+                    borderDash: projection.confidence === 'high' ? [0, 0] : [5, 5],
                     borderWidth: 3,
                     tension: 0.1,
                     pointRadius: 5,
@@ -799,7 +927,7 @@ function renderChart(userData, purchases) {
             plugins: {
                 title: {
                     display: true,
-                    text: `Projected to reach ${zeroValueDisplay} around ${zeroDateText}`,
+                    text: titleText,
                     font: { size: 16, family: "'Patrick Hand', cursive" },
                     color: 'var(--text-primary)',
                     padding: { bottom: 15 }
@@ -824,7 +952,6 @@ function renderChart(userData, purchases) {
                     beginAtZero: true,
                     ticks: { 
                         callback: (value) => {
-                            // Format Y-axis ticks based on balance type
                             return formatBalanceValue(value, balanceInfo);
                         }
                     }
