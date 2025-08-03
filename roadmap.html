@@ -102,7 +102,8 @@
         // Import necessary Firestore functions
         import { 
             getFirestore, collection, getDocs, doc, getDoc,
-            runTransaction, arrayUnion, serverTimestamp, onSnapshot
+            runTransaction, arrayUnion, serverTimestamp, onSnapshot,
+            deleteDoc, arrayRemove
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -111,6 +112,7 @@
             const pollListContainer = document.getElementById('poll-list');
             let currentUser = null; 
             let userVotes = {};
+            let userVotesListener = null; // To hold the listener unsubscribe function
 
             /**
              * Updates the UI for a single poll item with data from Firestore.
@@ -126,12 +128,11 @@
 
                 voteCountEl.textContent = `${totalVotes} Votes`;
 
-                // Simple progress calculation (can be improved)
-                const maxVotes = 50; 
-                const progress = Math.min((totalVotes / maxVotes) * 100, 100);
+                const allVoteCounts = Array.from(document.querySelectorAll('.poll-vote-count')).map(el => parseInt(el.textContent) || 0);
+                const maxVotes = Math.max(50, ...allVoteCounts); 
+                const progress = maxVotes > 0 ? Math.min((totalVotes / maxVotes) * 100, 100) : 0;
                 progressFillEl.style.width = `${progress}%`;
 
-                // Update voter avatars
                 const voters = data.recentVoters || [];
                 let votersHTML = voters.slice(-5).reverse().map(voter => 
                     `<img src="${voter.photoURL || `https://i.pravatar.cc/40?u=${voter.uid}`}" alt="${voter.displayName}" class="voter-avatar" title="${voter.displayName}" onerror="this.onerror=null;this.src='https://i.pravatar.cc/40';">`
@@ -154,29 +155,11 @@
                     const hasVoted = userVotes[pollId] || false;
                     
                     button.classList.toggle('voted', hasVoted);
-                    button.disabled = hasVoted;
+                    button.disabled = false; // Always enable the button first
+                    if(hasVoted) {
+                        // If voted, the button becomes an "unvote" button
+                    }
                 });
-            }
-
-            /**
-             * Fetches the user's existing votes to update the UI correctly.
-             */
-            async function fetchUserVotes() {
-                if (!currentUser) {
-                    userVotes = {};
-                    return;
-                }
-                try {
-                    const votesRef = collection(db, 'users', currentUser.uid, 'featureVotes');
-                    const snapshot = await getDocs(votesRef);
-                    const newUserVotes = {};
-                    snapshot.forEach(doc => {
-                        newUserVotes[doc.id] = true;
-                    });
-                    userVotes = newUserVotes;
-                } catch (error) {
-                    console.error("Error fetching user votes:", error);
-                }
             }
 
             /**
@@ -194,9 +177,9 @@
                 const pollItem = e.target.closest('.poll-item');
                 const pollId = pollItem.dataset.pollId;
 
-                if (button.classList.contains('voted')) return;
-
-                button.disabled = true;
+                button.disabled = true; // Disable during transaction
+                
+                const hasVoted = userVotes[pollId] || false;
 
                 try {
                     const pollRef = doc(db, "featurePolls", pollId);
@@ -204,48 +187,54 @@
 
                     await runTransaction(db, async (transaction) => {
                         const pollDoc = await transaction.get(pollRef);
+                        
+                        if (!pollDoc.exists() && !hasVoted) {
+                            // If the poll doc doesn't exist and we are voting for it
+                             const newVoter = {
+                                uid: currentUser.uid,
+                                displayName: currentUser.displayName || 'A Villager',
+                                photoURL: currentUser.photoURL || null
+                            };
+                            transaction.set(pollRef, { voteCount: 1, recentVoters: [newVoter] });
+                            transaction.set(userVoteRef, { votedAt: serverTimestamp() });
+                            return;
+                        }
+
                         if (!pollDoc.exists()) {
-                            // If the poll doc doesn't exist, create it.
-                            const newVoter = {
-                                uid: currentUser.uid,
-                                displayName: currentUser.displayName || 'A Villager',
-                                photoURL: currentUser.photoURL || null
-                            };
-                            transaction.set(pollRef, {
-                                voteCount: 1,
-                                recentVoters: [newVoter]
+                            throw "Poll does not exist!";
+                        }
+
+                        let newVoteCount = pollDoc.data().voteCount || 0;
+                        const voterInfo = {
+                            uid: currentUser.uid,
+                            displayName: currentUser.displayName || 'A Villager',
+                            photoURL: currentUser.photoURL || null
+                        };
+
+                        if (hasVoted) {
+                            // --- Unvote Logic ---
+                            newVoteCount = Math.max(0, newVoteCount - 1);
+                            transaction.update(pollRef, {
+                                voteCount: newVoteCount,
+                                recentVoters: arrayRemove(voterInfo)
                             });
+                            transaction.delete(userVoteRef);
                         } else {
-                            // If it exists, update it.
-                            const userVoteDoc = await transaction.get(userVoteRef);
-                            if (userVoteDoc.exists()) {
-                                console.log("User has already voted for this feature.");
-                                return; 
-                            }
-
-                            const newVoteCount = (pollDoc.data().voteCount || 0) + 1;
-                            const newVoter = {
-                                uid: currentUser.uid,
-                                displayName: currentUser.displayName || 'A Villager',
-                                photoURL: currentUser.photoURL || null
-                            };
-
+                            // --- Vote Logic ---
+                            newVoteCount += 1;
                             transaction.update(pollRef, { 
                                 voteCount: newVoteCount,
-                                recentVoters: arrayUnion(newVoter)
+                                recentVoters: arrayUnion(voterInfo)
                             });
+                            transaction.set(userVoteRef, { votedAt: serverTimestamp() });
                         }
-                        
-                        transaction.set(userVoteRef, { votedAt: serverTimestamp() });
                     });
-                    
-                    userVotes[pollId] = true;
-                    updateUserVoteStatus();
 
                 } catch (error) {
                     console.error("Transaction failed: ", error);
-                    alert("There was an error casting your vote. Please try again.");
-                    button.disabled = false;
+                    alert("There was an error changing your vote. Please try again.");
+                } finally {
+                    button.disabled = false; // Re-enable after transaction
                 }
             }
 
@@ -260,14 +249,36 @@
                     if (doc.exists()) {
                         updatePollUI(pollId, doc.data());
                     }
+                }, (error) => {
+                    console.error(`Error listening to poll ${pollId}:`, error);
                 });
             });
 
             // 2. Set up the auth listener
-            auth.onAuthStateChanged(async (user) => {
+            auth.onAuthStateChanged((user) => {
                 currentUser = user;
-                await fetchUserVotes(); 
-                updateUserVoteStatus();
+                
+                // If a listener for a previous user exists, unsubscribe from it
+                if (userVotesListener) {
+                    userVotesListener(); 
+                }
+
+                if (user) {
+                    // Set up a new real-time listener for the current user's votes
+                    const votesRef = collection(db, 'users', user.uid, 'featureVotes');
+                    userVotesListener = onSnapshot(votesRef, (snapshot) => {
+                        const newUserVotes = {};
+                        snapshot.forEach(doc => {
+                            newUserVotes[doc.id] = true;
+                        });
+                        userVotes = newUserVotes;
+                        updateUserVoteStatus();
+                    });
+                } else {
+                    // If user logs out, clear votes and update UI
+                    userVotes = {};
+                    updateUserVoteStatus();
+                }
             });
 
             pollListContainer.addEventListener('click', handleVote);
