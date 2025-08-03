@@ -1687,18 +1687,18 @@ function initializeMap() {
     if (!mapRenderTarget || map) return;
 
     const locations = [
-        { name: 'Campus Market', address: 'Inside Student Union', coords: [40.0630707, -82.5189282], accepts: ['credits'] },
-        { name: 'Local Coffee Shop', address: '123 College Ave', coords: [40.0648271, -82.5205385], accepts: ['credits'] },
-        { name: 'Downtown Pub', address: '126 E Main St', coords: [40.068128, -82.5191948], accepts: ['credits'] },
-        { name: 'Taco Spot', address: '133 N Oak St', coords: [40.0683299, -82.5184905], accepts: ['credits'] },
-        { name: 'Pizza Place', address: '128 E Main St', coords: [40.0681522, -82.5190099], accepts: ['credits'] },
-        { name: 'Healthy Eats', address: '454 S University Dr', coords: [40.063813, -82.520413], accepts: ['credits'] },
-        { name: 'Ice Cream Parlor', address: '226 E Main St', coords: [40.0680189, -82.5174337], accepts: ['credits'] },
-        { name: 'Noodle House', address: '127 E Main St', coords: [40.0676361, -82.5190986], accepts: ['credits'] },
-        { name: 'West Dining Hall', address: '100 West Campus Dr', coords: [40.0718253, -82.5243115], accepts: ['dining', 'swipes', 'bonus'] },
-        { name: 'East Dining Hall', address: '700 East Campus Dr', coords: [40.072603, -82.517739], accepts: ['dining', 'swipes', 'bonus'] },
-        { name: 'Student Union Cafe', address: '200 College Ave', coords: [40.0718253, -82.5243115], accepts: ['dining', 'bonus'] },
-        { name: 'Science Center Cafe', address: '900 Knowledge Hill', coords: [40.0744031, -82.5274519], accepts: ['dining'] }
+        { name: 'Ross Granville Market', address: 'Inside Slayter Union', coords: [40.0630707, -82.5189282], accepts: ['credits'] },
+        { name: 'Station', address: '425 S Main St, Granville', coords: [40.0648271, -82.5205385], accepts: ['credits'] },
+        { name: 'Broadway Pub', address: '126 E Broadway, Granville', coords: [40.068128, -82.5191948], accepts: ['credits'] },
+        { name: 'Three Tigers', address: '133 N Prospect St, Granville', coords: [40.0683299, -82.5184905], accepts: ['credits'] },
+        { name: 'Pochos', address: '128 E Broadway, Granville', coords: [40.0681522, -82.5190099], accepts: ['credits'] },
+        { name: 'Harvest', address: '454 S Main St, Granville', coords: [40.063813, -82.520413], accepts: ['credits'] },
+        { name: 'Whitt\'s', address: '226 E Broadway, Granville', coords: [40.0680189, -82.5174337], accepts: ['credits'] },
+        { name: 'Dragon Village', address: '127 E Broadway, Granville', coords: [40.0676361, -82.5190986], accepts: ['credits'] },
+        { name: 'Curtis Dining Hall', address: '100 Smith Ln, Granville', coords: [40.116877, -83.742193], accepts: ['dining', 'swipes', 'bonus'] },
+        { name: 'Huffman Dining Hall', address: '700 East Loop, Granville', coords: [40.072603, -82.517739], accepts: ['dining', 'swipes', 'bonus'] },
+        { name: 'Slayter', address: '200 Ridge Rd, Granville', coords: [40.0718253, -82.5243115], accepts: ['dining', 'bonus'] },
+        { name: 'Slivys', address: 'Olin Hall, 900 Sunset Hill', coords: [40.0744031, -82.5274519], accepts: ['dining'] }
     ];
 
     mapRenderTarget.style.width = '100%';
