@@ -504,6 +504,7 @@ body {
     color: var(--wood-dark);
     margin: 0 0 0.75rem 0; /* Reduced bottom margin */
     text-align: center;
+    padding: 0 28px; /* FIX: Added padding to avoid overlap with close button */
 }
 
 .tooltip-content {
