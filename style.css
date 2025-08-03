@@ -977,7 +977,7 @@ section {
 }
 
 .roadmap-section {
-    padding: 8rem 0 5rem 0; /* More top padding to account for fixed header */
+    padding: 8rem 1rem 5rem 1rem; /* Added horizontal padding */
 }
 
 .roadmap-board {
@@ -1052,6 +1052,7 @@ section {
 
 .poll-content {
     flex-grow: 1;
+    min-width: 0; /* Fix for flexbox overflow */
 }
 
 .poll-title {
@@ -1178,38 +1179,30 @@ section {
     transform: scale(1.2);
 }
 
-/* Placeholder styles for loading state */
-.poll-item-placeholder {
-    background-color: var(--bg-primary);
-    border-radius: 0.75rem;
-    padding: 1.5rem;
-    opacity: 0.5;
-}
-.placeholder-line {
-    height: 1.2rem;
-    background-color: var(--bg-secondary);
-    border-radius: 4px;
-    margin-bottom: 1rem;
-}
-.placeholder-line.title {
-    width: 40%;
-    height: 1.5rem;
-    margin-bottom: 1.5rem;
-}
-.placeholder-line.short {
-    width: 80%;
-}
-.placeholder-progress {
-    height: 20px;
-    background-color: var(--bg-secondary);
-    border-radius: 10px;
-}
-
-.error-text {
-    color: var(--wood-dark);
-    text-align: center;
-    font-family: 'Special Elite', monospace;
-    font-size: 1.2rem;
+/* --- MOBILE FIXES FOR ROADMAP --- */
+@media (max-width: 767px) {
+    .roadmap-board {
+        padding: 1rem;
+        border-width: 5px;
+    }
+    .poll-item,
+    .poll-item:nth-child(2n),
+    .poll-item:nth-child(3n),
+    .poll-item:nth-child(4n) {
+        transform: none; /* Straighten out the notes */
+        flex-direction: column; /* Stack content and button */
+        gap: 1.5rem;
+        padding: 1rem;
+    }
+    .poll-item:hover {
+        transform: scale(1.02); /* Keep a subtle hover effect */
+    }
+    .poll-title {
+        font-size: 1.3rem;
+    }
+    .poll-description {
+        font-size: 0.95rem;
+    }
 }
 
 
