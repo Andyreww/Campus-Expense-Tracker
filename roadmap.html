@@ -86,6 +86,7 @@
             const { auth, db } = await firebaseReady;
             const pollListContainer = document.getElementById('poll-list');
             let currentUser = null; // Start with null user
+            let pollsData = []; // Cache for poll data
 
             // --- User State ---
             let userVotes = {}; // Cache user's votes to prevent re-fetching
@@ -114,50 +115,35 @@
             }
 
             /**
-             * Fetches polls from Firestore and renders them.
+             * Renders polls from the cached data. This function is now separate from fetching.
              */
-            async function renderPolls() {
+            function renderPollsFromCache() {
                 if (!pollListContainer) return;
-                
-                // Show placeholders while loading
-                const placeholders = `
-                    <div class="poll-item-placeholder">
-                        <div class="placeholder-line title"></div>
-                        <div class="placeholder-line"></div>
-                        <div class="placeholder-line short"></div>
-                        <div class="placeholder-progress"></div>
-                    </div>
-                    <div class="poll-item-placeholder">
-                        <div class="placeholder-line title"></div>
-                        <div class="placeholder-line"></div>
-                        <div class="placeholder-line short"></div>
-                        <div class="placeholder-progress"></div>
-                    </div>`;
-                pollListContainer.innerHTML = placeholders;
+                pollListContainer.innerHTML = ''; // Clear placeholders
 
+                if (pollsData.length === 0) {
+                    pollListContainer.innerHTML = `<p class="error-text">No construction projects available right now. Check back soon!</p>`;
+                    return;
+                }
+
+                for (const poll of pollsData) {
+                    const pollElement = createPollElement(poll);
+                    pollListContainer.appendChild(pollElement);
+                }
+            }
+
+            /**
+             * Fetches polls from Firestore and stores them in the cache.
+             */
+            async function fetchAndCachePolls() {
                 try {
-                    // Fetch polls from Firestore, ordered by voteCount descending
                     const pollsRef = collection(db, "featurePolls");
                     const q = query(pollsRef, orderBy("voteCount", "desc"));
                     const querySnapshot = await getDocs(q);
-                    
-                    pollListContainer.innerHTML = ''; // Clear placeholders before rendering real data
-
-                    if (querySnapshot.empty) {
-                        pollListContainer.innerHTML = `<p class="error-text">No construction projects available right now. Check back soon!</p>`;
-                        return;
-                    }
-
-                    const polls = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                    for (const poll of polls) {
-                        const pollElement = createPollElement(poll);
-                        pollListContainer.appendChild(pollElement);
-                    }
-
+                    pollsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 } catch (error) {
-                    console.error("Error rendering polls:", error);
-                    pollListContainer.innerHTML = `<p class="error-text">Could not load projects right now. Please try again later.</p>`;
+                    console.error("Error fetching polls:", error);
+                    pollsData = []; // Clear data on error
                 }
             }
 
@@ -172,8 +158,7 @@
                 const hasVoted = userVotes[poll.id] || false;
 
                 const totalVotes = poll.voteCount || 0;
-                // Find the highest vote count for better scaling, with a minimum of 50
-                const maxVotes = Math.max(50, ...document.querySelectorAll('.poll-vote-count').map(el => parseInt(el.textContent) || 0), totalVotes);
+                const maxVotes = Math.max(50, ...pollsData.map(p => p.voteCount || 0));
                 const progress = Math.min((totalVotes / maxVotes) * 100, 100);
                 
                 const voters = poll.recentVoters || [];
@@ -258,26 +243,16 @@
                         transaction.set(userVoteRef, { votedAt: serverTimestamp() });
                     });
 
-                    console.log("Vote successful!");
-                    userVotes[pollId] = true; // Update local cache
+                    // Update local cache and re-render to reflect the vote
+                    const votedPoll = pollsData.find(p => p.id === pollId);
+                    if (votedPoll) {
+                        votedPoll.voteCount++;
+                        if (!votedPoll.recentVoters) votedPoll.recentVoters = [];
+                        votedPoll.recentVoters.push({uid: currentUser.uid, displayName: currentUser.displayName, photoURL: currentUser.photoURL});
+                    }
+                    userVotes[pollId] = true;
+                    renderPollsFromCache();
 
-                    // Optimistically update UI
-                    const countElement = pollItem.querySelector('.poll-vote-count');
-                    const currentCount = parseInt(countElement.textContent) || 0;
-                    countElement.textContent = `${currentCount + 1} Votes`;
-
-                    const progressBar = pollItem.querySelector('.poll-progress-fill');
-                    const maxVotes = Math.max(50, ...document.querySelectorAll('.poll-vote-count').map(el => parseInt(el.textContent) || 0), currentCount + 1);
-                    const newProgress = Math.min(((currentCount + 1) / maxVotes) * 100, 100);
-                    progressBar.style.width = `${newProgress}%`;
-
-                    const votersContainer = pollItem.querySelector('.poll-voters');
-                    const newVoterAvatar = document.createElement('img');
-                    newVoterAvatar.src = currentUser.photoURL || `https://i.pravatar.cc/40?u=${currentUser.uid}`;
-                    newVoterAvatar.alt = currentUser.displayName;
-                    newVoterAvatar.className = 'voter-avatar';
-                    newVoterAvatar.title = currentUser.displayName;
-                    votersContainer.prepend(newVoterAvatar);
 
                 } catch (error) {
                     console.error("Transaction failed: ", error);
@@ -288,11 +263,19 @@
                 }
             }
 
-            // --- Initial Load ---
+            // --- Initial Load Logic ---
+            
+            // 1. Fetch public poll data immediately on page load.
+            await fetchAndCachePolls();
+            
+            // 2. Render the polls from the cached data.
+            renderPollsFromCache();
+
+            // 3. Set up the auth listener to update the UI for the specific user.
             auth.onAuthStateChanged(async (user) => {
                 currentUser = user;
-                await fetchUserVotes(); 
-                await renderPolls(); 
+                await fetchUserVotes(); // Fetch this user's votes
+                renderPollsFromCache(); // Re-render to update button states
             });
 
             pollListContainer.addEventListener('click', handleVote);
