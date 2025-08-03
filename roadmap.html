@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nooksii - Roadmap</title>
+    
+    <!-- External Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Google Fonts (Cafe Vibe) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Special+Elite&family=Patrick+Hand&display=swap" rel="stylesheet">
+    
+</head>
+<body class="roadmap-body">
+
+    <!-- Simplified Header -->
+    <header id="main-header" class="header-scrolled">
+        <div class="container">
+            <a href="index.html" class="logo-link">
+                <h1 class="logo-text">
+                    <svg class="logo-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20.92,8.34a7.42,7.42,0,0,0-9.61-6.19,7.4,7.4,0,0,0-5.13,5.13A7.42,7.42,0,0,0,12.37,20.9a1.49,1.49,0,0,0,2.1-.45,1.5,1.5,0,0,0-.45-2.1,4.43,4.43,0,0,1-3-5.49,4.42,4.42,0,0,1,5.49-3,4.43,4.43,0,0,1,3,5.49,1.5,1.5,0,0,0,.45,2.1,1.49,1.49,0,0,0,2.1-.45A7.42,7.42,0,0,0,20.92,8.34Z"/>
+                    </svg>
+                    Nooksii
+                </h1>
+            </a>
+            <a href="dashboard.html" id="dashboard-button" class="desktop-cta-button">Go to Dashboard</a>
+        </div>
+    </header>
+
+    <main>
+        <section class="roadmap-section">
+            <div class="container">
+                <div class="roadmap-board">
+                    <div class="section-header">
+                         <h2 class="section-title">Help Us Build!</h2>
+                         <p class="section-subtitle">Vote on which town projects you want to see next. Your bells... err, votes... decide our priorities!</p>
+                    </div>
+                    <div id="poll-list" class="poll-list">
+                        <!-- Poll items will be dynamically inserted here by JS -->
+                        <div class="poll-item-placeholder">
+                            <div class="placeholder-line title"></div>
+                            <div class="placeholder-line"></div>
+                            <div class="placeholder-line short"></div>
+                            <div class="placeholder-progress"></div>
+                        </div>
+                         <div class="poll-item-placeholder">
+                            <div class="placeholder-line title"></div>
+                            <div class="placeholder-line"></div>
+                            <div class="placeholder-line short"></div>
+                            <div class="placeholder-progress"></div>
+                        </div>
+                         <div class="poll-item-placeholder">
+                            <div class="placeholder-line title"></div>
+                            <div class="placeholder-line"></div>
+                            <div class="placeholder-line short"></div>
+                            <div class="placeholder-progress"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>Built by students, for students.</p>
+        <p class="footer-subtext">Let's get this bread 🍞</p>
+    </footer>
+
+    <!-- Firebase and App Logic -->
+    <script type="module">
+        // Import the central firebaseReady promise from auth.js
+        import { firebaseReady } from './auth.js';
+        // Import necessary Firestore functions
+        import { 
+            getFirestore, collection, getDocs, doc, 
+            runTransaction, getDoc, collectionGroup, query, where
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Wait for Firebase to be ready
+            const { auth, db } = await firebaseReady;
+            const pollListContainer = document.getElementById('poll-list');
+            let currentUser = auth.currentUser;
+
+            // --- Mock Data (Replace with your actual features) ---
+            // In a real scenario, you'd add these documents to your Firestore 'featurePolls' collection.
+            const MOCK_POLLS = [
+                { id: 'feature-notifications', title: 'Push Notifications', description: 'Get alerts when your balance is low or when new deals are available at your favorite spots.', voteCount: 28 },
+                { id: 'feature-social-feed', title: 'Friend Activity Feed', description: 'See where your friends are eating and what deals they\'re snagging. Share your finds!', voteCount: 15 },
+                { id: 'feature-custom-themes', title: 'Custom Themes', description: 'Personalize your Nooksii dashboard with different color schemes and backgrounds. Make it truly yours.', voteCount: 42 },
+                { id: 'feature-receipt-scan', title: 'AI Receipt Scanner', description: 'Simply take a picture of your receipt, and Nooksii will automatically log the expense for you.', voteCount: 5 }
+            ];
+            
+            // --- User State ---
+            let userVotes = {}; // Cache user's votes to prevent re-fetching
+
+            // --- Main Functions ---
+
+            /**
+             * Fetches the user's existing votes to update the UI correctly.
+             */
+            async function fetchUserVotes() {
+                if (!currentUser) return;
+                try {
+                    const votesRef = collection(db, 'users', currentUser.uid, 'featureVotes');
+                    const snapshot = await getDocs(votesRef);
+                    snapshot.forEach(doc => {
+                        userVotes[doc.id] = true;
+                    });
+                } catch (error) {
+                    console.error("Error fetching user votes:", error);
+                }
+            }
+
+            /**
+             * Fetches polls and their voters from Firestore and renders them.
+             */
+            async function renderPolls() {
+                if (!pollListContainer) return;
+                
+                pollListContainer.innerHTML = ''; // Clear placeholders
+
+                try {
+                    // In a real app, you would fetch from Firestore like this:
+                    // const querySnapshot = await getDocs(collection(db, "featurePolls"));
+                    // const polls = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    
+                    // For this demo, we use the mock data.
+                    const polls = MOCK_POLLS.sort((a, b) => b.voteCount - a.voteCount);
+
+                    for (const poll of polls) {
+                        // In a real app, you'd fetch recent voters for each poll
+                        // For demo, we'll use placeholder avatars
+                        const voters = [
+                            { photoURL: 'https://i.pravatar.cc/40?img=1', displayName: 'Alex' },
+                            { photoURL: 'https://i.pravatar.cc/40?img=2', displayName: 'Maria' },
+                            { photoURL: 'https://i.pravatar.cc/40?img=3', displayName: 'Sam' },
+                        ];
+
+                        const pollElement = createPollElement(poll, voters);
+                        pollListContainer.appendChild(pollElement);
+                    }
+
+                } catch (error) {
+                    console.error("Error rendering polls:", error);
+                    pollListContainer.innerHTML = `<p class="error-text">Could not load projects right now. Please try again later.</p>`;
+                }
+            }
+
+            /**
+             * Creates the HTML element for a single poll item.
+             */
+            function createPollElement(poll, voters) {
+                const item = document.createElement('div');
+                item.className = 'poll-item';
+                item.dataset.pollId = poll.id;
+
+                const hasVoted = userVotes[poll.id] || false;
+
+                const totalVotes = poll.voteCount || 0;
+                const maxVotes = 50; // Arbitrary max for progress bar scaling
+                const progress = Math.min((totalVotes / maxVotes) * 100, 100);
+
+                let votersHTML = voters.slice(0, 5).map(voter => 
+                    `<img src="${voter.photoURL || 'https://i.pravatar.cc/40'}" alt="${voter.displayName}" class="voter-avatar" title="${voter.displayName}">`
+                ).join('');
+
+                if (totalVotes > 5) {
+                    votersHTML += `<div class="voter-avatar more-votes">+${totalVotes - 5}</div>`;
+                }
+
+                item.innerHTML = `
+                    <div class="poll-content">
+                        <h3 class="poll-title">${poll.title}</h3>
+                        <p class="poll-description">${poll.description}</p>
+                        <div class="poll-progress-bar">
+                            <div class="poll-progress-fill" style="width: ${progress}%;"></div>
+                            <span class="poll-vote-count">${totalVotes} Votes</span>
+                        </div>
+                        <div class="poll-voters">
+                            ${votersHTML}
+                        </div>
+                    </div>
+                    <div class="poll-action">
+                        <button class="poll-vote-button ${hasVoted ? 'voted' : ''}" ${hasVoted ? 'disabled' : ''}>
+                             <svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                        </button>
+                    </div>
+                `;
+                return item;
+            }
+
+            /**
+             * Handles the logic when a user clicks the vote button.
+             */
+            async function handleVote(e) {
+                if (!e.target.closest('.poll-vote-button')) return;
+
+                if (!currentUser) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                const button = e.target.closest('.poll-vote-button');
+                const pollItem = e.target.closest('.poll-item');
+                const pollId = pollItem.dataset.pollId;
+
+                if (button.classList.contains('voted')) return; // Already voted
+
+                button.disabled = true;
+                button.classList.add('voted');
+
+                try {
+                    const pollRef = doc(db, "featurePolls", pollId);
+                    const userVoteRef = doc(db, "users", currentUser.uid, "featureVotes", pollId);
+
+                    // Use a transaction to ensure atomic update
+                    await runTransaction(db, async (transaction) => {
+                        const pollDoc = await transaction.get(pollRef);
+                        if (!pollDoc.exists()) {
+                            throw "Poll does not exist!";
+                        }
+                        
+                        // Check if user has already voted (server-side check)
+                        const userVoteDoc = await transaction.get(userVoteRef);
+                        if (userVoteDoc.exists()) {
+                            console.log("User has already voted for this feature.");
+                            return; // Exit transaction
+                        }
+
+                        const newVoteCount = (pollDoc.data().voteCount || 0) + 1;
+                        transaction.update(pollRef, { voteCount: newVoteCount });
+                        
+                        // Record the user's vote
+                        transaction.set(userVoteRef, { votedAt: new Date() });
+                    });
+
+                    console.log("Vote successful!");
+                    userVotes[pollId] = true; // Update local cache
+
+                    // --- Optimistically update UI ---
+                    const countElement = pollItem.querySelector('.poll-vote-count');
+                    const currentCount = parseInt(countElement.textContent) || 0;
+                    countElement.textContent = `${currentCount + 1} Votes`;
+
+                    const progressBar = pollItem.querySelector('.poll-progress-fill');
+                    const maxVotes = 50;
+                    const newProgress = Math.min(((currentCount + 1) / maxVotes) * 100, 100);
+                    progressBar.style.width = `${newProgress}%`;
+
+                    const votersContainer = pollItem.querySelector('.poll-voters');
+                    const newVoterAvatar = document.createElement('img');
+                    newVoterAvatar.src = currentUser.photoURL || `https://i.pravatar.cc/40?u=${currentUser.uid}`;
+                    newVoterAvatar.alt = currentUser.displayName;
+                    newVoterAvatar.className = 'voter-avatar';
+                    newVoterAvatar.title = currentUser.displayName;
+                    votersContainer.prepend(newVoterAvatar); // Add to the front
+
+                } catch (error) {
+                    console.error("Transaction failed: ", error);
+                    alert("There was an error casting your vote. Please try again.");
+                    button.disabled = false;
+                    button.classList.remove('voted');
+                }
+            }
+
+            // --- Event Listeners ---
+            auth.onAuthStateChanged(user => {
+                currentUser = user;
+                fetchUserVotes().then(renderPolls);
+            });
+
+            pollListContainer.addEventListener('click', handleVote);
+
+            // --- Initial Load ---
+            if (!currentUser) {
+                renderPolls();
+            }
+        });
+    </script>
+</body>
+</html>
