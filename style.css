@@ -1190,7 +1190,6 @@ section {
     .poll-item:nth-child(3n),
     .poll-item:nth-child(4n) {
         transform: none; /* Straighten out the notes */
-        flex-direction: column; /* Stack content and button */
         gap: 1.5rem;
         padding: 1rem;
     }
