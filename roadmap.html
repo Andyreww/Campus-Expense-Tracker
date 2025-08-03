@@ -77,7 +77,7 @@
         import { firebaseReady } from './auth.js';
         // Import necessary Firestore functions
         import { 
-            getFirestore, collection, getDocs, doc, 
+            getFirestore, collection, getDocs, doc, getDoc, setDoc,
             runTransaction, orderBy, query, arrayUnion, serverTimestamp
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -91,6 +91,52 @@
             let userVotes = {}; // Cache user's votes to prevent re-fetching
 
             // --- Main Functions ---
+
+            /**
+             * Seeds the database with initial polls from the Trello list if they don't exist.
+             * This prevents overwriting existing vote counts.
+             */
+            async function seedDatabaseWithInitialPolls() {
+                const initialPolls = [
+                    { id: 'monthly-questionnaire', title: 'Monthly Questionnaire', description: 'Answer fun monthly questions and see how your anonymous answers compare to others on campus.' },
+                    { id: 'monthly-trending-picks', title: 'Monthly Trending Picks', description: 'Discover the most popular songs, movies, or campus spots that everyone is talking about each month.' },
+                    { id: 'community-help-requests', title: 'Community Help Requests', description: 'Ask for or offer help to fellow students for things like notes, study groups, or campus advice.' },
+                    { id: 'achievement-system', title: 'Achievement System', description: 'Unlock badges and rewards for logging consistently, exploring new places, and managing your funds.' },
+                    { id: 'friend-spending-comparison', title: 'Friend Spending Comparison (Opt-in)', description: 'Opt-in to see how your spending habits compare to your friends for friendly competition and budgeting insights.' },
+                    { id: 'low-balance-alerts', title: 'Low Balance Alerts', description: 'Get a friendly notification when your dining dollars or meal swipes are running low so you\'re never caught off guard.' },
+                    { id: 'club-badges', title: 'Club Badges', description: 'Show off your involvement by displaying badges for the campus clubs and organizations you\'re a part of.' },
+                    { id: 'colored-usernames', title: 'Colored Usernames', description: 'Personalize your profile by choosing a unique color for your username to stand out on the leaderboard.' },
+                    { id: 'spending-advice', title: 'Spending Advice', description: 'Get personalized tips and advice on how to balance your spending based on your habits.' },
+                    { id: 'campus-spending-stats', title: 'Campus Spending Statistics', description: 'See anonymous, aggregated stats on what students are spending their dining dollars on around campus.' },
+                    { id: 'recent-history-suggestions', title: 'Recent History Suggestions', description: 'Quickly log frequent purchases with smart suggestions based on your recent history.' },
+                    { id: 'smart-predictive-items', title: 'Smart Predictive Items', description: 'Nooksii will learn your routine and predict items you might be buying based on the time and day.' },
+                    { id: 'reminders-feature', title: 'Reminders', description: 'Set custom reminders to log your expenses or check your balance to help you stay on track.' },
+                    { id: 'leaderboard-design-change', title: 'Internal Leaderboard Redesign', description: 'A complete visual and functional overhaul of the leaderboard to make it more engaging and fun.' }
+                ];
+
+                const pollsRef = collection(db, "featurePolls");
+
+                for (const poll of initialPolls) {
+                    const pollDocRef = doc(pollsRef, poll.id);
+                    const docSnap = await getDoc(pollDocRef);
+
+                    if (!docSnap.exists()) {
+                        // Document doesn't exist, so we can create it.
+                        try {
+                            await setDoc(pollDocRef, {
+                                title: poll.title,
+                                description: poll.description,
+                                voteCount: 0,
+                                recentVoters: []
+                            });
+                            console.log(`Added new project: ${poll.title}`);
+                        } catch (error) {
+                            console.error("Error adding poll:", error);
+                        }
+                    }
+                }
+            }
+
 
             /**
              * Fetches the user's existing votes to update the UI correctly.
@@ -270,23 +316,21 @@
                 }
             }
 
-            // --- Event Listeners ---
-            auth.onAuthStateChanged(user => {
+            // --- Initial Load ---
+            await seedDatabaseWithInitialPolls(); // Ensure DB is seeded before rendering
+
+            auth.onAuthStateChanged(async (user) => {
                 currentUser = user;
                 // Re-fetch votes and re-render when auth state changes
-                fetchUserVotes().then(renderPolls);
+                await fetchUserVotes();
+                await renderPolls();
             });
 
-            pollListContainer.addEventListener('click', handleVote);
-
-            // --- Initial Load ---
-            // If user is already known, fetch their data immediately
-            if (currentUser) {
-                fetchUserVotes().then(renderPolls);
-            } else {
-                // Otherwise, the onAuthStateChanged listener will handle it
+            // Initial render for non-logged-in users or if user is already available
+            if (!currentUser) {
                 renderPolls();
             }
+
         });
     </script>
 </body>
