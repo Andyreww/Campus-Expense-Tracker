@@ -14,11 +14,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Special+Elite&family=Patrick+Hand&display=swap" rel="stylesheet">
     
     <style>
-        /* This style block reduces scrolling on larger screens */
-        @media (min-width: 820px) {
+        /* This style block creates the responsive grid layout */
+        @media (min-width: 768px) {
             .poll-list {
                 grid-template-columns: 1fr 1fr;
-                gap: 2rem 1.5rem; /* Keeps vertical gap, adds horizontal gap */
+                gap: 2rem 1.5rem; /* Vertical and horizontal gap */
+            }
+        }
+        @media (min-width: 1024px) {
+            .poll-list {
+                grid-template-columns: 1fr 1fr 1fr; /* 3 columns on large screens */
             }
         }
     </style>
@@ -74,7 +79,7 @@
                         <div class="poll-item" data-poll-id="low-balance-alerts">
                             <div class="poll-content">
                                 <h3 class="poll-title">Low Balance Alerts</h3>
-                                <p class="poll-description">Get a friendly notification when your dining dollars or meal swipes are running low so you're never caught off guard.</p>
+                                <p class="poll-description">Get notified when your balance is low, so you're never stuck without a meal swipe or funds.</p>
                                 <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
                                 <div class="poll-voters"></div>
                             </div>
@@ -93,8 +98,8 @@
 
                         <div class="poll-item" data-poll-id="campus-vibe-check">
                             <div class="poll-content">
-                                <h3 class="poll-title">Campus Vibe Check</h3>
-                                <p class="poll-description">Discover what’s popular on campus — top songs, must-try food items, and hidden gem study spots.</p>
+                                <h3 class="poll-title">Monthly Trending Picks</h3>
+                                <p class="poll-description">See what's trending on campus — from songs to food to study spots, refreshed every month.</p>
                                 <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
                                 <div class="poll-voters"></div>
                             </div>
@@ -103,8 +108,8 @@
 
                         <div class="poll-item" data-poll-id="town-bulletin-board">
                             <div class="poll-content">
-                                <h3 class="poll-title">Town Bulletin Board</h3>
-                                <p class="poll-description">A space where students can post ISOs, ask for help, or share useful campus tips and tricks.</p>
+                                <h3 class="poll-title">Community Help Requests</h3>
+                                <p class="poll-description">A shared space where students can post requests for help, ISOs, or tips for navigating campus life.</p>
                                 <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
                                 <div class="poll-voters"></div>
                             </div>
@@ -113,8 +118,8 @@
 
                         <div class="poll-item" data-poll-id="squad-spending">
                             <div class="poll-content">
-                                <h3 class="poll-title">Squad Spending (Opt-in)</h3>
-                                <p class="poll-description">Challenge your friends to a friendly budget battle. Opt-in to compare dining spending and see who's the thriftiest.</p>
+                                <h3 class="poll-title">Friend Spending Comparison (Opt-in)</h3>
+                                <p class="poll-description">Opt-in to friendly budget battles — compare spending with friends and see who's saving the most.</p>
                                 <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
                                 <div class="poll-voters"></div>
                             </div>
@@ -143,8 +148,8 @@
 
                         <div class="poll-item" data-poll-id="custom-name-colors">
                             <div class="poll-content">
-                                <h3 class="poll-title">Custom Name Colors</h3>
-                                <p class="poll-description">Personalize your profile and stand out on the leaderboard with a custom color for your username.</p>
+                                <h3 class="poll-title">Allow Users to Add Color to Their Names</h3>
+                                <p class="poll-description">Personalize your profile with custom name colors and stand out on the leaderboard.</p>
                                 <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
                                 <div class="poll-voters"></div>
                             </div>
@@ -153,8 +158,8 @@
 
                         <div class="poll-item" data-poll-id="spending-coach">
                             <div class="poll-content">
-                                <h3 class="poll-title">Smart Spending Coach</h3>
-                                <p class="poll-description">Get friendly, non-judgmental nudges and smart suggestions if your spending habits start looking a lil wild.</p>
+                                <h3 class="poll-title">Advice on Excessive Spending</h3>
+                                <p class="poll-description">Get smart, friendly tips when your spending gets wild — no judgment, just helpful advice.</p>
                                 <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
                                 <div class="poll-voters"></div>
                             </div>
@@ -164,7 +169,7 @@
                         <div class="poll-item" data-poll-id="campus-spending-trends">
                             <div class="poll-content">
                                 <h3 class="poll-title">Campus Spending Trends</h3>
-                                <p class="poll-description">Check out the anonymous campus-wide trends, like the most-bought items or busiest food spots.</p>
+                                <p class="poll-description">See anonymous campus-wide trends like top food items and busiest spots.</p>
                                 <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
                                 <div class="poll-voters"></div>
                             </div>
@@ -173,8 +178,8 @@
 
                         <div class="poll-item" data-poll-id="quick-log-suggestions">
                             <div class="poll-content">
-                                <h3 class="poll-title">Quick-Log Suggestions</h3>
-                                <p class="poll-description">Log your go-to purchases in seconds with smart suggestions based on your recent history.</p>
+                                <h3 class="poll-title">Recent History Suggestions</h3>
+                                <p class="poll-description">Get quick suggestions for items you log often, so you can track purchases in seconds.</p>
                                 <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
                                 <div class="poll-voters"></div>
                             </div>
@@ -183,8 +188,8 @@
 
                         <div class="poll-item" data-poll-id="logging-reminders">
                             <div class="poll-content">
-                                <h3 class="poll-title">Logging Reminders</h3>
-                                <p class="poll-description">Set gentle nudges to log your purchases or check your balance to help you stay on top of your streak.</p>
+                                <h3 class="poll-title">Reminders</h3>
+                                <p class="poll-description">Set gentle reminders to log purchases or check your balance to keep your streak strong.</p>
                                 <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
                                 <div class="poll-voters"></div>
                             </div>
@@ -203,8 +208,8 @@
 
                         <div class="poll-item" data-poll-id="leaderboard-2-0">
                             <div class="poll-content">
-                                <h3 class="poll-title">Leaderboard 2.0</h3>
-                                <p class="poll-description">A complete visual and functional overhaul of the leaderboard to make it more stylish, rewarding, and fun.</p>
+                                <h3 class="poll-title">Change the Design of the Internal Leaderboard</h3>
+                                <p class="poll-description">A total redesign of the leaderboard — more visual, rewarding, and fun to use.</p>
                                 <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
                                 <div class="poll-voters"></div>
                             </div>
@@ -241,6 +246,20 @@
             let currentUser = null; 
             let userVotes = {};
             let userVotesListener = null; // To hold the listener unsubscribe function
+
+            /**
+             * Re-orders the poll items in the DOM based on vote counts.
+             */
+            function sortPollsUI(voteData) {
+                const pollItems = Array.from(pollListContainer.querySelectorAll('.poll-item'));
+                pollItems.sort((a, b) => {
+                    const votesA = voteData[a.dataset.pollId]?.voteCount || 0;
+                    const votesB = voteData[b.dataset.pollId]?.voteCount || 0;
+                    return votesB - votesA; // Sort descending
+                });
+                // Re-append to the container in the new order
+                pollItems.forEach(item => pollListContainer.appendChild(item));
+            }
 
             /**
              * Updates the UI for a single poll item with data from Firestore.
@@ -374,22 +393,20 @@
 
             // --- Initial Load Logic ---
             
-            // 1. Set up real-time listeners for each poll
-            const allPollItems = document.querySelectorAll('.poll-item');
-            allPollItems.forEach(item => {
-                const pollId = item.dataset.pollId;
-                const pollRef = doc(db, "featurePolls", pollId);
-                onSnapshot(pollRef, (doc) => {
-                    if (doc.exists()) {
-                        updatePollUI(pollId, doc.data());
-                    } else {
-                        // If doc doesn't exist (e.g., all votes removed), reset its UI
-                        updatePollUI(pollId, { voteCount: 0, recentVoters: [] });
-                    }
-                }, (error) => {
-                    console.error(`Error listening to poll ${pollId}:`, error);
+            // 1. Set up a single real-time listener for the entire polls collection
+            const pollsRef = collection(db, "featurePolls");
+            onSnapshot(pollsRef, (snapshot) => {
+                const voteData = {};
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    voteData[doc.id] = data;
+                    updatePollUI(doc.id, data);
                 });
+                sortPollsUI(voteData); // Re-sort the entire list whenever data changes
+            }, (error) => {
+                console.error("Error listening to polls collection:", error);
             });
+
 
             // 2. Set up the auth listener
             auth.onAuthStateChanged((user) => {
