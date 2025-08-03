@@ -8,7 +8,7 @@ import { updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 let loadingIndicator, statsContainer, pageTitle, welcomeMessage, userAvatar, avatarButton,
     historyList, insightsList, spendingChartCanvas, logoutButton,
     pfpModalOverlay, pfpPreview, pfpUploadInput, pfpSaveButton,
-    pfpCloseButton, pfpError, userBioInput, customBalanceSelector;
+    pfpCloseButton, pfpError, userBioInput, customBalanceSelector, projectionInfoButton;
 
 // --- App State ---
 let currentUser = null;
@@ -19,6 +19,7 @@ let selectedBalanceType = null;
 let purchaseData = null;
 let userDataCache = null;
 let userBalanceTypes = [];
+let unlockedForecasts = {}; // FIX: State to track unlocked forecasts per balance type
 
 // --- Main App Initialization ---
 async function main() {
@@ -112,6 +113,9 @@ async function renderStatistics(userData) {
     // Store purchase data for later use
     purchaseData = purchaseHistory;
 
+    // FIX: Pre-calculate which forecasts are unlocked
+    calculateForecastUnlocks(purchaseHistory);
+
     // Update bio input if it exists
     if (userBioInput) {
         userBioInput.value = userData.bio || '';
@@ -128,6 +132,25 @@ async function renderStatistics(userData) {
     
     setupEventListeners();
     handleBioInput();
+}
+
+// FIX: New function to determine unlocked status for all balance types at once
+function calculateForecastUnlocks(allPurchases) {
+    unlockedForecasts = {}; // Reset
+    userBalanceTypes.forEach(balanceType => {
+        const filteredPurchases = allPurchases.filter(p => 
+            !p.balanceType || p.balanceType === balanceType.id
+        );
+        
+        const spendingByDay = {};
+        filteredPurchases.forEach(p => {
+            const day = p.purchaseDate.toISOString().split('T')[0];
+            spendingByDay[day] = true; // We just need to know the day had a purchase
+        });
+        
+        const uniqueSpendingDays = Object.keys(spendingByDay).length;
+        unlockedForecasts[balanceType.id] = uniqueSpendingDays >= 3;
+    });
 }
 
 // --- Balance Dropdown Functions ---
@@ -250,7 +273,8 @@ function assignDOMElements() {
     pfpCloseButton = document.getElementById('pfp-close-button');
     pfpError = document.getElementById('pfp-error');
     userBioInput = document.getElementById('user-bio-input');
-    customBalanceSelector = document.getElementById('custom-currency-selector'); // Using existing ID
+    customBalanceSelector = document.getElementById('custom-currency-selector');
+    projectionInfoButton = document.getElementById('projection-info-button'); // FIX: Added tooltip button
 }
 
 function setupEventListeners() {
@@ -271,6 +295,14 @@ function setupEventListeners() {
     }
 
     if (userBioInput) userBioInput.addEventListener('input', handleBioInput);
+    
+    // FIX: Added event listener for the tooltip button
+    if (projectionInfoButton) {
+        projectionInfoButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleProjectionTooltip();
+        });
+    }
 }
 
 function containsProfanity(text) {
@@ -783,20 +815,17 @@ function renderChart(userData, purchases) {
         !p.balanceType || p.balanceType === selectedBalanceType
     );
 
-    // Check if we have enough data for THIS balance type
-    const spendingByDay = {};
-    filteredPurchases.forEach(p => {
-        const day = p.purchaseDate.toISOString().split('T')[0];
-        if (!spendingByDay[day]) {
-            spendingByDay[day] = 0;
-        }
-        spendingByDay[day] += p.total;
-    });
-    const uniqueSpendingDays = Object.keys(spendingByDay).sort();
-
-    // Show data gate if not enough data for this specific balance type
-    if (uniqueSpendingDays.length < 3) {
-        const daysNeeded = 3 - uniqueSpendingDays.length;
+    // FIX: Check the pre-calculated unlocked status
+    if (!unlockedForecasts[selectedBalanceType]) {
+        // Calculate how many more days are needed for this specific balance
+        const spendingByDay = {};
+        filteredPurchases.forEach(p => {
+            const day = p.purchaseDate.toISOString().split('T')[0];
+            spendingByDay[day] = true;
+        });
+        const uniqueSpendingDays = Object.keys(spendingByDay).length;
+        const daysNeeded = 3 - uniqueSpendingDays;
+        
         chartContainer.innerHTML = `
             <div class="data-gate">
                 <div class="data-gate-icon">
@@ -808,13 +837,26 @@ function renderChart(userData, purchases) {
                 </div>
             </div>
         `;
+        // Hide the tooltip button if the chart is locked
+        if (projectionInfoButton) projectionInfoButton.style.display = 'none';
+        if (spendingChart) spendingChart.destroy();
         return;
     }
+    
+    // Show the tooltip button if the chart is unlocked
+    if (projectionInfoButton) projectionInfoButton.style.display = 'inline-flex';
 
     // Get smart projection
     const projection = calculateSmartProjection(filteredPurchases, currentBalance, userData);
     
     // Reconstruct actual balance history
+    const spendingByDay = {};
+    filteredPurchases.forEach(p => {
+        const day = p.purchaseDate.toISOString().split('T')[0];
+        spendingByDay[day] = (spendingByDay[day] || 0) + p.total;
+    });
+    const uniqueSpendingDays = Object.keys(spendingByDay).sort();
+    
     const totalSpent = filteredPurchases.reduce((sum, p) => sum + p.total, 0);
     let runningBalance = currentBalance + totalSpent;
     
@@ -867,7 +909,7 @@ function renderChart(userData, purchases) {
 
     // Prepare chart title with confidence indicator
     let titleText;
-    const zeroDateText = !zeroDate ? "More than 6 months" :
+    const zeroDateText = !zeroDate ? "more than 6 months" :
         zeroDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
     const zeroValueDisplay = formatBalanceValue(0, balanceInfo);
     
@@ -880,22 +922,10 @@ function renderChart(userData, purchases) {
     
     titleText = `${confidenceEmoji} Projected to reach ${zeroValueDisplay} around ${zeroDateText}`;
 
-    // Add the info button to the title
-    const titleContainer = document.createElement('div');
-    titleContainer.style.cssText = 'display: flex; align-items: center; justify-content: center; gap: 0.5rem;';
-    titleContainer.innerHTML = `
-        <span>${titleText}</span>
-        <button class="info-tooltip-button" id="projection-info-button">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="16" x2="12" y2="12"></line>
-                <line x1="12" y1="8" x2="12.01" y2="8"></line>
-            </svg>
-        </button>
-    `;
-
     // Destroy existing chart if any
     if (spendingChart) spendingChart.destroy();
+    
+    // Ensure canvas exists if it was removed by the data gate
     if (!document.getElementById('spending-chart')) {
         const newCanvas = document.createElement('canvas');
         newCanvas.id = 'spending-chart';
@@ -959,7 +989,7 @@ function renderChart(userData, purchases) {
             plugins: {
                 title: {
                     display: true,
-                    text: titleContainer.outerHTML,
+                    text: titleText,
                     font: { size: 16, family: "'Patrick Hand', cursive" },
                     color: 'var(--text-primary)',
                     padding: { bottom: 15 }
@@ -991,27 +1021,13 @@ function renderChart(userData, purchases) {
             }
         }
     });
-
-    // After chart is rendered, the title gets converted to text, so we need to re-add the button
-    setTimeout(() => {
-        const chartTitle = chartContainer.querySelector('.chartjs-title');
-        if (chartTitle) {
-            chartTitle.innerHTML = titleContainer.innerHTML;
-            
-            // Add click handler for the info button
-            const infoButton = chartTitle.querySelector('#projection-info-button');
-            if (infoButton) {
-                infoButton.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    toggleProjectionTooltip();
-                });
-            }
-        }
-    }, 100);
 }
 
-// Tooltip functionality
+// FIX: Tooltip functionality now simpler
 function toggleProjectionTooltip() {
+    const chartCard = document.querySelector('.chart-card');
+    if (!chartCard) return;
+    
     let tooltip = document.getElementById('projection-tooltip');
     
     if (tooltip) {
@@ -1068,330 +1084,29 @@ function toggleProjectionTooltip() {
         `;
         
         // Add tooltip to the chart card
-        const chartCard = document.querySelector('.chart-card');
-        if (chartCard) {
-            chartCard.insertAdjacentHTML('beforeend', tooltipHTML);
+        chartCard.insertAdjacentHTML('beforeend', tooltipHTML);
             
-            // Add close button handler
-            const closeBtn = document.querySelector('.tooltip-close');
-            if (closeBtn) {
-                closeBtn.addEventListener('click', () => {
-                    document.getElementById('projection-tooltip').remove();
-                });
-            }
-            
-            // Click outside to close
-            setTimeout(() => {
-                document.addEventListener('click', function closeTooltip(e) {
-                    const tooltip = document.getElementById('projection-tooltip');
-                    const infoButton = document.getElementById('projection-info-button');
-                    if (tooltip && !tooltip.contains(e.target) && e.target !== infoButton) {
-                        tooltip.remove();
-                        document.removeEventListener('click', closeTooltip);
-                    }
-                });
-            }, 100);
+        // Add close button handler
+        const closeBtn = document.querySelector('.tooltip-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                document.getElementById('projection-tooltip').remove();
+            });
         }
+        
+        // Click outside to close
+        setTimeout(() => {
+            document.addEventListener('click', function closeTooltipOnClickOutside(e) {
+                const tooltip = document.getElementById('projection-tooltip');
+                const infoButton = document.getElementById('projection-info-button');
+                if (tooltip && !tooltip.contains(e.target) && e.target !== infoButton && !infoButton.contains(e.target)) {
+                    tooltip.remove();
+                    document.removeEventListener('click', closeTooltipOnClickOutside);
+                }
+            });
+        }, 0);
     }
 }
 
 // --- Run the app ---
 document.addEventListener('DOMContentLoaded', main);
-
-// --- Additional Styles ---
-const style = document.createElement('style');
-style.textContent = `
-    /* Profanity Warning Styles */
-    .profanity-warning-note {
-        position: relative;
-        margin-top: 0.75rem;
-        animation: wobbleIn 0.5s ease-out;
-    }
-    
-    .warning-paper {
-        background: #FFE4B5;
-        background-image: 
-            repeating-linear-gradient(
-                0deg,
-                transparent,
-                transparent 20px,
-                rgba(139, 69, 19, 0.03) 20px,
-                rgba(139, 69, 19, 0.03) 21px
-            );
-        border: 2px solid #D2691E;
-        border-radius: 4px;
-        padding: 0.75rem 1rem;
-        position: relative;
-        transform: rotate(-2deg);
-        box-shadow: 
-            2px 2px 8px rgba(0,0,0,0.1),
-            inset 0 0 20px rgba(139, 69, 19, 0.05);
-        font-family: 'Patrick Hand', cursive;
-    }
-    
-    .warning-tape {
-        position: absolute;
-        top: -12px;
-        left: 50%;
-        transform: translateX(-50%) rotate(3deg);
-        width: 60px;
-        height: 24px;
-        background: rgba(255, 255, 255, 0.6);
-        border: 1px dashed rgba(0,0,0,0.1);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .warning-tape::before {
-        content: '';
-        position: absolute;
-        top: 3px;
-        left: 3px;
-        right: 3px;
-        bottom: 3px;
-        background: repeating-linear-gradient(
-            45deg,
-            transparent,
-            transparent 4px,
-            rgba(0,0,0,0.03) 4px,
-            rgba(0,0,0,0.03) 8px
-        );
-    }
-    
-    .warning-content {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.25rem;
-    }
-    
-    .warning-emoji {
-        font-size: 1.8rem;
-        filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.2));
-    }
-    
-    .warning-text {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #8B4513;
-        text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
-    }
-    
-    .warning-subtext {
-        font-size: 0.9rem;
-        color: #A0522D;
-        font-style: italic;
-    }
-    
-    @keyframes wobbleIn {
-        0% {
-            opacity: 0;
-            transform: scale(0.8) rotate(-8deg);
-        }
-        50% {
-            transform: scale(1.05) rotate(3deg);
-        }
-        100% {
-            opacity: 1;
-            transform: scale(1) rotate(-2deg);
-        }
-    }
-    
-    /* Info Button Styles */
-    .info-tooltip-button {
-        background: var(--brand-primary);
-        border: 2px solid var(--wood-dark);
-        border-radius: 50%;
-        width: 24px;
-        height: 24px;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        position: relative;
-        top: -2px;
-    }
-    
-    .info-tooltip-button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        background: var(--brand-primary-dark, #4a9a5a);
-    }
-    
-    .info-tooltip-button svg {
-        width: 14px;
-        height: 14px;
-        stroke: white;
-        stroke-width: 3;
-    }
-    
-    /* Projection Tooltip Styles */
-    .projection-tooltip {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        z-index: 1000;
-        animation: tooltipBounceIn 0.5s ease-out;
-        max-width: 90%;
-        width: 380px;
-    }
-    
-    @keyframes tooltipBounceIn {
-        0% {
-            opacity: 0;
-            transform: translate(-50%, -50%) scale(0.8);
-        }
-        70% {
-            transform: translate(-50%, -50%) scale(1.05);
-        }
-        100% {
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
-        }
-    }
-    
-    .tooltip-paper {
-        background: var(--paper-white);
-        background-image: 
-            repeating-linear-gradient(
-                0deg,
-                transparent,
-                transparent 20px,
-                rgba(88, 129, 87, 0.03) 20px,
-                rgba(88, 129, 87, 0.03) 21px
-            );
-        border: 3px solid var(--wood-dark);
-        border-radius: 12px;
-        padding: 1.5rem;
-        position: relative;
-        transform: rotate(-1deg);
-        box-shadow: 
-            0 10px 30px rgba(0,0,0,0.2),
-            inset 0 0 30px rgba(88, 129, 87, 0.05);
-    }
-    
-    .tooltip-tape {
-        position: absolute;
-        top: -15px;
-        left: 40%;
-        transform: rotate(-5deg);
-        width: 80px;
-        height: 30px;
-        background: rgba(255, 255, 255, 0.7);
-        border: 1px dashed rgba(0,0,0,0.1);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .tooltip-close {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: var(--brand-primary);
-        border: 2px solid var(--wood-dark);
-        border-radius: 50%;
-        width: 28px;
-        height: 28px;
-        font-size: 20px;
-        line-height: 1;
-        cursor: pointer;
-        color: white;
-        font-weight: bold;
-        transition: all 0.2s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .tooltip-close:hover {
-        transform: rotate(90deg);
-        background: #d32f2f;
-    }
-    
-    .tooltip-title {
-        font-family: 'Patrick Hand', cursive;
-        font-size: 1.5rem;
-        color: var(--wood-dark);
-        margin: 0 0 1rem 0;
-        text-align: center;
-    }
-    
-    .tooltip-content {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-    
-    .tooltip-section {
-        display: flex;
-        gap: 0.75rem;
-        align-items: flex-start;
-        background: var(--bg-secondary);
-        padding: 0.75rem;
-        border-radius: 8px;
-        border: 1px solid var(--border-color);
-    }
-    
-    .tooltip-icon {
-        font-size: 1.5rem;
-        flex-shrink: 0;
-    }
-    
-    .tooltip-text {
-        flex: 1;
-        font-family: 'Nunito', sans-serif;
-    }
-    
-    .tooltip-text strong {
-        display: block;
-        font-size: 1rem;
-        color: var(--text-primary);
-        margin-bottom: 0.25rem;
-    }
-    
-    .tooltip-text p {
-        margin: 0;
-        font-size: 0.9rem;
-        color: var(--text-secondary);
-        line-height: 1.4;
-    }
-    
-    .tooltip-cta {
-        background: var(--brand-light, #e8f5e9);
-        border: 2px dashed var(--brand-primary);
-        border-radius: 8px;
-        padding: 0.75rem;
-        margin-top: 0.5rem;
-        text-align: center;
-    }
-    
-    .tooltip-cta p {
-        margin: 0;
-        font-family: 'Special Elite', monospace;
-        font-size: 0.95rem;
-        color: var(--text-primary);
-    }
-    
-    /* Mobile adjustments */
-    @media (max-width: 480px) {
-        .projection-tooltip {
-            width: 320px;
-        }
-        
-        .tooltip-paper {
-            padding: 1rem;
-        }
-        
-        .tooltip-title {
-            font-size: 1.25rem;
-        }
-        
-        .tooltip-section {
-            padding: 0.5rem;
-        }
-        
-        .tooltip-icon {
-            font-size: 1.25rem;
-        }
-    }
-`;
-document.head.appendChild(style);

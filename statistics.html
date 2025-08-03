@@ -62,7 +62,18 @@
         <main class="main-content">
             <!-- Spending Chart Section -->
             <section class="stats-card chart-card">
-                <h2 class="card-title">Spending Forecast</h2>
+                <!-- Card Header with Title and Tooltip Button -->
+                <div class="card-header-flex">
+                    <h2 class="card-title">Spending Forecast</h2>
+                    <button class="info-tooltip-button" id="projection-info-button" aria-label="Show forecast info">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                    </button>
+                </div>
+                
                 <!-- Balance Type Selector -->
                 <div class="chart-controls">
                     <label for="custom-currency-selector">Show Projection For:</label>

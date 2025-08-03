@@ -39,7 +39,7 @@ body {
 }
 
 .stats-card {
-    background: var(--bg-primary);
+    background: var(--paper-white);
     border: 3px solid var(--wood-dark);
     border-radius: 1rem;
     padding: 1.5rem;
@@ -48,22 +48,29 @@ body {
     position: relative; /* This is needed for z-index on children to work correctly */
 }
 
-.card-title {
-    font-family: 'Patrick Hand', cursive;
-    font-size: 2rem;
-    color: var(--wood-dark);
+/* FIX: New flex container for the card title and info button */
+.card-header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin: -1.5rem -1.5rem 1.5rem -1.5rem;
     padding: 1rem 1.5rem;
     background: var(--bg-secondary);
     border-bottom: 3px solid var(--wood-dark);
     border-radius: 1rem 1rem 0 0;
-    text-shadow: 1px 1px 0 rgba(255,255,255,0.2);
 }
 
-/* Specific card assignments to grid areas */
-.chart-card { grid-area: chart; }
-.insights-card { grid-area: insights; }
-.history-card { grid-area: history; }
+.card-title {
+    font-family: 'Patrick Hand', cursive;
+    font-size: 2rem;
+    color: var(--wood-dark);
+    text-shadow: 1px 1px 0 rgba(255,255,255,0.2);
+    margin: 0; /* Reset margin as it's now in a flex container */
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 0;
+}
 
 /* Chart Controls & Custom Dropdown */
 .chart-controls {
@@ -74,8 +81,8 @@ body {
     margin-bottom: 1rem;
     font-family: 'Nunito', sans-serif;
     transform: rotate(0.5deg); /* Counter-rotate the card's tilt */
-    position: relative; /* FIX: Establish a stacking context */
-    z-index: 10; /* FIX: Lift the controls above the chart container */
+    position: relative;
+    z-index: 10;
 }
 
 .chart-controls label {
@@ -122,7 +129,8 @@ body {
     border-bottom-right-radius: 0;
 }
 
-.custom-select-trigger .arrow {
+.custom-select-trigger::after {
+    content: '';
     width: 0;
     height: 0;
     border-left: 6px solid transparent;
@@ -132,16 +140,15 @@ body {
     margin-left: 1rem;
 }
 
-.custom-select.open .custom-select-trigger .arrow {
+.custom-select.open .custom-select-trigger::after {
     transform: rotate(180deg);
 }
 
-/* FIX: Merged two separate rules into one and hid the scrollbar */
 .custom-options {
     position: absolute;
     top: 100%;
-    left: -3px; /* Align with border */
-    right: -3px; /* Align with border */
+    left: -3px; 
+    right: -3px; 
     border: 3px solid var(--wood-dark);
     border-top: 0;
     background-color: var(--bg-primary); 
@@ -152,18 +159,17 @@ body {
     visibility: hidden;
     pointer-events: none;
     transform: translateY(-10px);
-    z-index: 100; /* High z-index to appear over trigger */
+    z-index: 100;
     box-shadow: 0 8px 16px -4px rgba(0,0,0,0.2);
     max-height: 150px;
     overflow-y: auto;
     
-    /* Hide scrollbar across browsers */
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
 
 .custom-options::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, and Opera */
+    display: none;
 }
 
 .custom-select.open .custom-options {
@@ -206,7 +212,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1; /* FIX: Keep the chart/gate behind the controls */
+    z-index: 1;
 }
 
 /* Reusable Data Gate Styles */
@@ -360,6 +366,187 @@ body {
     color: var(--brand-primary);
 }
 
+/* --- FIX: Tooltip and Info Button Styles --- */
+
+.info-tooltip-button {
+    background: var(--brand-primary);
+    border: 2px solid var(--wood-dark);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 3px 0 var(--wood-dark), 0 4px 6px rgba(0,0,0,0.2);
+    transform: rotate(0.5deg); /* Match counter-rotation */
+    flex-shrink: 0;
+}
+
+.info-tooltip-button:hover {
+    transform: translateY(-2px) rotate(0.5deg);
+    box-shadow: 0 5px 0 var(--wood-dark), 0 6px 8px rgba(0,0,0,0.2);
+    background: var(--brand-primary-dark, #4a9a5a);
+}
+
+.info-tooltip-button:active {
+    transform: translateY(1px) rotate(0.5deg);
+    box-shadow: 0 1px 0 var(--wood-dark), 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.info-tooltip-button svg {
+    width: 16px;
+    height: 16px;
+    stroke: white;
+    stroke-width: 3;
+}
+
+.projection-tooltip {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(0.5deg); /* Counter-rotate */
+    z-index: 1000;
+    animation: tooltipBounceIn 0.5s ease-out;
+    max-width: 90%;
+    width: 380px;
+}
+
+@keyframes tooltipBounceIn {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8) rotate(0.5deg);
+    }
+    70% {
+        transform: translate(-50%, -50%) scale(1.05) rotate(0.5deg);
+    }
+    100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1) rotate(0.5deg);
+    }
+}
+
+.tooltip-paper {
+    background: var(--paper-white);
+    background-image: 
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 20px,
+            rgba(88, 129, 87, 0.03) 20px,
+            rgba(88, 129, 87, 0.03) 21px
+        );
+    border: 3px solid var(--wood-dark);
+    border-radius: 12px;
+    padding: 1.5rem;
+    position: relative;
+    transform: rotate(-1deg);
+    box-shadow: 
+        0 10px 30px rgba(0,0,0,0.2),
+        inset 0 0 30px rgba(88, 129, 87, 0.05);
+}
+
+.tooltip-tape {
+    position: absolute;
+    top: -15px;
+    left: 40%;
+    transform: rotate(-5deg);
+    width: 80px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px dashed rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.tooltip-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--brand-primary);
+    border: 2px solid var(--wood-dark);
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: white;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 5;
+}
+
+.tooltip-close:hover {
+    transform: rotate(90deg);
+    background: #d32f2f;
+}
+
+.tooltip-title {
+    font-family: 'Patrick Hand', cursive;
+    font-size: 1.5rem;
+    color: var(--wood-dark);
+    margin: 0 0 1rem 0;
+    text-align: center;
+}
+
+.tooltip-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.tooltip-section {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    background: var(--bg-secondary);
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.tooltip-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.tooltip-text {
+    flex: 1;
+    font-family: 'Nunito', sans-serif;
+}
+
+.tooltip-text strong {
+    display: block;
+    font-size: 1rem;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.tooltip-text p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.tooltip-cta {
+    background: var(--brand-light, #e8f5e9);
+    border: 2px dashed var(--brand-primary);
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+    text-align: center;
+}
+
+.tooltip-cta p {
+    margin: 0;
+    font-family: 'Special Elite', monospace;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
 /* Responsive adjustments */
 @media (max-width: 640px) {
     .stats-container {
@@ -374,5 +561,24 @@ body {
     }
     .chart-container {
         height: 250px;
+    }
+    .projection-tooltip {
+        width: 320px;
+    }
+    
+    .tooltip-paper {
+        padding: 1rem;
+    }
+    
+    .tooltip-title {
+        font-size: 1.25rem;
+    }
+    
+    .tooltip-section {
+        padding: 0.5rem;
+    }
+    
+    .tooltip-icon {
+        font-size: 1.25rem;
     }
 }
