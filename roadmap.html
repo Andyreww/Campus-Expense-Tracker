@@ -129,7 +129,7 @@
                 voteCountEl.textContent = `${totalVotes} Votes`;
 
                 const allVoteCounts = Array.from(document.querySelectorAll('.poll-vote-count')).map(el => parseInt(el.textContent) || 0);
-                const maxVotes = Math.max(50, ...allVoteCounts); 
+                const maxVotes = Math.max(50, ...allVoteCounts, totalVotes); 
                 const progress = maxVotes > 0 ? Math.min((totalVotes / maxVotes) * 100, 100) : 0;
                 progressFillEl.style.width = `${progress}%`;
 
@@ -152,13 +152,10 @@
                 allPollItems.forEach(item => {
                     const pollId = item.dataset.pollId;
                     const button = item.querySelector('.poll-vote-button');
+                    if (!button) return;
                     const hasVoted = userVotes[pollId] || false;
                     
                     button.classList.toggle('voted', hasVoted);
-                    button.disabled = false; // Always enable the button first
-                    if(hasVoted) {
-                        // If voted, the button becomes an "unvote" button
-                    }
                 });
             }
 
@@ -166,15 +163,15 @@
              * Handles the logic when a user clicks the vote button.
              */
             async function handleVote(e) {
-                if (!e.target.closest('.poll-vote-button')) return;
+                const button = e.target.closest('.poll-vote-button');
+                if (!button) return;
 
                 if (!currentUser) {
                     window.location.href = 'login.html?redirect=roadmap.html';
                     return;
                 }
 
-                const button = e.target.closest('.poll-vote-button');
-                const pollItem = e.target.closest('.poll-item');
+                const pollItem = button.closest('.poll-item');
                 const pollId = pollItem.dataset.pollId;
 
                 button.disabled = true; // Disable during transaction
@@ -189,7 +186,6 @@
                         const pollDoc = await transaction.get(pollRef);
                         
                         if (!pollDoc.exists() && !hasVoted) {
-                            // If the poll doc doesn't exist and we are voting for it
                              const newVoter = {
                                 uid: currentUser.uid,
                                 displayName: currentUser.displayName || 'A Villager',
@@ -201,7 +197,7 @@
                         }
 
                         if (!pollDoc.exists()) {
-                            throw "Poll does not exist!";
+                            throw new Error("Poll does not exist!");
                         }
 
                         let newVoteCount = pollDoc.data().voteCount || 0;
@@ -210,13 +206,20 @@
                             displayName: currentUser.displayName || 'A Villager',
                             photoURL: currentUser.photoURL || null
                         };
+                        
+                        const recentVoters = pollDoc.data().recentVoters || [];
+                        const voterIndex = recentVoters.findIndex(v => v.uid === currentUser.uid);
 
                         if (hasVoted) {
                             // --- Unvote Logic ---
                             newVoteCount = Math.max(0, newVoteCount - 1);
+                            
+                            // Create a new array without the un-voting user
+                            const updatedVoters = recentVoters.filter(v => v.uid !== currentUser.uid);
+
                             transaction.update(pollRef, {
                                 voteCount: newVoteCount,
-                                recentVoters: arrayRemove(voterInfo)
+                                recentVoters: updatedVoters
                             });
                             transaction.delete(userVoteRef);
                         } else {
@@ -258,13 +261,11 @@
             auth.onAuthStateChanged((user) => {
                 currentUser = user;
                 
-                // If a listener for a previous user exists, unsubscribe from it
                 if (userVotesListener) {
                     userVotesListener(); 
                 }
 
                 if (user) {
-                    // Set up a new real-time listener for the current user's votes
                     const votesRef = collection(db, 'users', user.uid, 'featureVotes');
                     userVotesListener = onSnapshot(votesRef, (snapshot) => {
                         const newUserVotes = {};
@@ -273,9 +274,10 @@
                         });
                         userVotes = newUserVotes;
                         updateUserVoteStatus();
+                    }, (error) => {
+                        console.error("Error listening to user votes:", error);
                     });
                 } else {
-                    // If user logs out, clear votes and update UI
                     userVotes = {};
                     updateUserVoteStatus();
                 }
