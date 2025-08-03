@@ -410,7 +410,7 @@ body {
     z-index: 1000;
     animation: tooltipBounceIn 0.5s ease-out;
     max-width: 90%;
-    width: 380px;
+    width: 340px; /* Made smaller */
 }
 
 @keyframes tooltipBounceIn {
@@ -439,7 +439,7 @@ body {
         );
     border: 3px solid var(--wood-dark);
     border-radius: 12px;
-    padding: 1.5rem;
+    padding: 1.2rem; /* Made smaller */
     position: relative;
     transform: rotate(-1deg);
     box-shadow: 
