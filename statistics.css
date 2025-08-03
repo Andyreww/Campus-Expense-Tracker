@@ -144,19 +144,9 @@ body {
     border-bottom-right-radius: 0;
 }
 
+/* FIX: Removed the animating triangle */
 .custom-select-trigger::after {
-    content: '';
-    width: 0;
-    height: 0;
-    border-left: 6px solid transparent;
-    border-right: 6px solid transparent;
-    border-top: 7px solid var(--wood-dark);
-    transition: transform 0.2s ease-out;
-    margin-left: 1rem;
-}
-
-.custom-select.open .custom-select-trigger::after {
-    transform: rotate(180deg);
+    display: none;
 }
 
 .custom-options {
