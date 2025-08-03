@@ -48,6 +48,21 @@ body {
     position: relative; /* This is needed for z-index on children to work correctly */
 }
 
+/* FIX: Added grid-area assignments and z-index to ensure proper stacking */
+.chart-card {
+    grid-area: chart;
+    z-index: 5;
+}
+.insights-card {
+    grid-area: insights;
+    z-index: 1;
+}
+.history-card {
+    grid-area: history;
+    z-index: 1;
+}
+
+
 /* FIX: New flex container for the card title and info button */
 .card-header-flex {
     display: flex;
