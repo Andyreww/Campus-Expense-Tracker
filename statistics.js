@@ -817,14 +817,13 @@ function renderChart(userData, purchases) {
     const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
     if (!balanceInfo) {
         chartContainer.innerHTML = '<p style="text-align:center; padding: 2rem;">No balance type selected.</p>';
-        if (projectionInfoButton) projectionInfoButton.style.display = 'none';
         return;
     }
     
+    // FIX: The tooltip button is now always visible, so we don't need to hide/show it here.
+    
     // Check the pre-calculated unlocked status
     if (!unlockedForecasts[selectedBalanceType]) {
-        if (projectionInfoButton) projectionInfoButton.style.display = 'none';
-        
         const filteredPurchases = purchases.filter(p => !p.balanceType || p.balanceType === selectedBalanceType);
         const spendingByDay = {};
         filteredPurchases.forEach(p => {
@@ -848,9 +847,6 @@ function renderChart(userData, purchases) {
         return;
     }
     
-    // If we reach here, the forecast is unlocked.
-    if (projectionInfoButton) projectionInfoButton.style.display = 'inline-flex';
-
     // Add the canvas back to the container
     const newCanvas = document.createElement('canvas');
     newCanvas.id = 'spending-chart';
