@@ -783,7 +783,7 @@ function renderChart(userData, purchases) {
         !p.balanceType || p.balanceType === selectedBalanceType
     );
 
-    // Check if we have enough data
+    // Check if we have enough data for THIS balance type
     const spendingByDay = {};
     filteredPurchases.forEach(p => {
         const day = p.purchaseDate.toISOString().split('T')[0];
@@ -794,7 +794,7 @@ function renderChart(userData, purchases) {
     });
     const uniqueSpendingDays = Object.keys(spendingByDay).sort();
 
-    // Show data gate if not enough data
+    // Show data gate if not enough data for this specific balance type
     if (uniqueSpendingDays.length < 3) {
         const daysNeeded = 3 - uniqueSpendingDays.length;
         chartContainer.innerHTML = `
@@ -880,6 +880,20 @@ function renderChart(userData, purchases) {
     
     titleText = `${confidenceEmoji} Projected to reach ${zeroValueDisplay} around ${zeroDateText}`;
 
+    // Add the info button to the title
+    const titleContainer = document.createElement('div');
+    titleContainer.style.cssText = 'display: flex; align-items: center; justify-content: center; gap: 0.5rem;';
+    titleContainer.innerHTML = `
+        <span>${titleText}</span>
+        <button class="info-tooltip-button" id="projection-info-button">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+        </button>
+    `;
+
     // Destroy existing chart if any
     if (spendingChart) spendingChart.destroy();
     if (!document.getElementById('spending-chart')) {
@@ -890,7 +904,7 @@ function renderChart(userData, purchases) {
         spendingChartCanvas = newCanvas;
     }
 
-    // Create the chart
+    // Create the chart with reduced red squares
     spendingChart = new Chart(spendingChartCanvas, {
         type: 'line',
         data: {
@@ -915,9 +929,27 @@ function renderChart(userData, purchases) {
                     borderDash: projection.confidence === 'high' ? [0, 0] : [5, 5],
                     borderWidth: 3,
                     tension: 0.1,
-                    pointRadius: 5,
+                    pointRadius: function(context) {
+                        const index = context.dataIndex;
+                        const dataLength = context.dataset.data.length;
+                        const actualDataLength = actualData.length;
+                        
+                        // Always show the transition point
+                        if (index === actualDataLength - 1) return 5;
+                        
+                        // For projection points, only show every 7th point (weekly) 
+                        // or at the zero balance point
+                        if (index >= actualDataLength) {
+                            const projectionIndex = index - actualDataLength + 1;
+                            if (projectionIndex % 7 === 0 || context.raw === 0) {
+                                return 5;
+                            }
+                        }
+                        return 0; // Hide other points
+                    },
                     pointStyle: 'rectRot',
                     pointBackgroundColor: '#E74C3C',
+                    pointHoverRadius: 6,
                 }
             ]
         },
@@ -927,7 +959,7 @@ function renderChart(userData, purchases) {
             plugins: {
                 title: {
                     display: true,
-                    text: titleText,
+                    text: titleContainer.outerHTML,
                     font: { size: 16, family: "'Patrick Hand', cursive" },
                     color: 'var(--text-primary)',
                     padding: { bottom: 15 }
@@ -959,6 +991,108 @@ function renderChart(userData, purchases) {
             }
         }
     });
+
+    // After chart is rendered, the title gets converted to text, so we need to re-add the button
+    setTimeout(() => {
+        const chartTitle = chartContainer.querySelector('.chartjs-title');
+        if (chartTitle) {
+            chartTitle.innerHTML = titleContainer.innerHTML;
+            
+            // Add click handler for the info button
+            const infoButton = chartTitle.querySelector('#projection-info-button');
+            if (infoButton) {
+                infoButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleProjectionTooltip();
+                });
+            }
+        }
+    }, 100);
+}
+
+// Tooltip functionality
+function toggleProjectionTooltip() {
+    let tooltip = document.getElementById('projection-tooltip');
+    
+    if (tooltip) {
+        // If tooltip exists, remove it
+        tooltip.remove();
+    } else {
+        // Create and show tooltip
+        const tooltipHTML = `
+            <div id="projection-tooltip" class="projection-tooltip">
+                <div class="tooltip-paper">
+                    <div class="tooltip-tape"></div>
+                    <button class="tooltip-close">&times;</button>
+                    <h3 class="tooltip-title">🧠 How Your Smart Forecast Works</h3>
+                    
+                    <div class="tooltip-content">
+                        <div class="tooltip-section">
+                            <div class="tooltip-icon">📅</div>
+                            <div class="tooltip-text">
+                                <strong>Learns Your Patterns</strong>
+                                <p>I notice if you spend more on weekends vs weekdays!</p>
+                            </div>
+                        </div>
+                        
+                        <div class="tooltip-section">
+                            <div class="tooltip-icon">🎯</div>
+                            <div class="tooltip-text">
+                                <strong>Gets Smarter Over Time</strong>
+                                <p>The more you log, the better I predict. After 2 weeks, I'm super accurate!</p>
+                            </div>
+                        </div>
+                        
+                        <div class="tooltip-section">
+                            <div class="tooltip-icon">🚀</div>
+                            <div class="tooltip-text">
+                                <strong>Ignores One-Time Splurges</strong>
+                                <p>That birthday dinner won't mess up your forecast!</p>
+                            </div>
+                        </div>
+                        
+                        <div class="tooltip-section">
+                            <div class="tooltip-icon">📚</div>
+                            <div class="tooltip-text">
+                                <strong>Semester Smart</strong>
+                                <p>Designed to help your money last the whole semester!</p>
+                            </div>
+                        </div>
+                        
+                        <div class="tooltip-cta">
+                            <p>💡 <strong>Pro tip:</strong> Log daily for a week to unlock the most accurate predictions!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add tooltip to the chart card
+        const chartCard = document.querySelector('.chart-card');
+        if (chartCard) {
+            chartCard.insertAdjacentHTML('beforeend', tooltipHTML);
+            
+            // Add close button handler
+            const closeBtn = document.querySelector('.tooltip-close');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
+                    document.getElementById('projection-tooltip').remove();
+                });
+            }
+            
+            // Click outside to close
+            setTimeout(() => {
+                document.addEventListener('click', function closeTooltip(e) {
+                    const tooltip = document.getElementById('projection-tooltip');
+                    const infoButton = document.getElementById('projection-info-button');
+                    if (tooltip && !tooltip.contains(e.target) && e.target !== infoButton) {
+                        tooltip.remove();
+                        document.removeEventListener('click', closeTooltip);
+                    }
+                });
+            }, 100);
+        }
+    }
 }
 
 // --- Run the app ---
@@ -1059,6 +1193,204 @@ style.textContent = `
         100% {
             opacity: 1;
             transform: scale(1) rotate(-2deg);
+        }
+    }
+    
+    /* Info Button Styles */
+    .info-tooltip-button {
+        background: var(--brand-primary);
+        border: 2px solid var(--wood-dark);
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        position: relative;
+        top: -2px;
+    }
+    
+    .info-tooltip-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        background: var(--brand-primary-dark, #4a9a5a);
+    }
+    
+    .info-tooltip-button svg {
+        width: 14px;
+        height: 14px;
+        stroke: white;
+        stroke-width: 3;
+    }
+    
+    /* Projection Tooltip Styles */
+    .projection-tooltip {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1000;
+        animation: tooltipBounceIn 0.5s ease-out;
+        max-width: 90%;
+        width: 380px;
+    }
+    
+    @keyframes tooltipBounceIn {
+        0% {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.8);
+        }
+        70% {
+            transform: translate(-50%, -50%) scale(1.05);
+        }
+        100% {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+    }
+    
+    .tooltip-paper {
+        background: var(--paper-white);
+        background-image: 
+            repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 20px,
+                rgba(88, 129, 87, 0.03) 20px,
+                rgba(88, 129, 87, 0.03) 21px
+            );
+        border: 3px solid var(--wood-dark);
+        border-radius: 12px;
+        padding: 1.5rem;
+        position: relative;
+        transform: rotate(-1deg);
+        box-shadow: 
+            0 10px 30px rgba(0,0,0,0.2),
+            inset 0 0 30px rgba(88, 129, 87, 0.05);
+    }
+    
+    .tooltip-tape {
+        position: absolute;
+        top: -15px;
+        left: 40%;
+        transform: rotate(-5deg);
+        width: 80px;
+        height: 30px;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px dashed rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .tooltip-close {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: var(--brand-primary);
+        border: 2px solid var(--wood-dark);
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        font-size: 20px;
+        line-height: 1;
+        cursor: pointer;
+        color: white;
+        font-weight: bold;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .tooltip-close:hover {
+        transform: rotate(90deg);
+        background: #d32f2f;
+    }
+    
+    .tooltip-title {
+        font-family: 'Patrick Hand', cursive;
+        font-size: 1.5rem;
+        color: var(--wood-dark);
+        margin: 0 0 1rem 0;
+        text-align: center;
+    }
+    
+    .tooltip-content {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .tooltip-section {
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+        background: var(--bg-secondary);
+        padding: 0.75rem;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .tooltip-icon {
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+    
+    .tooltip-text {
+        flex: 1;
+        font-family: 'Nunito', sans-serif;
+    }
+    
+    .tooltip-text strong {
+        display: block;
+        font-size: 1rem;
+        color: var(--text-primary);
+        margin-bottom: 0.25rem;
+    }
+    
+    .tooltip-text p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        line-height: 1.4;
+    }
+    
+    .tooltip-cta {
+        background: var(--brand-light, #e8f5e9);
+        border: 2px dashed var(--brand-primary);
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-top: 0.5rem;
+        text-align: center;
+    }
+    
+    .tooltip-cta p {
+        margin: 0;
+        font-family: 'Special Elite', monospace;
+        font-size: 0.95rem;
+        color: var(--text-primary);
+    }
+    
+    /* Mobile adjustments */
+    @media (max-width: 480px) {
+        .projection-tooltip {
+            width: 320px;
+        }
+        
+        .tooltip-paper {
+            padding: 1rem;
+        }
+        
+        .tooltip-title {
+            font-size: 1.25rem;
+        }
+        
+        .tooltip-section {
+            padding: 0.5rem;
+        }
+        
+        .tooltip-icon {
+            font-size: 1.25rem;
         }
     }
 `;
