@@ -19,7 +19,7 @@ let selectedBalanceType = null;
 let purchaseData = null;
 let userDataCache = null;
 let userBalanceTypes = [];
-let unlockedForecasts = {}; // FIX: State to track unlocked forecasts per balance type
+let unlockedForecasts = {}; // State to track unlocked forecasts per balance type
 
 // --- Main App Initialization ---
 async function main() {
@@ -113,7 +113,7 @@ async function renderStatistics(userData) {
     // Store purchase data for later use
     purchaseData = purchaseHistory;
 
-    // FIX: Pre-calculate which forecasts are unlocked
+    // Pre-calculate which forecasts are unlocked
     calculateForecastUnlocks(purchaseHistory);
 
     // Update bio input if it exists
@@ -134,7 +134,7 @@ async function renderStatistics(userData) {
     handleBioInput();
 }
 
-// FIX: New function to determine unlocked status for all balance types at once
+// New function to determine unlocked status for all balance types at once
 function calculateForecastUnlocks(allPurchases) {
     unlockedForecasts = {}; // Reset
     userBalanceTypes.forEach(balanceType => {
@@ -264,7 +264,7 @@ function assignDOMElements() {
     avatarButton = document.getElementById('avatar-button');
     historyList = document.getElementById('purchase-history-list');
     insightsList = document.getElementById('insights-list');
-    spendingChartCanvas = document.getElementById('spending-chart');
+    // spendingChartCanvas is assigned dynamically in renderChart
     logoutButton = document.getElementById('logout-button');
     pfpModalOverlay = document.getElementById('pfp-modal-overlay');
     pfpPreview = document.getElementById('pfp-preview');
@@ -274,7 +274,7 @@ function assignDOMElements() {
     pfpError = document.getElementById('pfp-error');
     userBioInput = document.getElementById('user-bio-input');
     customBalanceSelector = document.getElementById('custom-currency-selector');
-    projectionInfoButton = document.getElementById('projection-info-button'); // FIX: Added tooltip button
+    projectionInfoButton = document.getElementById('projection-info-button');
 }
 
 function setupEventListeners() {
@@ -296,7 +296,6 @@ function setupEventListeners() {
 
     if (userBioInput) userBioInput.addEventListener('input', handleBioInput);
     
-    // FIX: Added event listener for the tooltip button
     if (projectionInfoButton) {
         projectionInfoButton.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -798,26 +797,35 @@ function calculateSmartProjection(purchases, currentBalance, userData) {
     };
 }
 
+// FIX: Rewrote this function to be more robust
 function renderChart(userData, purchases) {
-    if (!spendingChartCanvas) return;
-    const chartContainer = spendingChartCanvas.parentElement;
+    const chartCard = document.querySelector('.chart-card');
+    if (!chartCard) return;
     
+    const chartContainer = chartCard.querySelector('.chart-container');
+    if (!chartContainer) return;
+
+    // Always destroy the old chart instance to prevent memory leaks
+    if (spendingChart) {
+        spendingChart.destroy();
+        spendingChart = null;
+    }
+    
+    // Clear the container to ensure a clean slate
+    chartContainer.innerHTML = '';
+
     const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
     if (!balanceInfo) {
         chartContainer.innerHTML = '<p style="text-align:center; padding: 2rem;">No balance type selected.</p>';
+        if (projectionInfoButton) projectionInfoButton.style.display = 'none';
         return;
     }
     
-    const currentBalance = userData.balances?.[selectedBalanceType] || 0;
-
-    // Filter purchases for the selected balance type
-    const filteredPurchases = purchases.filter(p => 
-        !p.balanceType || p.balanceType === selectedBalanceType
-    );
-
-    // FIX: Check the pre-calculated unlocked status
+    // Check the pre-calculated unlocked status
     if (!unlockedForecasts[selectedBalanceType]) {
-        // Calculate how many more days are needed for this specific balance
+        if (projectionInfoButton) projectionInfoButton.style.display = 'none';
+        
+        const filteredPurchases = purchases.filter(p => !p.balanceType || p.balanceType === selectedBalanceType);
         const spendingByDay = {};
         filteredPurchases.forEach(p => {
             const day = p.purchaseDate.toISOString().split('T')[0];
@@ -837,19 +845,24 @@ function renderChart(userData, purchases) {
                 </div>
             </div>
         `;
-        // Hide the tooltip button if the chart is locked
-        if (projectionInfoButton) projectionInfoButton.style.display = 'none';
-        if (spendingChart) spendingChart.destroy();
         return;
     }
     
-    // Show the tooltip button if the chart is unlocked
+    // If we reach here, the forecast is unlocked.
     if (projectionInfoButton) projectionInfoButton.style.display = 'inline-flex';
 
-    // Get smart projection
+    // Add the canvas back to the container
+    const newCanvas = document.createElement('canvas');
+    newCanvas.id = 'spending-chart';
+    chartContainer.appendChild(newCanvas);
+    spendingChartCanvas = newCanvas;
+
+    // --- Start Chart Rendering Logic ---
+    const currentBalance = userData.balances?.[selectedBalanceType] || 0;
+    const filteredPurchases = purchases.filter(p => !p.balanceType || p.balanceType === selectedBalanceType);
+    
     const projection = calculateSmartProjection(filteredPurchases, currentBalance, userData);
     
-    // Reconstruct actual balance history
     const spendingByDay = {};
     filteredPurchases.forEach(p => {
         const day = p.purchaseDate.toISOString().split('T')[0];
@@ -869,9 +882,8 @@ function renderChart(userData, purchases) {
         actualData.push(runningBalance);
     });
 
-    // Create projection
-    const lastActualBalance = actualData[actualData.length - 1];
-    const lastActualDate = new Date(uniqueSpendingDays[uniqueSpendingDays.length - 1]);
+    const lastActualBalance = actualData.length > 0 ? actualData[actualData.length - 1] : currentBalance;
+    const lastActualDate = uniqueSpendingDays.length > 0 ? new Date(uniqueSpendingDays[uniqueSpendingDays.length - 1]) : new Date();
 
     const projectionData = new Array(actualData.length - 1).fill(null);
     projectionData.push(lastActualBalance);
@@ -879,24 +891,16 @@ function renderChart(userData, purchases) {
     let projectedBalance = lastActualBalance;
     let dayCounter = 1;
     let zeroDate = null;
-
-    const maxProjectionDays = 180; // 6 months max
+    const maxProjectionDays = 180;
     
     while (projectedBalance > 0 && dayCounter <= maxProjectionDays) {
         const projectionDate = new Date(lastActualDate);
         projectionDate.setDate(lastActualDate.getDate() + dayCounter);
-        
         labels.push(projectionDate.toISOString().split('T')[0]);
         
-        // Calculate daily burn based on projection method
-        let dailyBurn;
-        if (projection.hasWeekdayPattern) {
-            // Use day-of-week specific spending
-            const dayOfWeek = projectionDate.getDay();
-            dailyBurn = projection.weekdayAverages[dayOfWeek];
-        } else {
-            dailyBurn = projection.dailyBurnRate;
-        }
+        let dailyBurn = projection.hasWeekdayPattern 
+            ? projection.weekdayAverages[projectionDate.getDay()] 
+            : projection.dailyBurnRate;
         
         projectedBalance -= dailyBurn;
         projectionData.push(Math.max(0, projectedBalance));
@@ -907,34 +911,11 @@ function renderChart(userData, purchases) {
         dayCounter++;
     }
 
-    // Prepare chart title with confidence indicator
-    let titleText;
-    const zeroDateText = !zeroDate ? "more than 6 months" :
-        zeroDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const zeroDateText = !zeroDate ? "more than 6 months" : zeroDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
     const zeroValueDisplay = formatBalanceValue(0, balanceInfo);
-    
-    const confidenceEmoji = {
-        'low': '🔮',
-        'medium': '📊',
-        'medium-high': '📈',
-        'high': '🎯'
-    }[projection.confidence];
-    
-    titleText = `${confidenceEmoji} Projected to reach ${zeroValueDisplay} around ${zeroDateText}`;
+    const confidenceEmoji = { 'low': '🔮', 'medium': '📊', 'medium-high': '📈', 'high': '🎯' }[projection.confidence];
+    const titleText = `${confidenceEmoji} Projected to reach ${zeroValueDisplay} around ${zeroDateText}`;
 
-    // Destroy existing chart if any
-    if (spendingChart) spendingChart.destroy();
-    
-    // Ensure canvas exists if it was removed by the data gate
-    if (!document.getElementById('spending-chart')) {
-        const newCanvas = document.createElement('canvas');
-        newCanvas.id = 'spending-chart';
-        chartContainer.innerHTML = '';
-        chartContainer.appendChild(newCanvas);
-        spendingChartCanvas = newCanvas;
-    }
-
-    // Create the chart with reduced red squares
     spendingChart = new Chart(spendingChartCanvas, {
         type: 'line',
         data: {
@@ -959,23 +940,15 @@ function renderChart(userData, purchases) {
                     borderDash: projection.confidence === 'high' ? [0, 0] : [5, 5],
                     borderWidth: 3,
                     tension: 0.1,
-                    pointRadius: function(context) {
+                    pointRadius: (context) => {
                         const index = context.dataIndex;
-                        const dataLength = context.dataset.data.length;
                         const actualDataLength = actualData.length;
-                        
-                        // Always show the transition point
                         if (index === actualDataLength - 1) return 5;
-                        
-                        // For projection points, only show every 7th point (weekly) 
-                        // or at the zero balance point
                         if (index >= actualDataLength) {
                             const projectionIndex = index - actualDataLength + 1;
-                            if (projectionIndex % 7 === 0 || context.raw === 0) {
-                                return 5;
-                            }
+                            if (projectionIndex % 7 === 0 || context.raw === 0) return 5;
                         }
-                        return 0; // Hide other points
+                        return 0;
                     },
                     pointStyle: 'rectRot',
                     pointBackgroundColor: '#E74C3C',
@@ -987,43 +960,20 @@ function renderChart(userData, purchases) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                title: {
-                    display: true,
-                    text: titleText,
-                    font: { size: 16, family: "'Patrick Hand', cursive" },
-                    color: 'var(--text-primary)',
-                    padding: { bottom: 15 }
-                },
+                title: { display: true, text: titleText, font: { size: 16, family: "'Patrick Hand', cursive" }, color: 'var(--text-primary)', padding: { bottom: 15 } },
                 legend: { display: true, position: 'bottom' },
-                tooltip: {
-                    callbacks: {
-                        label: (context) => {
-                            const value = formatBalanceValue(Number(context.raw), balanceInfo);
-                            return `${context.dataset.label}: ${value}`;
-                        }
-                    }
-                }
+                tooltip: { callbacks: { label: (context) => `${context.dataset.label}: ${formatBalanceValue(Number(context.raw), balanceInfo)}` } }
             },
             scales: {
-                x: {
-                    type: 'time',
-                    time: { unit: 'day', tooltipFormat: 'MMM d' },
-                    grid: { display: false }
-                },
-                y: {
-                    beginAtZero: true,
-                    ticks: { 
-                        callback: (value) => {
-                            return formatBalanceValue(value, balanceInfo);
-                        }
-                    }
-                }
+                x: { type: 'time', time: { unit: 'day', tooltipFormat: 'MMM d' }, grid: { display: false } },
+                y: { beginAtZero: true, ticks: { callback: (value) => formatBalanceValue(value, balanceInfo) } }
             }
         }
     });
 }
 
-// FIX: Tooltip functionality now simpler
+
+// Tooltip functionality
 function toggleProjectionTooltip() {
     const chartCard = document.querySelector('.chart-card');
     if (!chartCard) return;
@@ -1031,17 +981,14 @@ function toggleProjectionTooltip() {
     let tooltip = document.getElementById('projection-tooltip');
     
     if (tooltip) {
-        // If tooltip exists, remove it
         tooltip.remove();
     } else {
-        // Create and show tooltip
         const tooltipHTML = `
             <div id="projection-tooltip" class="projection-tooltip">
                 <div class="tooltip-paper">
                     <div class="tooltip-tape"></div>
                     <button class="tooltip-close">&times;</button>
                     <h3 class="tooltip-title">🧠 How Your Smart Forecast Works</h3>
-                    
                     <div class="tooltip-content">
                         <div class="tooltip-section">
                             <div class="tooltip-icon">📅</div>
@@ -1050,7 +997,6 @@ function toggleProjectionTooltip() {
                                 <p>I notice if you spend more on weekends vs weekdays!</p>
                             </div>
                         </div>
-                        
                         <div class="tooltip-section">
                             <div class="tooltip-icon">🎯</div>
                             <div class="tooltip-text">
@@ -1058,7 +1004,6 @@ function toggleProjectionTooltip() {
                                 <p>The more you log, the better I predict. After 2 weeks, I'm super accurate!</p>
                             </div>
                         </div>
-                        
                         <div class="tooltip-section">
                             <div class="tooltip-icon">🚀</div>
                             <div class="tooltip-text">
@@ -1066,7 +1011,6 @@ function toggleProjectionTooltip() {
                                 <p>That birthday dinner won't mess up your forecast!</p>
                             </div>
                         </div>
-                        
                         <div class="tooltip-section">
                             <div class="tooltip-icon">📚</div>
                             <div class="tooltip-text">
@@ -1074,7 +1018,6 @@ function toggleProjectionTooltip() {
                                 <p>Designed to help your money last the whole semester!</p>
                             </div>
                         </div>
-                        
                         <div class="tooltip-cta">
                             <p>💡 <strong>Pro tip:</strong> Log daily for a week to unlock the most accurate predictions!</p>
                         </div>
@@ -1083,10 +1026,8 @@ function toggleProjectionTooltip() {
             </div>
         `;
         
-        // Add tooltip to the chart card
         chartCard.insertAdjacentHTML('beforeend', tooltipHTML);
             
-        // Add close button handler
         const closeBtn = document.querySelector('.tooltip-close');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
@@ -1094,7 +1035,6 @@ function toggleProjectionTooltip() {
             });
         }
         
-        // Click outside to close
         setTimeout(() => {
             document.addEventListener('click', function closeTooltipOnClickOutside(e) {
                 const tooltip = document.getElementById('projection-tooltip');
