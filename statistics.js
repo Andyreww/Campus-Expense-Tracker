@@ -67,18 +67,19 @@ async function checkProfile() {
 
 function setupBalanceTypes(userData) {
     const { balanceTypes, isDenisonStudent, classYear } = userData;
+    let rawBalanceTypes = [];
     
     if (isDenisonStudent) {
         // For Denison students
         if (classYear === 'Senior') {
             // Seniors only see credits and dining
-            userBalanceTypes = [
+            rawBalanceTypes = [
                 { id: 'credits', label: 'Campus Credits', type: 'money' },
                 { id: 'dining', label: 'Dining Dollars', type: 'money' }
             ];
         } else {
             // Other years see all 4 standard types
-            userBalanceTypes = [
+            rawBalanceTypes = [
                 { id: 'credits', label: 'Campus Credits', type: 'money' },
                 { id: 'dining', label: 'Dining Dollars', type: 'money' },
                 { id: 'swipes', label: 'Meal Swipes', type: 'count', resetsWeekly: true, resetDay: 'Sunday' },
@@ -87,12 +88,20 @@ function setupBalanceTypes(userData) {
         }
     } else {
         // For custom universities, use their balance types
-        userBalanceTypes = balanceTypes || [];
+        rawBalanceTypes = balanceTypes || [];
     }
+
+    // FIX: Filter to only include balance types that are 'money'
+    userBalanceTypes = rawBalanceTypes.filter(bt => bt.type === 'money');
     
-    // Set default selected balance type
+    // Set default selected balance type from the filtered list
     if (userBalanceTypes.length > 0) {
-        selectedBalanceType = userBalanceTypes[0].id;
+        // If the previously selected type is not in the new list, or if it's null, reset to the first available.
+        if (!selectedBalanceType || !userBalanceTypes.some(bt => bt.id === selectedBalanceType)) {
+            selectedBalanceType = userBalanceTypes[0].id;
+        }
+    } else {
+        selectedBalanceType = null;
     }
 }
 
@@ -797,7 +806,7 @@ function calculateSmartProjection(purchases, currentBalance, userData) {
     };
 }
 
-// FIX: Rewrote this function to be more robust
+// Rewrote this function to be more robust
 function renderChart(userData, purchases) {
     const chartCard = document.querySelector('.chart-card');
     if (!chartCard) return;
@@ -820,7 +829,7 @@ function renderChart(userData, purchases) {
         return;
     }
     
-    // FIX: The tooltip button is now always visible, so we don't need to hide/show it here.
+    // The tooltip button is now always visible, so we don't need to hide/show it here.
     
     // Check the pre-calculated unlocked status
     if (!unlockedForecasts[selectedBalanceType]) {
