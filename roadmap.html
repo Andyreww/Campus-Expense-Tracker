@@ -85,7 +85,7 @@
             // Wait for Firebase to be ready
             const { auth, db } = await firebaseReady;
             const pollListContainer = document.getElementById('poll-list');
-            let currentUser = auth.currentUser;
+            let currentUser = null; // Start with null user
 
             // --- User State ---
             let userVotes = {}; // Cache user's votes to prevent re-fetching
@@ -115,13 +115,11 @@
                 ];
 
                 const pollsRef = collection(db, "featurePolls");
-
-                for (const poll of initialPolls) {
+                const promises = initialPolls.map(async (poll) => {
                     const pollDocRef = doc(pollsRef, poll.id);
                     const docSnap = await getDoc(pollDocRef);
 
                     if (!docSnap.exists()) {
-                        // Document doesn't exist, so we can create it.
                         try {
                             await setDoc(pollDocRef, {
                                 title: poll.title,
@@ -134,7 +132,8 @@
                             console.error("Error adding poll:", error);
                         }
                     }
-                }
+                });
+                await Promise.all(promises); // Wait for all seeding checks to complete
             }
 
 
@@ -142,13 +141,18 @@
              * Fetches the user's existing votes to update the UI correctly.
              */
             async function fetchUserVotes() {
-                if (!currentUser) return;
+                if (!currentUser) {
+                    userVotes = {}; // Clear votes if user logs out
+                    return;
+                }
                 try {
                     const votesRef = collection(db, 'users', currentUser.uid, 'featureVotes');
                     const snapshot = await getDocs(votesRef);
+                    const newUserVotes = {};
                     snapshot.forEach(doc => {
-                        userVotes[doc.id] = true;
+                        newUserVotes[doc.id] = true;
                     });
+                    userVotes = newUserVotes;
                 } catch (error) {
                     console.error("Error fetching user votes:", error);
                 }
@@ -198,7 +202,7 @@
 
                 const totalVotes = poll.voteCount || 0;
                 // Find the highest vote count for better scaling, with a minimum of 50
-                const maxVotes = Math.max(50, ...document.querySelectorAll('.poll-vote-count').map(el => parseInt(el.textContent) || 0));
+                const maxVotes = Math.max(50, ...document.querySelectorAll('.poll-vote-count').map(el => parseInt(el.textContent) || 0), totalVotes);
                 const progress = Math.min((totalVotes / maxVotes) * 100, 100);
                 
                 const voters = poll.recentVoters || [];
@@ -295,7 +299,7 @@
                     countElement.textContent = `${currentCount + 1} Votes`;
 
                     const progressBar = pollItem.querySelector('.poll-progress-fill');
-                    const maxVotes = Math.max(50, ...document.querySelectorAll('.poll-vote-count').map(el => parseInt(el.textContent) || 0));
+                    const maxVotes = Math.max(50, ...document.querySelectorAll('.poll-vote-count').map(el => parseInt(el.textContent) || 0), currentCount + 1);
                     const newProgress = Math.min(((currentCount + 1) / maxVotes) * 100, 100);
                     progressBar.style.width = `${newProgress}%`;
 
@@ -317,19 +321,18 @@
             }
 
             // --- Initial Load ---
-            await seedDatabaseWithInitialPolls(); // Ensure DB is seeded before rendering
+            // 1. Seed the database first to ensure polls exist.
+            await seedDatabaseWithInitialPolls(); 
 
+            // 2. Set up a single listener for auth state. It will fire on page load
+            // with the current user (or null) and handle all subsequent changes.
             auth.onAuthStateChanged(async (user) => {
                 currentUser = user;
-                // Re-fetch votes and re-render when auth state changes
-                await fetchUserVotes();
-                await renderPolls();
+                await fetchUserVotes(); // Fetch votes for the current user (or clear them if logged out)
+                await renderPolls(); // Render the polls with the correct vote status
             });
 
-            // Initial render for non-logged-in users or if user is already available
-            if (!currentUser) {
-                renderPolls();
-            }
+            pollListContainer.addEventListener('click', handleVote);
 
         });
     </script>
