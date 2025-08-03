@@ -115,7 +115,7 @@ firebaseReady.then(({ auth, db }) => {
             // redirect them to the login page.
             if (onProtectedPage) {
                 console.log(`User on protected page "${path}" while logged out. Redirecting to login page.`);
-                window.location.replace('/login.html');
+                // window.location.replace('/login.html');
             }
             // If they are on the landing page (index.html) or an auth page, they can stay. No redirect needed.
         }
