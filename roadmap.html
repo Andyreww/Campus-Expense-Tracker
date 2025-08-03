@@ -77,7 +77,7 @@
         import { firebaseReady } from './auth.js';
         // Import necessary Firestore functions
         import { 
-            getFirestore, collection, getDocs, doc, getDoc, setDoc,
+            getFirestore, collection, getDocs, doc,
             runTransaction, orderBy, query, arrayUnion, serverTimestamp
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -91,51 +91,6 @@
             let userVotes = {}; // Cache user's votes to prevent re-fetching
 
             // --- Main Functions ---
-
-            /**
-             * Seeds the database with initial polls from the Trello list if they don't exist.
-             * This prevents overwriting existing vote counts.
-             */
-            async function seedDatabaseWithInitialPolls() {
-                const initialPolls = [
-                    { id: 'monthly-questionnaire', title: 'Monthly Questionnaire', description: 'Answer fun monthly questions and see how your anonymous answers compare to others on campus.' },
-                    { id: 'monthly-trending-picks', title: 'Monthly Trending Picks', description: 'Discover the most popular songs, movies, or campus spots that everyone is talking about each month.' },
-                    { id: 'community-help-requests', title: 'Community Help Requests', description: 'Ask for or offer help to fellow students for things like notes, study groups, or campus advice.' },
-                    { id: 'achievement-system', title: 'Achievement System', description: 'Unlock badges and rewards for logging consistently, exploring new places, and managing your funds.' },
-                    { id: 'friend-spending-comparison', title: 'Friend Spending Comparison (Opt-in)', description: 'Opt-in to see how your spending habits compare to your friends for friendly competition and budgeting insights.' },
-                    { id: 'low-balance-alerts', title: 'Low Balance Alerts', description: 'Get a friendly notification when your dining dollars or meal swipes are running low so you\'re never caught off guard.' },
-                    { id: 'club-badges', title: 'Club Badges', description: 'Show off your involvement by displaying badges for the campus clubs and organizations you\'re a part of.' },
-                    { id: 'colored-usernames', title: 'Colored Usernames', description: 'Personalize your profile by choosing a unique color for your username to stand out on the leaderboard.' },
-                    { id: 'spending-advice', title: 'Spending Advice', description: 'Get personalized tips and advice on how to balance your spending based on your habits.' },
-                    { id: 'campus-spending-stats', title: 'Campus Spending Statistics', description: 'See anonymous, aggregated stats on what students are spending their dining dollars on around campus.' },
-                    { id: 'recent-history-suggestions', title: 'Recent History Suggestions', description: 'Quickly log frequent purchases with smart suggestions based on your recent history.' },
-                    { id: 'smart-predictive-items', title: 'Smart Predictive Items', description: 'Nooksii will learn your routine and predict items you might be buying based on the time and day.' },
-                    { id: 'reminders-feature', title: 'Reminders', description: 'Set custom reminders to log your expenses or check your balance to help you stay on track.' },
-                    { id: 'leaderboard-design-change', title: 'Internal Leaderboard Redesign', description: 'A complete visual and functional overhaul of the leaderboard to make it more engaging and fun.' }
-                ];
-
-                const pollsRef = collection(db, "featurePolls");
-                const promises = initialPolls.map(async (poll) => {
-                    const pollDocRef = doc(pollsRef, poll.id);
-                    const docSnap = await getDoc(pollDocRef);
-
-                    if (!docSnap.exists()) {
-                        try {
-                            await setDoc(pollDocRef, {
-                                title: poll.title,
-                                description: poll.description,
-                                voteCount: 0,
-                                recentVoters: []
-                            });
-                            console.log(`Added new project: ${poll.title}`);
-                        } catch (error) {
-                            console.error("Error adding poll:", error);
-                        }
-                    }
-                });
-                await Promise.all(promises); // Wait for all seeding checks to complete
-            }
-
 
             /**
              * Fetches the user's existing votes to update the UI correctly.
@@ -164,7 +119,21 @@
             async function renderPolls() {
                 if (!pollListContainer) return;
                 
-                pollListContainer.innerHTML = ''; // Clear placeholders
+                // Show placeholders while loading
+                const placeholders = `
+                    <div class="poll-item-placeholder">
+                        <div class="placeholder-line title"></div>
+                        <div class="placeholder-line"></div>
+                        <div class="placeholder-line short"></div>
+                        <div class="placeholder-progress"></div>
+                    </div>
+                    <div class="poll-item-placeholder">
+                        <div class="placeholder-line title"></div>
+                        <div class="placeholder-line"></div>
+                        <div class="placeholder-line short"></div>
+                        <div class="placeholder-progress"></div>
+                    </div>`;
+                pollListContainer.innerHTML = placeholders;
 
                 try {
                     // Fetch polls from Firestore, ordered by voteCount descending
@@ -172,6 +141,8 @@
                     const q = query(pollsRef, orderBy("voteCount", "desc"));
                     const querySnapshot = await getDocs(q);
                     
+                    pollListContainer.innerHTML = ''; // Clear placeholders before rendering real data
+
                     if (querySnapshot.empty) {
                         pollListContainer.innerHTML = `<p class="error-text">No construction projects available right now. Check back soon!</p>`;
                         return;
@@ -207,7 +178,7 @@
                 
                 const voters = poll.recentVoters || [];
                 let votersHTML = voters.slice(-5).reverse().map(voter => 
-                    `<img src="${voter.photoURL || `https://i.pravatar.cc/40?u=${voter.uid}`}" alt="${voter.displayName}" class="voter-avatar" title="${voter.displayName}">`
+                    `<img src="${voter.photoURL || `https://i.pravatar.cc/40?u=${voter.uid}`}" alt="${voter.displayName}" class="voter-avatar" title="${voter.displayName}" onerror="this.onerror=null;this.src='https://i.pravatar.cc/40';">`
                 ).join('');
 
                 if (totalVotes > 5) {
@@ -266,7 +237,6 @@
                             throw "Poll does not exist!";
                         }
                         
-                        // Server-side check to ensure user hasn't voted
                         const userVoteDoc = await transaction.get(userVoteRef);
                         if (userVoteDoc.exists()) {
                             console.log("User has already voted for this feature.");
@@ -280,20 +250,18 @@
                             photoURL: currentUser.photoURL || null
                         };
 
-                        // Update the poll with the new vote count and add the voter to the array
                         transaction.update(pollRef, { 
                             voteCount: newVoteCount,
                             recentVoters: arrayUnion(newVoter)
                         });
                         
-                        // Record the user's vote in their own documents
                         transaction.set(userVoteRef, { votedAt: serverTimestamp() });
                     });
 
                     console.log("Vote successful!");
                     userVotes[pollId] = true; // Update local cache
 
-                    // --- Optimistically update UI ---
+                    // Optimistically update UI
                     const countElement = pollItem.querySelector('.poll-vote-count');
                     const currentCount = parseInt(countElement.textContent) || 0;
                     countElement.textContent = `${currentCount + 1} Votes`;
@@ -321,15 +289,10 @@
             }
 
             // --- Initial Load ---
-            // 1. Seed the database first to ensure polls exist.
-            await seedDatabaseWithInitialPolls(); 
-
-            // 2. Set up a single listener for auth state. It will fire on page load
-            // with the current user (or null) and handle all subsequent changes.
             auth.onAuthStateChanged(async (user) => {
                 currentUser = user;
-                await fetchUserVotes(); // Fetch votes for the current user (or clear them if logged out)
-                await renderPolls(); // Render the polls with the correct vote status
+                await fetchUserVotes(); 
+                await renderPolls(); 
             });
 
             pollListContainer.addEventListener('click', handleVote);
