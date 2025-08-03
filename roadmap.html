@@ -17,13 +17,21 @@
         /* This style block creates the responsive grid layout */
         @media (min-width: 768px) {
             .poll-list {
-                grid-template-columns: 1fr 1fr;
+                /* Switched to flexbox for better wrapping */
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
                 gap: 2rem 1.5rem; /* Vertical and horizontal gap */
+            }
+            .poll-item {
+                /* Each item takes up half the space on tablets */
+                width: calc(50% - 1rem);
             }
         }
         @media (min-width: 1024px) {
-            .poll-list {
-                grid-template-columns: 1fr 1fr 1fr; /* 3 columns on large screens */
+            .poll-item {
+                 /* Each item takes up a third of the space on desktops */
+                width: calc(33.333% - 1rem);
             }
         }
     </style>
@@ -215,6 +223,18 @@
                             </div>
                             <div class="poll-action" style="display: none;"><button class="poll-vote-button"><svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button></div>
                         </div>
+
+                        <!-- New "Suggest a Feature" Card -->
+                        <div class="poll-item poll-item-suggestion">
+                           <div class="suggestion-content">
+                               <div class="suggestion-icon">
+                                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg>
+                               </div>
+                               <h3 class="suggestion-title">Have an Idea?</h3>
+                               <p class="suggestion-text">Think something's missing? Let us know! We're always looking for new projects to build.</p>
+                               <a href="mailto:your-email@example.com?subject=Nooksii Feature Idea" class="suggestion-button">Suggest a Feature</a>
+                           </div>
+                        </div>
                         
                     </div>
                 </div>
@@ -251,7 +271,7 @@
              * Re-orders the poll items in the DOM based on vote counts.
              */
             function sortPollsUI(voteData) {
-                const pollItems = Array.from(pollListContainer.querySelectorAll('.poll-item'));
+                const pollItems = Array.from(pollListContainer.querySelectorAll('.poll-item:not(.poll-item-suggestion)'));
                 pollItems.sort((a, b) => {
                     const votesA = voteData[a.dataset.pollId]?.voteCount || 0;
                     const votesB = voteData[b.dataset.pollId]?.voteCount || 0;
@@ -259,6 +279,12 @@
                 });
                 // Re-append to the container in the new order
                 pollItems.forEach(item => pollListContainer.appendChild(item));
+                
+                // Always make sure the suggestion card is last
+                const suggestionCard = pollListContainer.querySelector('.poll-item-suggestion');
+                if (suggestionCard) {
+                    pollListContainer.appendChild(suggestionCard);
+                }
             }
 
             /**
