@@ -80,7 +80,7 @@ firebaseReady.then(({ auth, db }) => {
         const path = window.location.pathname;
 
         const onAuthPage = path.endsWith('/login.html') || path.endsWith('/signup.html');
-        const onLandingPage = path === '/' || path.endsWith('/index.html');
+        const onLandingPage = path === '/' || path.endsWith('/index.html') || path.endsWith('/roadmap.html');
         const onQuestionnairePage = path.endsWith('/questionnaire.html');
         // A page is "protected" if it's NOT the landing, auth, or questionnaire page.
         const onProtectedPage = !onAuthPage && !onLandingPage && !onQuestionnairePage;
