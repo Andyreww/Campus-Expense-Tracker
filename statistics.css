@@ -39,7 +39,7 @@ body {
 }
 
 .stats-card {
-    background: var(--paper-white);
+    background: var(--bg-primary); /* FIX: Reverted to the correct background variable */
     border: 3px solid var(--wood-dark);
     border-radius: 1rem;
     padding: 1.5rem;
