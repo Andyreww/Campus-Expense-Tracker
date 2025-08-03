@@ -188,14 +188,17 @@
                         if (hasVoted) {
                             // --- UNVOTE LOGIC ---
                             if (pollDoc.exists()) {
-                                const newVoteCount = Math.max(0, (pollDoc.data().voteCount || 0) - 1);
+                                const currentVoteCount = pollDoc.data().voteCount || 0;
+                                const newVoteCount = Math.max(0, currentVoteCount - 1);
+                                
                                 const updatedVoters = (pollDoc.data().recentVoters || []).filter(v => v.uid !== currentUser.uid);
+                                
                                 transaction.update(pollRef, {
                                     voteCount: newVoteCount,
                                     recentVoters: updatedVoters
                                 });
                             }
-                            // Always delete the user's vote record, even if the poll doc was removed
+                            // Always delete the user's vote record, even if the main poll doc was removed
                             transaction.delete(userVoteRef);
                         } else {
                             // --- VOTE LOGIC ---
@@ -213,6 +216,8 @@
                             } else {
                                 // Create the document if it doesn't exist
                                 transaction.set(pollRef, { 
+                                    title: pollItem.querySelector('.poll-title').textContent,
+                                    description: pollItem.querySelector('.poll-description').textContent,
                                     voteCount: 1, 
                                     recentVoters: [voterInfo] 
                                 });
@@ -223,8 +228,8 @@
                     });
 
                 } catch (error) {
-                    console.error("Transaction failed: ", error);
-                    alert("There was an error changing your vote. Please try again.");
+                    console.error("⛔️ Transaction failed! Here is the full error object:", error);
+                    alert("There was an error changing your vote. Please check the console for more details.");
                 } finally {
                     button.disabled = false; // Re-enable after transaction
                 }
