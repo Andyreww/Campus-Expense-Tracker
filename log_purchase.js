@@ -35,6 +35,17 @@ async function main() {
         let walletToAnimate = null; // Used to trigger wallet shake animation
         let selectedPaymentBalance = null; // Track which balance user wants to pay with
 
+        // Campus restaurants that accept credits (only for Denison students)
+        const CAMPUS_RESTAURANTS = [
+            { id: 'china-garden', name: 'China Garden', file: 'DV_price.json' },
+            { id: 'three-tigers', name: 'Three Tigers', file: 'TTigers_price.json' },
+            { id: 'harvest-pizza', name: 'Harvest Pizza', file: 'harvest_price.json' },
+            { id: 'pochos', name: "Pocho's Tequila & Cocina", file: 'pochos_price.json' },
+            { id: 'granville-pub', name: 'Granville Pub', file: 'pub_price.json' },
+            { id: 'the-station', name: 'The Station', file: 'station_price.json' },
+            { id: 'whitts', name: "Whitt's Frozen Custard", file: 'whitts_price.json' }
+        ];
+
         // --- DOM ELEMENTS ---
         const itemSearchInput = document.getElementById('item-search');
         const categorySidebar = document.getElementById('category-sidebar');
@@ -114,8 +125,8 @@ async function main() {
                     
                     // Set default payment balance if not set
                     if (!selectedPaymentBalance && userBalanceTypes.length > 0) {
-                        // For Denison students at Ross Market, default to credits
-                        if (isDenisonStudent && currentStoreId === 'ross') {
+                        // For Denison students at Ross Market or campus restaurants, default to credits
+                        if (isDenisonStudent && (currentStoreId === 'ross' || CAMPUS_RESTAURANTS.some(r => r.id === currentStoreId))) {
                             selectedPaymentBalance = 'credits';
                         } else {
                             // Otherwise prefer money type balances
@@ -145,12 +156,20 @@ async function main() {
                 storeSelect.remove(0);
             }
             
-            // Only add Ross Market for Denison students
+            // Only add Ross Market and campus restaurants for Denison students
             if (isDenisonStudent) {
                 const rossOption = document.createElement('option');
                 rossOption.value = 'ross';
                 rossOption.textContent = 'Ross Market';
                 storeSelect.appendChild(rossOption);
+                
+                // Add campus restaurants
+                CAMPUS_RESTAURANTS.forEach(restaurant => {
+                    const option = document.createElement('option');
+                    option.value = restaurant.id;
+                    option.textContent = restaurant.name;
+                    storeSelect.appendChild(option);
+                });
             }
             
             // Add custom stores
@@ -197,14 +216,22 @@ async function main() {
             cart = [];
             renderCart();
         
-            if (currentStoreId === 'ross') {
-                currentStoreCurrency = 'dollars'; // Ross items are priced in dollars
+            // Check if it's a campus restaurant
+            const isCampusRestaurant = CAMPUS_RESTAURANTS.some(r => r.id === currentStoreId);
+            
+            if (currentStoreId === 'ross' || isCampusRestaurant) {
+                currentStoreCurrency = 'dollars'; // Ross and campus restaurants items are priced in dollars
                 if (isDenisonStudent) {
                     selectedPaymentBalance = 'credits'; // But paid for with credits for Denison users
                 }
                 customStoreActions.classList.add('hidden');
                 categorySidebar.classList.remove('hidden');
-                await loadRossStoreData();
+                
+                if (currentStoreId === 'ross') {
+                    await loadRossStoreData();
+                } else {
+                    await loadCampusRestaurantData(currentStoreId);
+                }
             } else {
                 const store = customStores.find(s => s.id === currentStoreId);
                 if (store) {
@@ -253,6 +280,836 @@ async function main() {
                 console.error("Could not load Ross Market data:", error);
                 itemListContainer.innerHTML = '<p class="empty-message">Could not load items for Ross Market.</p>';
             }
+        }
+
+        async function loadCampusRestaurantData(restaurantId) {
+            itemListContainer.innerHTML = `<div class="loading-message"><div class="loading-spinner"></div><p>Loading menu...</p></div>`;
+            
+            const restaurant = CAMPUS_RESTAURANTS.find(r => r.id === restaurantId);
+            if (!restaurant) {
+                itemListContainer.innerHTML = '<p class="empty-message">Restaurant not found.</p>';
+                return;
+            }
+            
+            try {
+                const response = await fetch(restaurant.file);
+                const data = await response.json();
+                
+                // Parse different restaurant formats
+                switch (restaurantId) {
+                    case 'china-garden':
+                        allItems = parseChinaGarden(data);
+                        break;
+                    case 'three-tigers':
+                        allItems = parseThreeTigers(data);
+                        break;
+                    case 'harvest-pizza':
+                        allItems = parseHarvestPizza(data);
+                        break;
+                    case 'pochos':
+                        allItems = parsePochos(data);
+                        break;
+                    case 'granville-pub':
+                        allItems = parseGranvillePub(data);
+                        break;
+                    case 'the-station':
+                        allItems = parseTheStation(data);
+                        break;
+                    case 'whitts':
+                        allItems = parseWhitts(data);
+                        break;
+                    default:
+                        allItems = [];
+                }
+                
+                renderCategories();
+                renderItems();
+            } catch (error) {
+                console.error(`Could not load ${restaurant.name} data:`, error);
+                itemListContainer.innerHTML = `<p class="empty-message">Could not load items for ${restaurant.name}.</p>`;
+            }
+        }
+
+        // Parser functions for each restaurant
+        function parseChinaGarden(data) {
+            const items = [];
+            const menu = data.menu;
+            
+            // Iterate through all menu sections
+            Object.entries(menu).forEach(([sectionKey, section]) => {
+                const sectionName = formatSectionName(sectionKey);
+                
+                if (Array.isArray(section)) {
+                    // Direct array of items (like fried_rice)
+                    section.forEach(item => {
+                        items.push(...createItemVariants(item, sectionName, 'china-garden'));
+                    });
+                } else if (section.items) {
+                    // Section with items array
+                    section.items.forEach(item => {
+                        items.push(...createItemVariants(item, sectionName, 'china-garden'));
+                    });
+                }
+            });
+            
+            return items;
+        }
+
+        function parseThreeTigers(data) {
+            const items = [];
+            const menu = data.menu;
+            
+            // Parse shareables
+            if (menu.shareables) {
+                menu.shareables.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Shareables',
+                        emoji: getEmojiForItem(item.name),
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse OG Street Food
+            if (menu.og_street_food?.items) {
+                menu.og_street_food.items.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'OG Street Food',
+                        emoji: getEmojiForItem(item.name),
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse steamed buns
+            if (menu.steamed_buns?.items) {
+                menu.steamed_buns.items.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: 5, // Single price
+                        category: 'Steamed Buns',
+                        emoji: '🥟',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                    items.push({
+                        name: `${item.name} (3 pack)`,
+                        price: 14, // 3 for 14
+                        category: 'Steamed Buns',
+                        emoji: '🥟',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse handhelds
+            if (menu.handhelds?.items) {
+                menu.handhelds.items.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Handhelds',
+                        emoji: getEmojiForItem(item.name),
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse salads
+            if (menu.salads?.items) {
+                menu.salads.items.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price || 16, // Cobb salad has no price in JSON
+                        category: 'Salads',
+                        emoji: '🥗',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse kids menu
+            if (menu.kids?.items) {
+                menu.kids.items.forEach(item => {
+                    items.push({
+                        name: `Kids ${item.name}`,
+                        price: menu.kids.price,
+                        category: 'Kids Menu',
+                        emoji: '🧒',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse desserts
+            if (menu.desserts?.items) {
+                menu.desserts.items.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: menu.desserts.price,
+                        category: 'Desserts',
+                        emoji: '🍰',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            return items;
+        }
+
+        function parseHarvestPizza(data) {
+            const items = [];
+            const menu = data.menu;
+            
+            // Parse small plates
+            if (menu.small_plates) {
+                menu.small_plates.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Small Plates',
+                        emoji: '🍽️',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse salads with size options
+            if (menu.salads?.items) {
+                menu.salads.items.forEach(item => {
+                    if (item.price?.small) {
+                        items.push({
+                            name: `${item.name} (Small)`,
+                            price: item.price.small,
+                            category: 'Salads',
+                            emoji: '🥗',
+                            priceType: 'money',
+                            description: item.description
+                        });
+                        items.push({
+                            name: `${item.name} (Large)`,
+                            price: item.price.large,
+                            category: 'Salads',
+                            emoji: '🥗',
+                            priceType: 'money',
+                            description: item.description
+                        });
+                    } else if (item.price) {
+                        items.push({
+                            name: item.name,
+                            price: item.price,
+                            category: 'Salads',
+                            emoji: '🥗',
+                            priceType: 'money',
+                            description: item.description
+                        });
+                    }
+                });
+            }
+            
+            // Parse pizzas
+            if (menu.pizzas) {
+                menu.pizzas.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Pizzas',
+                        emoji: '🍕',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse lunch special
+            if (menu.lunch_special) {
+                items.push({
+                    name: menu.lunch_special.name,
+                    price: menu.lunch_special.price,
+                    category: 'Specials',
+                    emoji: '🍽️',
+                    priceType: 'money',
+                    description: menu.lunch_special.description
+                });
+            }
+            
+            // Parse handhelds
+            if (menu.handhelds) {
+                menu.handhelds.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Handhelds',
+                        emoji: getEmojiForItem(item.name),
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse desserts
+            if (menu.desserts) {
+                menu.desserts.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Desserts',
+                        emoji: '🍰',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse kids menu
+            if (menu.kids) {
+                menu.kids.forEach(item => {
+                    items.push({
+                        name: `Kids ${item.name}`,
+                        price: item.price,
+                        category: 'Kids Menu',
+                        emoji: '🧒',
+                        priceType: 'money'
+                    });
+                });
+            }
+            
+            // Parse drinks
+            if (menu.drinks) {
+                menu.drinks.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Drinks',
+                        emoji: '🥤',
+                        priceType: 'money'
+                    });
+                });
+            }
+            
+            return items;
+        }
+
+        function parsePochos(data) {
+            const items = [];
+            const menu = data.menu;
+            
+            // Parse starters
+            if (menu.starters) {
+                menu.starters.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Starters',
+                        emoji: '🍽️',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse soups and salads
+            if (menu.soups_and_salads) {
+                menu.soups_and_salads.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Soups & Salads',
+                        emoji: item.name.includes('Salad') ? '🥗' : '🍲',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse bowls
+            if (menu.bowls) {
+                // Base bowl price
+                items.push({
+                    name: 'Bowl (Base)',
+                    price: menu.bowls.price,
+                    category: 'Bowls',
+                    emoji: '🥙',
+                    priceType: 'money',
+                    description: menu.bowls.description
+                });
+            }
+            
+            // Parse specialties
+            if (menu.specialties) {
+                // Fajitas
+                if (menu.specialties.fajitas?.options) {
+                    menu.specialties.fajitas.options.forEach(option => {
+                        items.push({
+                            name: `${option.item} Fajitas`,
+                            price: option.price,
+                            category: 'Fajitas',
+                            emoji: '🌮',
+                            priceType: 'money',
+                            description: menu.specialties.fajitas.description
+                        });
+                    });
+                }
+                
+                // Burritos
+                if (menu.specialties.burritos) {
+                    menu.specialties.burritos.forEach(item => {
+                        items.push({
+                            name: item.name,
+                            price: item.price,
+                            category: 'Burritos',
+                            emoji: '🌯',
+                            priceType: 'money',
+                            description: item.description
+                        });
+                    });
+                }
+                
+                // Quesadillas
+                if (menu.specialties.quesadillas) {
+                    menu.specialties.quesadillas.forEach(item => {
+                        items.push({
+                            name: item.name,
+                            price: item.price,
+                            category: 'Quesadillas',
+                            emoji: '🧀',
+                            priceType: 'money',
+                            description: item.description
+                        });
+                    });
+                }
+                
+                // Enchiladas
+                if (menu.specialties.enchiladas) {
+                    menu.specialties.enchiladas.forEach(item => {
+                        items.push({
+                            name: item.name,
+                            price: item.price,
+                            category: 'Enchiladas',
+                            emoji: '🌮',
+                            priceType: 'money',
+                            description: item.description
+                        });
+                    });
+                }
+            }
+            
+            // Parse seafood
+            if (menu.seafood) {
+                menu.seafood.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Seafood',
+                        emoji: '🦐',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse steaks
+            if (menu.steaks) {
+                menu.steaks.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Steaks',
+                        emoji: '🥩',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse chicken
+            if (menu.chicken) {
+                menu.chicken.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Chicken',
+                        emoji: '🍗',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse street tacos
+            if (menu.street_tacos) {
+                menu.street_tacos.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Street Tacos',
+                        emoji: '🌮',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse kids menu
+            if (menu.childrens_menu?.items) {
+                menu.childrens_menu.items.forEach(item => {
+                    items.push({
+                        name: `Kids ${item.name}`,
+                        price: item.price,
+                        category: 'Kids Menu',
+                        emoji: '🧒',
+                        priceType: 'money'
+                    });
+                });
+            }
+            
+            // Parse desserts
+            if (menu.dessert_menu) {
+                menu.dessert_menu.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Desserts',
+                        emoji: '🍰',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            return items;
+        }
+
+        function parseGranvillePub(data) {
+            const items = [];
+            const menu = data.menu;
+            
+            // Parse starters
+            if (menu.starters) {
+                menu.starters.forEach(item => {
+                    if (typeof item.price === 'object') {
+                        // Items with size options
+                        Object.entries(item.price).forEach(([size, price]) => {
+                            items.push({
+                                name: `${item.name} (${formatSizeName(size)})`,
+                                price: price,
+                                category: 'Starters',
+                                emoji: '🍽️',
+                                priceType: 'money',
+                                description: item.description
+                            });
+                        });
+                    } else {
+                        items.push({
+                            name: item.name,
+                            price: item.price,
+                            category: 'Starters',
+                            emoji: '🍽️',
+                            priceType: 'money',
+                            description: item.description
+                        });
+                    }
+                });
+            }
+            
+            // Parse tenders and wings
+            if (menu.tenders_and_wings?.items) {
+                menu.tenders_and_wings.items.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Tenders & Wings',
+                        emoji: '🍗',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse burgers
+            if (menu.flame_grilled_burgers?.items) {
+                menu.flame_grilled_burgers.items.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Burgers',
+                        emoji: '🍔',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse salads
+            if (menu.salads) {
+                menu.salads.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Salads',
+                        emoji: '🥗',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse flatbread pizzas
+            if (menu.flatbread_pizzas) {
+                menu.flatbread_pizzas.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Flatbread Pizzas',
+                        emoji: '🍕',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse bowls and plates
+            if (menu.bowls_and_plates) {
+                menu.bowls_and_plates.forEach(item => {
+                    if (typeof item.price === 'object') {
+                        Object.entries(item.price).forEach(([size, price]) => {
+                            items.push({
+                                name: `${item.name} (${formatSizeName(size)})`,
+                                price: price,
+                                category: 'Bowls & Plates',
+                                emoji: '🍲',
+                                priceType: 'money',
+                                description: item.description
+                            });
+                        });
+                    } else {
+                        items.push({
+                            name: item.name,
+                            price: item.price,
+                            category: 'Bowls & Plates',
+                            emoji: '🍽️',
+                            priceType: 'money',
+                            description: item.description
+                        });
+                    }
+                });
+            }
+            
+            // Parse sandwiches
+            if (menu.sandwiches) {
+                menu.sandwiches.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Sandwiches',
+                        emoji: '🥪',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            // Parse sides
+            if (menu.sides) {
+                menu.sides.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Sides',
+                        emoji: '🍟',
+                        priceType: 'money'
+                    });
+                });
+            }
+            
+            // Parse desserts
+            if (menu.dessert) {
+                menu.dessert.forEach(item => {
+                    items.push({
+                        name: item.name,
+                        price: item.price,
+                        category: 'Desserts',
+                        emoji: '🍰',
+                        priceType: 'money',
+                        description: item.description
+                    });
+                });
+            }
+            
+            return items;
+        }
+
+        function parseTheStation(data) {
+            const items = [];
+            const sections = data.sections;
+            
+            Object.entries(sections).forEach(([sectionKey, section]) => {
+                const categoryName = formatSectionName(sectionKey);
+                
+                if (section.items) {
+                    section.items.forEach(item => {
+                        items.push({
+                            name: item.name,
+                            price: item.price,
+                            category: categoryName,
+                            emoji: getEmojiForItem(item.name),
+                            priceType: 'money',
+                            description: item.description
+                        });
+                    });
+                }
+            });
+            
+            return items;
+        }
+
+        function parseWhitts(data) {
+            const items = [];
+            
+            // Parse custards
+            if (data.custards) {
+                data.custards.forEach(item => {
+                    if (item.sizes) {
+                        Object.entries(item.sizes).forEach(([size, price]) => {
+                            const priceNum = parseFloat(price.replace('$', ''));
+                            items.push({
+                                name: `${item.name} (${size})`,
+                                price: priceNum,
+                                category: 'Custards',
+                                emoji: '🍦',
+                                priceType: 'money'
+                            });
+                        });
+                    }
+                });
+            }
+            
+            // Parse favorites
+            if (data.favorites) {
+                data.favorites.forEach(item => {
+                    if (item.price) {
+                        if (typeof item.price === 'string') {
+                            // Handle range prices by taking the lower bound
+                            const priceNum = parseFloat(item.price.replace('$', '').split(' ')[0]);
+                            items.push({
+                                name: item.name,
+                                price: priceNum,
+                                category: 'Favorites',
+                                emoji: '🍨',
+                                priceType: 'money'
+                            });
+                        } else {
+                            const priceNum = parseFloat(item.price);
+                            items.push({
+                                name: item.name,
+                                price: priceNum,
+                                category: 'Favorites',
+                                emoji: '🍨',
+                                priceType: 'money'
+                            });
+                        }
+                    } else if (item.sizes) {
+                        Object.entries(item.sizes).forEach(([size, price]) => {
+                            const priceNum = parseFloat(price.replace('$', ''));
+                            items.push({
+                                name: `${item.name} (${size})`,
+                                price: priceNum,
+                                category: 'Favorites',
+                                emoji: '🥤',
+                                priceType: 'money'
+                            });
+                        });
+                    }
+                });
+            }
+            
+            // Parse specialty sundaes
+            if (data.specialties) {
+                const sundaeBase = data.specialties.find(item => item.name === 'Specialty Sundae');
+                if (sundaeBase && sundaeBase.sizes) {
+                    // Get all specialty flavors
+                    const flavors = data.specialties.filter(item => item.name !== 'Specialty Sundae' && !item.sizes);
+                    
+                    flavors.forEach(flavor => {
+                        Object.entries(sundaeBase.sizes).forEach(([size, price]) => {
+                            const priceNum = parseFloat(price.replace('$', ''));
+                            items.push({
+                                name: `${flavor.name} Sundae (${size})`,
+                                price: priceNum,
+                                category: 'Specialty Sundaes',
+                                emoji: '🍨',
+                                priceType: 'money',
+                                description: flavor.description
+                            });
+                        });
+                    });
+                }
+            }
+            
+            return items;
+        }
+
+        // Helper function to create item variants for different price structures
+        function createItemVariants(item, category, restaurantType) {
+            const variants = [];
+            
+            if (typeof item.price === 'number') {
+                // Simple price
+                variants.push({
+                    name: item.name,
+                    price: item.price,
+                    category: category,
+                    emoji: getEmojiForItem(item.name),
+                    priceType: 'money'
+                });
+            } else if (typeof item.price === 'object') {
+                // Size-based pricing
+                Object.entries(item.price).forEach(([size, price]) => {
+                    variants.push({
+                        name: `${item.name} (${formatSizeName(size)})`,
+                        price: price,
+                        category: category,
+                        emoji: getEmojiForItem(item.name),
+                        priceType: 'money'
+                    });
+                });
+            }
+            
+            return variants;
+        }
+
+        // Helper to format section names
+        function formatSectionName(key) {
+            return key.split('_').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ');
+        }
+
+        // Helper to format size names
+        function formatSizeName(size) {
+            const sizeMap = {
+                'half_pound': 'Half Pound',
+                'full_pound': 'Full Pound',
+                'pint': 'Pint',
+                'quart': 'Quart',
+                'small': 'Small',
+                'large': 'Large',
+                'cup': 'Cup',
+                'bowl': 'Bowl'
+            };
+            return sizeMap[size] || size.charAt(0).toUpperCase() + size.slice(1);
         }
 
         async function loadCustomStoreItems(storeId) {
@@ -393,12 +1250,15 @@ async function main() {
             let availableBalanceTypes = [];
             let isSelectorLocked = false;
         
-            if (currentStoreId === 'ross') {
+            // Check if it's a campus restaurant
+            const isCampusRestaurant = CAMPUS_RESTAURANTS.some(r => r.id === currentStoreId);
+            
+            if (currentStoreId === 'ross' || isCampusRestaurant) {
                 if (isDenisonStudent) {
                     availableBalanceTypes = userBalanceTypes.filter(bt => bt.id === 'credits');
                     isSelectorLocked = true;
                 } else {
-                    // This case is for a non-Denison user, who shouldn't see Ross Market anyway,
+                    // This case is for a non-Denison user, who shouldn't see Ross Market or campus restaurants anyway,
                     // but as a fallback, we show all their balances, unlocked.
                     availableBalanceTypes = userBalanceTypes;
                 }
@@ -574,6 +1434,9 @@ async function main() {
                     card.classList.add('disabled-item');
                 }
                 
+                // Check if it's a campus restaurant (all campus restaurants accept only credits)
+                const isCampusRestaurant = CAMPUS_RESTAURANTS.some(r => r.id === currentStoreId);
+                
                 card.innerHTML = `
                     <div class="item-emoji">${item.emoji}</div>
                     <div class="item-name">${item.name}</div>
@@ -602,6 +1465,9 @@ async function main() {
                 cartItemsContainer.innerHTML = `<div class="empty-basket"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.3"><path d="M5 6m0 1a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-12a1 1 0 0 1-1-1z"></path><path d="M10 6v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3"></path></svg><p>Your basket is empty!</p><span>Click items to add them</span></div>`;
                 logPurchaseBtn.disabled = true;
             } else {
+                // Check if we should show add to subs button (only for Ross Market, Denison students)
+                const showSubsButton = currentStoreId === 'ross' && isDenisonStudent;
+                
                 cartItemsContainer.innerHTML = cart.map(item => `
                     <div class="cart-item ${item.name === animatedItemName ? 'slide-in' : ''}">
                         <div class="cart-item-emoji">${item.emoji}</div>
@@ -615,7 +1481,7 @@ async function main() {
                         </div>
                         <div class="cart-item-price">${getPriceLabel(item.price * item.quantity, currentStoreCurrency)}</div>
                         <div class="cart-item-actions">
-                            ${currentStoreId === 'ross' && isDenisonStudent ? `<button class="add-to-subs-btn" data-name="${item.name}" title="Add to weekly subscriptions"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M12 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg></button>` : ''}
+                            ${showSubsButton ? `<button class="add-to-subs-btn" data-name="${item.name}" title="Add to weekly subscriptions"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M12 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg></button>` : ''}
                             <button class="remove-item-btn" data-name="${item.name}" title="Remove from cart">×</button>
                         </div>
                     </div>
@@ -1062,7 +1928,46 @@ async function main() {
 
         function getEmojiForItem(name) {
             const lowerName = name.toLowerCase();
-            const keywords = { '☕': ['coffee', 'latte', 'espresso'], '🍵': ['tea', 'matcha'], '🥤': ['soda', 'coke', 'pepsi'], '🧃': ['juice', 'lemonade'], '💧': ['water'], '🍔': ['burger'], '🍕': ['pizza'], '🥪': ['sandwich', 'sub', 'wrap'], '🌮': ['taco', 'burrito'], '🍪': ['cookie'], '🍫': ['chocolate', 'candy'], '🥨': ['pretzel', 'chip'], '🍦': ['ice cream'], '🍎': ['apple'], '🍌': ['banana'] };
+            const keywords = { 
+                '☕': ['coffee', 'latte', 'espresso', 'mocha'], 
+                '🍵': ['tea', 'matcha'], 
+                '🥤': ['soda', 'coke', 'pepsi', 'sprite', 'drink'], 
+                '🧃': ['juice', 'lemonade'], 
+                '💧': ['water'], 
+                '🍔': ['burger', 'cheeseburger'], 
+                '🍕': ['pizza'], 
+                '🥪': ['sandwich', 'sub', 'wrap', 'club', 'melt'], 
+                '🌮': ['taco', 'burrito', 'enchilada', 'fajita', 'quesadilla'], 
+                '🍗': ['chicken', 'wing', 'tender'], 
+                '🥩': ['steak', 'beef', 'ribeye', 'carne'], 
+                '🦐': ['shrimp', 'camarones', 'seafood'], 
+                '🍳': ['egg', 'breakfast'], 
+                '🥓': ['bacon'], 
+                '🍟': ['fries', 'tots', 'potato'], 
+                '🥗': ['salad'], 
+                '🍲': ['soup', 'chili', 'stew', 'consome', 'pozole'], 
+                '🥟': ['dumpling', 'bun', 'sopes'], 
+                '🌯': ['burrito', 'wrap'], 
+                '🧀': ['cheese', 'queso'], 
+                '🍦': ['ice cream', 'custard', 'sundae', 'cone'], 
+                '🍨': ['sundae', 'parfait', 'float'], 
+                '🍰': ['cake', 'dessert', 'brownie'], 
+                '🍩': ['donut'], 
+                '🍪': ['cookie'], 
+                '🍫': ['chocolate', 'candy'], 
+                '🥨': ['pretzel', 'chip'], 
+                '🍿': ['popcorn'], 
+                '🥖': ['bread', 'baguette'], 
+                '🍎': ['apple'], 
+                '🍌': ['banana'], 
+                '🌽': ['corn'], 
+                '🥕': ['carrot'], 
+                '🥦': ['broccoli', 'veggie', 'vegetable'], 
+                '🍽️': ['plate', 'platter', 'appetizer', 'starter', 'small plate'],
+                '🥙': ['bowl', 'rice bowl'],
+                '🧒': ['kid', 'child', 'children']
+            };
+            
             for (const emoji in keywords) {
                 if (keywords[emoji].some(keyword => lowerName.includes(keyword))) return emoji;
             }
@@ -1087,10 +1992,14 @@ async function main() {
                 optionDiv.className = 'custom-option';
                 optionDiv.dataset.value = option.value;
                 
+                // Check if it's a campus restaurant
+                const isCampusRestaurant = CAMPUS_RESTAURANTS.some(r => r.id === option.value);
+                
                 if (option.value === 'create-new') {
                     optionDiv.classList.add('create-new-option');
                     optionDiv.innerHTML = `<span>${option.textContent}</span>`;
-                } else if (option.value !== 'ross') {
+                } else if (option.value !== 'ross' && !isCampusRestaurant) {
+                    // Only allow deletion for custom stores, not campus restaurants
                     optionDiv.innerHTML = `
                         <span class="option-text">${option.textContent}</span>
                         <button class="delete-store-btn" data-store-id="${option.value}" data-store-name="${option.textContent}" title="Delete store"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>`;
