@@ -37,7 +37,7 @@ async function main() {
 
         // Campus restaurants that accept credits (only for Denison students)
         const CAMPUS_RESTAURANTS = [
-            { id: 'china-garden', name: 'China Garden', file: 'DV_price.json' },
+            { id: 'dragon-village', name: 'Dragon Village', file: 'DV_price.json' },
             { id: 'three-tigers', name: 'Three Tigers', file: 'TTigers_price.json' },
             { id: 'harvest-pizza', name: 'Harvest Pizza', file: 'harvest_price.json' },
             { id: 'pochos', name: "Pocho's Tequila & Cocina", file: 'pochos_price.json' },
