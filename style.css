@@ -825,7 +825,7 @@ section {
 }
 
 /* ========================================
-   FAQ SECTION (CORKBOARD STYLE)
+   FAQ SECTION (CORKBOARD STYLE) - OPTIMIZED
    ======================================== */
 
 .faq-board {
@@ -837,6 +837,8 @@ section {
     box-shadow: 0 15px 35px rgba(0,0,0,0.3), inset 0 0 20px rgba(0,0,0,0.4);
     max-width: 850px;
     margin: 0 auto;
+    /* Performance optimization */
+    contain: layout style;
 }
 
 .faq-board .section-header {
@@ -867,27 +869,48 @@ section {
 .faq-item {
     background-color: var(--bg-primary);
     border-radius: 0.5rem;
-    box-shadow: 3px 3px 8px rgba(0,0,0,0.2);
     position: relative;
     transition: transform 0.2s ease;
+    /* Optimize for mobile */
+    will-change: transform;
+    contain: layout style paint;
 }
 
-.faq-item:nth-child(2n) {
-    transform: rotate(1.5deg);
-}
-.faq-item:nth-child(3n) {
-    transform: rotate(-1deg);
-}
-.faq-item:nth-child(4n) {
-    transform: rotate(1deg);
+/* Desktop-only decorative transforms and shadows */
+@media (min-width: 768px) {
+    .faq-item {
+        box-shadow: 3px 3px 8px rgba(0,0,0,0.2);
+    }
+    .faq-item:nth-child(2n) {
+        transform: rotate(1.5deg);
+    }
+    .faq-item:nth-child(3n) {
+        transform: rotate(-1deg);
+    }
+    .faq-item:nth-child(4n) {
+        transform: rotate(1deg);
+    }
+    .faq-item:hover {
+        transform: rotate(0) scale(1.02);
+        z-index: 5;
+    }
 }
 
-.faq-item:hover {
-    transform: rotate(0) scale(1.02);
-    z-index: 5;
+/* Simplified mobile styles */
+@media (max-width: 767px) {
+    .faq-item {
+        /* No rotations on mobile */
+        transform: none !important;
+        /* Lighter shadow for performance */
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .faq-item:hover {
+        /* No hover effects on mobile */
+        transform: none !important;
+    }
 }
 
-/* Pin styles */
+/* Pin styles - simplified for mobile */
 .faq-item::before {
     content: '';
     position: absolute;
@@ -897,9 +920,19 @@ section {
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
     border: 2px solid white;
+    /* Optimize pin rendering */
+    will-change: auto;
 }
+
+/* Desktop pin shadows */
+@media (min-width: 768px) {
+    .faq-item::before {
+        box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
+    }
+}
+
+/* Random pin colors */
 .faq-item:nth-of-type(9n+1)::before { background-color: var(--pin-red); }
 .faq-item:nth-of-type(9n+2)::before { background-color: var(--pin-blue); }
 .faq-item:nth-of-type(9n+3)::before { background-color: var(--pin-yellow); }
@@ -909,7 +942,6 @@ section {
 .faq-item:nth-of-type(9n+7)::before { background-color: var(--pin-coral); }
 .faq-item:nth-of-type(9n+8)::before { background-color: var(--pin-sage); }
 .faq-item:nth-of-type(9n+9)::before { background-color: var(--pin-gray); }
-
 
 .faq-question {
     width: 100%;
@@ -926,6 +958,8 @@ section {
     justify-content: space-between;
     align-items: center;
     gap: 1rem;
+    /* Optimize button */
+    -webkit-tap-highlight-color: transparent;
 }
 
 .faq-question:hover span {
@@ -944,13 +978,22 @@ section {
     transform: rotate(180deg);
 }
 
+/* Optimized animation using transform instead of max-height */
 .faq-answer {
-    max-height: 0;
     overflow: hidden;
-    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    height: 0;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-.faq-answer p {
+.faq-item.is-open .faq-answer {
+    height: auto;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.faq-answer-content {
     font-family: 'Lato', sans-serif;
     color: var(--text-secondary);
     line-height: 1.6;
@@ -963,9 +1006,16 @@ section {
 @media (max-width: 767px) {
     .faq-board {
         padding: 1.5rem 1rem;
+        /* Lighter border on mobile */
+        border-width: 5px;
     }
     .faq-question {
         font-size: 1rem;
+        padding: 1rem 1.25rem;
+    }
+    .faq-answer-content {
+        padding: 0 1.25rem 1rem;
+        padding-top: 1rem;
     }
 }
 
