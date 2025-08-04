@@ -40,10 +40,10 @@ async function main() {
             { id: 'china-garden', name: 'Dragon Village', file: 'DV_price.json' },
             { id: 'three-tigers', name: 'Three Tigers', file: 'TTigers_price.json' },
             { id: 'harvest-pizza', name: 'Harvest Pizza', file: 'harvest_price.json' },
-            { id: 'pochos', name: "Pocho's Tequila & Cocina", file: 'pochos_price.json' },
+            { id: 'pochos', name: "Pocho's", file: 'pochos_price.json' },
             { id: 'granville-pub', name: 'Granville Pub', file: 'pub_price.json' },
             { id: 'the-station', name: 'The Station', file: 'station_price.json' },
-            { id: 'whitts', name: "Whitt's Frozen Custard", file: 'whitts_price.json' }
+            { id: 'whitts', name: "Whitt's", file: 'whitts_price.json' }
         ];
 
         // --- DOM ELEMENTS ---
