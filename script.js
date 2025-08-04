@@ -35,32 +35,101 @@ document.addEventListener('DOMContentLoaded', async () => {
             // **THE FIX**: This logic is now simplified and more robust.
             // It toggles the visibility of all relevant buttons based on a single boolean.
             desktopLoginBtn?.classList.toggle('hidden', isLoggedIn);
-            scrolledCtaButton?.classList.toggle('hidden', isLoggedIn);
             userAvatarLink?.classList.toggle('hidden', !isLoggedIn);
 
-            // FIX 1: Add dashboard link for logged-in users in mobile dropdown
-            if (isLoggedIn && scrolledMenuPanel) {
-                // Check if dashboard link already exists
-                let dashboardLink = scrolledMenuPanel.querySelector('#scrolled-dashboard-link');
-                if (!dashboardLink) {
-                    // Create dashboard link if it doesn't exist
-                    dashboardLink = document.createElement('a');
+            // IMPROVED FIX: Better mobile dropdown handling for logged-in users
+            if (scrolledMenuPanel) {
+                // Remove any existing user info or dashboard link
+                const existingUserInfo = scrolledMenuPanel.querySelector('.scrolled-user-info');
+                const existingDashboardLink = scrolledMenuPanel.querySelector('#scrolled-dashboard-link');
+                
+                if (existingUserInfo) existingUserInfo.remove();
+                if (existingDashboardLink) existingDashboardLink.remove();
+
+                if (isLoggedIn) {
+                    // Hide the Get Started button for logged-in users
+                    if (scrolledCtaButton) {
+                        scrolledCtaButton.style.display = 'none';
+                    }
+
+                    // Create user info section
+                    const userInfoDiv = document.createElement('div');
+                    userInfoDiv.className = 'scrolled-user-info';
+                    userInfoDiv.style.cssText = `
+                        display: flex;
+                        align-items: center;
+                        gap: 0.75rem;
+                        padding: 0.75rem 1rem;
+                        margin-top: 0.5rem;
+                        border-top: 1px solid rgba(255,255,255,0.2);
+                    `;
+
+                    // Create avatar
+                    const avatar = document.createElement('img');
+                    avatar.style.cssText = `
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 50%;
+                        border: 2px solid var(--bg-primary);
+                    `;
+
+                    if (user.photoURL) {
+                        avatar.src = user.photoURL;
+                    } else {
+                        const initial = (user.displayName || user.email).charAt(0).toUpperCase();
+                        const svg = `<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><rect width="32" height="32" rx="16" ry="16" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="16" fill="#FFFFFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
+                        avatar.src = `data:image/svg+xml;base64,${btoa(svg)}`;
+                    }
+
+                    // Create user name/email
+                    const userText = document.createElement('span');
+                    userText.style.cssText = `
+                        color: var(--bg-primary);
+                        font-size: 0.9rem;
+                        font-weight: 600;
+                        text-shadow: 1px 1px 1px rgba(0,0,0,0.2);
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        flex: 1;
+                    `;
+                    userText.textContent = user.displayName || user.email.split('@')[0];
+
+                    userInfoDiv.appendChild(avatar);
+                    userInfoDiv.appendChild(userText);
+
+                    // Create dashboard link
+                    const dashboardLink = document.createElement('a');
                     dashboardLink.id = 'scrolled-dashboard-link';
                     dashboardLink.href = 'dashboard.html';
                     dashboardLink.className = 'desktop-cta-button';
                     dashboardLink.textContent = 'Go to Dashboard';
-                    dashboardLink.style.textAlign = 'center';
-                    dashboardLink.style.marginTop = '0.5rem';
-                    
-                    // Add it to the panel
+                    dashboardLink.style.cssText = `
+                        text-align: center;
+                        margin-top: 0.5rem;
+                        display: block;
+                    `;
+
+                    // Add both to the panel
+                    scrolledMenuPanel.appendChild(userInfoDiv);
                     scrolledMenuPanel.appendChild(dashboardLink);
+                } else {
+                    // Show the Get Started button for logged-out users
+                    if (scrolledCtaButton) {
+                        scrolledCtaButton.style.display = 'block';
+                    }
                 }
-                dashboardLink.style.display = 'block';
-            } else if (!isLoggedIn && scrolledMenuPanel) {
-                // Hide dashboard link for logged out users
-                const dashboardLink = scrolledMenuPanel.querySelector('#scrolled-dashboard-link');
-                if (dashboardLink) {
-                    dashboardLink.style.display = 'none';
+            }
+
+            // Update the unscrolled mobile menu
+            const mobileMenuButton = document.querySelector('.mobile-menu-button');
+            if (mobileMenuButton) {
+                if (isLoggedIn) {
+                    mobileMenuButton.href = 'dashboard.html';
+                    mobileMenuButton.textContent = 'Go to Dashboard';
+                } else {
+                    mobileMenuButton.href = 'login.html';
+                    mobileMenuButton.textContent = 'Get Started';
                 }
             }
 
