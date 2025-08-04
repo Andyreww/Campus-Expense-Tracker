@@ -2,13 +2,15 @@
 import { firebaseReady, logout } from './auth.js';
 import { doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
-import { updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { updateProfile, deleteUser } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
 // --- DOM Elements ---
 let loadingIndicator, statsContainer, pageTitle, welcomeMessage, userAvatar, avatarButton,
     historyList, insightsList, spendingChartCanvas, logoutButton,
     pfpModalOverlay, pfpPreview, pfpUploadInput, pfpSaveButton,
-    pfpCloseButton, pfpError, userBioInput, customBalanceSelector, projectionInfoButton;
+    pfpCloseButton, pfpError, userBioInput, customBalanceSelector, projectionInfoButton,
+    openDeleteAccountBtn, deleteConfirmModalOverlay, deleteCancelBtn, 
+    deleteConfirmBtn, deleteErrorMessage;
 
 // --- App State ---
 let currentUser = null;
@@ -129,6 +131,9 @@ async function renderStatistics(userData) {
     if (userBioInput) {
         userBioInput.value = userData.bio || '';
     }
+    
+    // Update avatar in modal
+    updateAvatar(userData.photoURL, userData.displayName);
 
     // Initialize balance type dropdown
     initializeBalanceDropdown();
@@ -284,6 +289,13 @@ function assignDOMElements() {
     userBioInput = document.getElementById('user-bio-input');
     customBalanceSelector = document.getElementById('custom-currency-selector');
     projectionInfoButton = document.getElementById('projection-info-button');
+    
+    // Delete Account Elements
+    openDeleteAccountBtn = document.getElementById('open-delete-account-button');
+    deleteConfirmModalOverlay = document.getElementById('delete-confirm-modal-overlay');
+    deleteCancelBtn = document.getElementById('delete-cancel-button');
+    deleteConfirmBtn = document.getElementById('delete-confirm-button');
+    deleteErrorMessage = document.getElementById('delete-error-message');
 }
 
 function setupEventListeners() {
@@ -311,6 +323,14 @@ function setupEventListeners() {
             toggleProjectionTooltip();
         });
     }
+    
+    // Delete Account Listeners
+    if (openDeleteAccountBtn) openDeleteAccountBtn.addEventListener('click', () => deleteConfirmModalOverlay.classList.remove('hidden'));
+    if (deleteCancelBtn) deleteCancelBtn.addEventListener('click', () => deleteConfirmModalOverlay.classList.add('hidden'));
+    if (deleteConfirmModalOverlay) deleteConfirmModalOverlay.addEventListener('click', (e) => {
+        if (e.target === deleteConfirmModalOverlay) deleteConfirmModalOverlay.classList.add('hidden');
+    });
+    if (deleteConfirmBtn) deleteConfirmBtn.addEventListener('click', deleteUserDataAndLogout);
 }
 
 function containsProfanity(text) {
@@ -531,6 +551,62 @@ async function saveProfile(storage, db) {
     } finally {
         pfpSaveButton.disabled = false;
         pfpSaveButton.textContent = 'Save Changes';
+    }
+}
+
+async function deleteSubcollection(db, collectionPath) {
+    const collectionRef = collection(db, collectionPath);
+    const q = query(collectionRef);
+    const snapshot = await getDocs(q);
+
+    if (snapshot.size === 0) return;
+
+    const deletePromises = [];
+    snapshot.forEach(docSnapshot => {
+        deletePromises.push(deleteDoc(docSnapshot.ref));
+    });
+
+    await Promise.all(deletePromises);
+}
+
+async function deleteUserDataAndLogout() {
+    if (!currentUser || !firebaseServices) return;
+
+    const { db } = firebaseServices;
+
+    deleteConfirmBtn.disabled = true;
+    deleteConfirmBtn.textContent = 'Deleting...';
+    deleteErrorMessage.classList.add('hidden');
+
+    try {
+        const userId = currentUser.uid;
+        const purchasesPath = `users/${userId}/purchases`;
+        const widgetsPath = `users/${userId}/quickLogWidgets`;
+        const storesPath = `users/${userId}/customStores`; // Path for custom stores
+        const userDocRef = doc(db, "users", userId);
+        const wallOfFameDocRef = doc(db, "wallOfFame", userId);
+
+        await Promise.all([
+            deleteSubcollection(db, purchasesPath),
+            deleteSubcollection(db, widgetsPath),
+            deleteSubcollection(db, storesPath), // Delete custom stores
+            deleteDoc(wallOfFameDocRef).catch(err => console.log("No Wall of Fame doc to delete:", err.message)),
+            deleteDoc(userDocRef)
+        ]);
+        
+        logout();
+
+    } catch (error) {
+        console.error("Data Deletion Failed:", error);
+        let errorMessage = 'Failed to delete your data. Please try again.';
+        if (error.code === 'permission-denied') {
+            errorMessage = 'Could not delete user data due to a permissions issue.';
+        }
+        deleteErrorMessage.textContent = errorMessage;
+        deleteErrorMessage.classList.remove('hidden');
+    } finally {
+        deleteConfirmBtn.disabled = false;
+        deleteConfirmBtn.textContent = 'Yes, Delete It';
     }
 }
 
