@@ -1,0 +1,331 @@
+{
+  "restaurant_name": "Harvest Pizza",
+  "menu": {
+    "small_plates": [
+      {
+        "name": "Buffalo Cauliflower",
+        "price": 13,
+        "description": "buttermilk-marinated fried cauliflower, buffalo sauce, celery, buttermilk dressing"
+      },
+      {
+        "name": "Brussels Sprouts",
+        "price": 12,
+        "description": "brown butter-roasted brussels sprouts and butternut squash, shaved parmesan, raclette cheese, toasted garlic breadcrumbs, spicy honey"
+      },
+      {
+        "name": "Meatballs",
+        "price": 14,
+        "description": "local beef + pork meatballs, tomato sauce, parmigiano reggiano, parsley and thyme, focaccia"
+      },
+      {
+        "name": "Yukons + Artichokes",
+        "price": 13,
+        "description": "fried marinated artichokes, fried yukon gold potatoes, charred meyer lemon, rosemary-lemon aioli"
+      },
+      {
+        "name": "Arancini",
+        "price": 12,
+        "description": "panko-crusted stuffed risotto, mozzarella, provolone, tomato sauce"
+      },
+      {
+        "name": "Cucumber Antipasti",
+        "price": 12,
+        "description": "marinated cucumber, calabrian chili, garlic, extra virgin olive oil, golden balsamic, farmer's cheese, maldon sea salt, flatbread"
+      }
+    ],
+    "salads": {
+      "items": [
+        {
+          "name": "House Chop",
+          "price": { "small": 7, "large": 14 },
+          "description": "iceberg, radicchio, pepperoncini, chickpeas, ricotta salata, italian dressing"
+        },
+        {
+          "name": "Kale Caesar",
+          "price": { "small": 9, "large": 18 },
+          "description": "local lacinato kale, parmigiano reggiano, toasted hazelnuts, caesar dressing",
+          "options": "add sardines +1.5 / +3"
+        },
+        {
+          "name": "Caprese (while in season)",
+          "price": { "small": 8, "large": 16 },
+          "description": "local heirloom and artisinal tomatoes, stracciatella cheese, basil, balsamic glaze, extra virgin olive oil, maldon sea salt"
+        },
+        {
+          "name": "Mean Green",
+          "price": { "small": 7, "large": 14 },
+          "description": "arugula, spinach, watercress, napa and red cabbage, snow peas, local sprout blend, toasted pepitas, blueberries, avocado goddess dressing"
+        },
+        {
+          "name": "Lavender",
+          "description": "spring mix, blueberry stilton cheese, candied walnut, micro greens, lavender vinaigrette"
+        }
+      ],
+      "add_ons": [
+        { "item": "Chicken", "price": 5 },
+        { "item": "Salmon", "price": 7 }
+      ]
+    },
+    "pizzas": [
+      {
+        "name": "Margherita",
+        "price": 17.75,
+        "description": "tomato sauce, fresh mozzarella, basil"
+      },
+      {
+        "name": "Almond Pesto",
+        "price": 18.75,
+        "description": "almond pesto, spinach, fresh mozzarella, artichoke"
+      },
+      {
+        "name": "Mushroom",
+        "price": 18.5,
+        "description": "tomato sauce, gouda/havarti blend, variety of athens county mushrooms, truffle, herbs"
+      },
+      {
+        "name": "Vegetable",
+        "price": 19,
+        "description": "tomato sauce, mozzarella/provolone blend, onion, olives, mushrooms, bell pepper, local sunflower sprouts"
+      },
+      {
+        "name": "Fennel Sausage",
+        "price": 19,
+        "description": "tomato sauce, gouda/havarti blend, mozzarella/provolone, red onion, house fennel sausage, fennel pollen, fennel fronds"
+      },
+      {
+        "name": "Heirloom Tomato",
+        "price": 20,
+        "description": "herbed extra-virgin olive oil, thinly sliced local heirloom tomato, roasted garlic clove, fresh artisinal cherry tomato, tarragon, oregano, maldon sea salt"
+      },
+      {
+        "name": "Double Bacon Three Cheese",
+        "price": 18,
+        "description": "parmesan cream sauce, gouda/havarti blend, roasted marinated tomato, bacon, canadian bacon, oregano, spicy honey drizzle"
+      },
+      {
+        "name": "House Pepperoni",
+        "price": 19.5,
+        "description": "tomato sauce, mozzarella/provolone blend, pepperoni, red onion, pepperoncini"
+      },
+      {
+        "name": "Spicy Yuma",
+        "price": 18.5,
+        "description": "chipotle-spiked tomato sauce, gouda/havarti blend, mozzarella/provolone blend, chorizo, jalapeno, corn, roasted red pepper, cilantro"
+      },
+      {
+        "name": "Pineapple",
+        "price": 18,
+        "description": "tomato sauce, mozzarella/provolone blend, pineapple, ohio \"canadian\" bacon, jalapeño"
+      },
+      {
+        "name": "Roasted Garlic",
+        "price": 19,
+        "description": "roasted garlic puree, raclette, calabrian chilis, roasted marinated tomatoes, arugula"
+      },
+      {
+        "name": "Meatball",
+        "price": 17.75,
+        "description": "tomato sauce, ricotta, fresh mozzarella, house beef and pork meatballs, roasted red peppers, pepperoncini, oregano, basil, parmigiano reggiano"
+      },
+      {
+        "name": "Quattro Formaggi",
+        "price": 22,
+        "description": "parmesan cream, mozzarella, provolone, cambozola, fried rosemary"
+      },
+      {
+        "name": "Monaco",
+        "price": 19,
+        "description": "arrabbiata sauce, mozzarella/provolone blend, salame toscano, capicola, pepperoni, fennel sausage, bacon, black radish creamery's artisan shredded cheese blend, herbed chili oil"
+      },
+      {
+        "name": "Vegan Pepperoni & Peppers",
+        "price": 19,
+        "description": "red sauce, vegan cheese, BeHive vegan pepperoni, bell peppers, peppadew peppers, parsley & thyme"
+      }
+    ],
+    "lunch_special": {
+      "name": "Lunch Special (11am - 4pm)",
+      "price": 11,
+      "description": "A 9\" version of any of our specialty pizzas or a 3-topping Creative pizza.",
+      "options": "Add any lunch-sized salad +3"
+    },
+    "creative_pizza": {
+      "name": "Creative Pizza",
+      "base_price": 14,
+      "description": "Build your own pizza. Make any creative pizza gluten free +4.5",
+      "sauces": [
+        "tomato",
+        "olive oil",
+        "almond pesto",
+        "roasted garlic",
+        "chipotle spiked tomato",
+        "arrabbiata",
+        "parmesan cream"
+      ],
+      "cheeses": {
+        "price": 2,
+        "options": [
+          "mozz/prov blend (incl.)",
+          "fresh mozzarella",
+          "blue jacket goat",
+          "cambozola",
+          "gouda/havarti blend",
+          "raclette",
+          "ricotta",
+          "vegan cheese (contains nuts)"
+        ]
+      },
+      "proteins": {
+        "price": 2.5,
+        "options": [
+          "bacon",
+          "canadian bacon",
+          "chorizo",
+          "fennel sausage",
+          "pepperoni",
+          "grilled chicken",
+          "salame toscano",
+          "white anchovy",
+          "meatballs",
+          "capicola",
+          "organic egg",
+          "VEGAN CHORIZO",
+          "VEGAN FENNEL SAUSAGE"
+        ]
+      },
+      "veggies": {
+        "price": 2,
+        "options": [
+          "artichoke",
+          "bell pepper",
+          "calabrian chile",
+          "roasted marinated tomato",
+          "fresh arugula",
+          "chopped garlic",
+          "jalapeno",
+          "kalamata olive",
+          "pepperoncini",
+          "pineapple",
+          "red onion",
+          "roasted red pepper",
+          "spinach",
+          "broccolini",
+          "sweet corn",
+          "roasted garlic cloves",
+          "truffled mushroom",
+          "basil"
+        ]
+      },
+      "dipping_sauces": {
+        "price": 1.5,
+        "options": [
+          "house tomato",
+          "chipotle-spiked tomato",
+          "almond pesto",
+          "buttermilk ranch",
+          "arrabbiata"
+        ]
+      }
+    },
+    "handhelds": [
+      {
+        "name": "Italian Sub",
+        "price": 16,
+        "description": "capicollo, canadian bacon, pepperoni, provolone cheese, pepperoncini, italian dressing, iceberg, radicchio, red wine vinegar, rustic sub bun"
+      },
+      {
+        "name": "Meatball Trapizzino",
+        "price": 16,
+        "description": "local beef and pork meatballs, house tomato sauce, pepperoncini, provolone, fresh basil, pizza dough pocket",
+        "options": "sub impossible meatballs +3"
+      },
+      {
+        "name": "Veggie Burger",
+        "price": 14.5,
+        "description": "veggie patty (contains walnuts), dijon aioli, red onion, aged white cheddar, shredded lettuce, brioche bun"
+      },
+      {
+        "name": "Classic Cheeseburger",
+        "price": 15,
+        "description": "grass-fed ohio beef, american cheese, burger sauce, red onion, dill pickle, iceberg lettuce, brioche bun"
+      },
+      {
+        "name": "Turkey Basil",
+        "price": 14,
+        "description": "bowman and landes turkey breast, basil mayo, roasted red pepper, stracciatella, arugula, ciabatta"
+      },
+      {
+        "name": "Poblano Chicken Torta",
+        "price": 16,
+        "description": "achiote grilled chicken, poblano aioli, roasted poblano pepper, avocado, aged white cheddar, cilantro, toasted sub bun"
+      },
+      {
+        "name": "Fried Yardbird",
+        "price": 15,
+        "description": "crispy fried chicken breast, kale slaw, maple-cayenne aioli, bread + butter pickles, brioche bun (add spicy shake to heat this up a bit, just ask)"
+      },
+      {
+        "name": "White Cheddar Philly",
+        "price": 16,
+        "description": "thinly-sliced beef round, griddled pepper and onion, aged white cheddar, garlic aioli, rustic sub bun"
+      }
+    ],
+    "desserts": [
+      {
+        "name": "Butterscotch Budino",
+        "price": 8,
+        "description": "caramel sauce, creme fraiche, hazelnuts, vanilla sea salt"
+      },
+      {
+        "name": "Brown Butter Brownie S'more",
+        "price": 8,
+        "description": "browned butter brownie, graham cracker crust, cinnamon-chocolate sauce, torched marshmallow fluff",
+        "options": "gluten free available"
+      }
+    ],
+    "kids": [
+      {
+        "name": "Grilled Cheese and Side",
+        "price": 8
+      },
+      {
+        "name": "Chicken Tenders and Side",
+        "price": 10
+      },
+      {
+        "name": "Plain Cheese or One-topping Pizza",
+        "price": 9
+      },
+      {
+        "name": "Hamburger or Cheeseburger and Side",
+        "price": 10
+      }
+    ],
+    "drinks": [
+      {
+        "name": "Coke, Diet Coke, Sprite",
+        "price": 3
+      },
+      {
+        "name": "Iced Black or Raspberry Hibiscus Tea",
+        "price": 3
+      },
+      {
+        "name": "Acqua Panna Still or San Pellegrino Sparkling Water",
+        "price": 4
+      },
+      {
+        "name": "Hubbard + Cravens Hot Tea",
+        "price": 3
+      },
+      {
+        "name": "Hubbard + Cravens Coffee",
+        "price": 3
+      },
+      {
+        "name": "House Lemonade",
+        "price": 3
+      }
+    ]
+  }
+}

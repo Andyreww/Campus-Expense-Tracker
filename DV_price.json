@@ -1,0 +1,706 @@
+{
+  "restaurant_name": "China Garden",
+  "menu": {
+    "appetizers": [
+      {
+        "id": 1,
+        "name": "Shrimp Egg Roll",
+        "price": 1.99
+      },
+      {
+        "id": 2,
+        "name": "Spring Vegetable Roll (2)",
+        "price": 3.75
+      },
+      {
+        "id": 3,
+        "name": "Fried or Steamed Dumplings (8)",
+        "price": 7.75
+      },
+      {
+        "id": 4,
+        "name": "Boneless Bar-B-Q Ribs",
+        "price": {
+          "small": 8.99,
+          "large": 15.99
+        }
+      },
+      {
+        "id": 5,
+        "name": "Bar-B-Q Spare Ribs",
+        "price": {
+          "small": 8.99,
+          "large": 15.99
+        }
+      },
+      {
+        "id": 6,
+        "name": "Teriyaki Beef (4)",
+        "price": 7.75
+      },
+      {
+        "id": 7,
+        "name": "Teriyaki Chicken (4)",
+        "price": 7.75
+      },
+      {
+        "id": 9,
+        "name": "Cheese Wonton (Crab Rangoon) (8)",
+        "price": 7.75
+      },
+      {
+        "id": 10,
+        "name": "Fried Wonton",
+        "price": 6.50
+      },
+      {
+        "id": 12,
+        "name": "Fried Chicken Wing",
+        "price": 9.50
+      },
+      {
+        "id": 13,
+        "name": "Fried Shrimp",
+        "price": 7.99
+      },
+      {
+        "id": 14,
+        "name": "Fried Scallop",
+        "price": 7.75
+      },
+      {
+        "id": 15,
+        "name": "Pu Pu Platter (For 2)",
+        "price": 18.99
+      }
+    ],
+    "soup": {
+      "note": "w. Crispy Noodles",
+      "items": [
+        {
+          "id": 17,
+          "name": "Wonton Soup",
+          "price": {
+            "pint": 2.99,
+            "quart": 4.95
+          }
+        },
+        {
+          "id": 18,
+          "name": "Egg Drop Soup",
+          "price": {
+            "pint": 2.99,
+            "quart": 4.95
+          }
+        },
+        {
+          "id": 19,
+          "name": "Wonton & Egg Drop Mixed",
+          "price": {
+            "pint": 2.99,
+            "quart": 4.95
+          }
+        },
+        {
+          "id": 20,
+          "name": "Hot & Sour Soup",
+          "price": {
+            "pint": 3.25,
+            "quart": 5.95
+          }
+        },
+        {
+          "id": 21,
+          "name": "Chicken Noodle Soup",
+          "price": {
+            "pint": 2.99,
+            "quart": 4.95
+          }
+        },
+        {
+          "id": 22,
+          "name": "Chicken Rice Soup",
+          "price": {
+            "pint": 2.99,
+            "quart": 4.95
+          }
+        },
+        {
+          "id": 23,
+          "name": "Vegetable w. Bean Curd Soup",
+          "price": 5.75
+        },
+        {
+          "id": 24,
+          "name": "House Special Soup",
+          "price": 7.75
+        },
+        {
+          "id": 25,
+          "name": "Seafood & Vegetable Soup",
+          "price": 7.75
+        },
+        {
+          "id": 26,
+          "name": "Chicken Corn Soup",
+          "price": 7.75
+        }
+      ]
+    },
+    "chow_mein": {
+      "note": "w. White Rice & Crispy Noodle on the Side",
+      "items": [
+        {
+          "id": 27,
+          "name": "Vegetable Chow Mein",
+          "price": {
+            "pint": 6.25,
+            "quart": 10.25
+          }
+        },
+        {
+          "id": 28,
+          "name": "Pork Chow Mein",
+          "price": {
+            "pint": 7.25,
+            "quart": 10.95
+          }
+        },
+        {
+          "id": 29,
+          "name": "Chicken Chow Mein",
+          "price": {
+            "pint": 7.25,
+            "quart": 10.95
+          }
+        },
+        {
+          "id": 30,
+          "name": "Shrimp Chow Mein",
+          "price": {
+            "pint": 7.75,
+            "quart": 11.50
+          }
+        },
+        {
+          "id": 31,
+          "name": "Beef Chow Mein",
+          "price": {
+            "pint": 7.75,
+            "quart": 11.50
+          }
+        },
+        {
+          "id": 32,
+          "name": "House Special Chow Mein",
+          "price": {
+            "pint": 8.25,
+            "quart": 11.99
+          }
+        }
+      ]
+    },
+    "chop_suey": {
+      "note": "w. White Rice",
+      "items": [
+        {
+          "id": 33,
+          "name": "Vegetable Chop Suey",
+          "price": {
+            "pint": 6.25,
+            "quart": 10.25
+          }
+        },
+        {
+          "id": 34,
+          "name": "Pork Chop Suey",
+          "price": {
+            "pint": 7.25,
+            "quart": 10.95
+          }
+        },
+        {
+          "id": 35,
+          "name": "Chicken Chop Suey",
+          "price": {
+            "pint": 7.25,
+            "quart": 10.95
+          }
+        },
+        {
+          "id": 36,
+          "name": "Shrimp Chop Suey",
+          "price": {
+            "pint": 7.75,
+            "quart": 11.50
+          }
+        },
+        {
+          "id": 37,
+          "name": "Beef Chop Suey",
+          "price": {
+            "pint": 7.75,
+            "quart": 11.50
+          }
+        },
+        {
+          "id": 38,
+          "name": "House Special Chop Suey",
+          "price": {
+            "pint": 8.25,
+            "quart": 11.99
+          }
+        }
+      ]
+    },
+    "fried_rice": [
+      {
+        "id": 39,
+        "name": "Plain Fried Rice",
+        "price": {
+          "pint": 5.25,
+          "quart": 7.50
+        }
+      },
+      {
+        "id": 40,
+        "name": "Vegetable Fried Rice",
+        "price": {
+          "pint": 6.25,
+          "quart": 9.25
+        }
+      },
+      {
+        "id": 41,
+        "name": "Pork Fried Rice",
+        "price": {
+          "pint": 6.95,
+          "quart": 10.25
+        }
+      },
+      {
+        "id": 42,
+        "name": "Chicken Fried Rice",
+        "price": {
+          "pint": 6.95,
+          "quart": 10.25
+        }
+      },
+      {
+        "id": 43,
+        "name": "Shrimp Fried Rice",
+        "price": {
+          "pint": 7.25,
+          "quart": 10.25
+        }
+      },
+      {
+        "id": 44,
+        "name": "Beef Fried Rice",
+        "price": {
+          "pint": 7.25,
+          "quart": 10.25
+        }
+      },
+      {
+        "id": 45,
+        "name": "House Special Fried Rice (Chicken, shrimp & pork)",
+        "price": {
+          "pint": 7.50,
+          "quart": 10.75
+        }
+      },
+      {
+        "id": 46,
+        "name": "Young Chow Fried Rice (Chicken, shrimp, pork & egg)",
+        "price": 11.99
+      }
+    ],
+    "lo_mein": {
+      "note": "Lo mein is a soft noodle, that is stir-fried w. vegetable & meat in brown sauce",
+      "items": [
+        {
+          "id": 47,
+          "name": "Plain Lo Mein",
+          "price": {
+            "pint": 5.75,
+            "quart": 9.50
+          }
+        },
+        {
+          "id": 48,
+          "name": "Vegetable Lo Mein",
+          "price": {
+            "pint": 6.99,
+            "quart": 10.25
+          }
+        },
+        {
+          "id": 49,
+          "name": "Pork Lo Mein",
+          "price": {
+            "pint": 7.25,
+            "quart": 10.25
+          }
+        },
+        {
+          "id": 50,
+          "name": "Chicken Lo Mein",
+          "price": {
+            "pint": 7.25,
+            "quart": 10.25
+          }
+        },
+        {
+          "id": 51,
+          "name": "Shrimp Lo Mein",
+          "price": {
+            "pint": 7.75,
+            "quart": 10.75
+          }
+        },
+        {
+          "id": 52,
+          "name": "Beef Lo Mein",
+          "price": {
+            "pint": 7.75,
+            "quart": 11.50
+          }
+        },
+        {
+          "id": 53,
+          "name": "House Special Lo Mein",
+          "price": {
+            "pint": 7.75,
+            "quart": 11.50
+          }
+        }
+      ]
+    },
+    "egg_foo_young": {
+      "note": "w. Steamed Rice",
+      "items": [
+        {
+          "id": 54,
+          "name": "Vegetable Egg Foo Young",
+          "price": 11.50
+        },
+        {
+          "id": 55,
+          "name": "Roast Pork Egg Foo Young",
+          "price": 11.50
+        },
+        {
+          "id": 56,
+          "name": "Chicken Egg Foo Young",
+          "price": 11.50
+        },
+        {
+          "id": 57,
+          "name": "Shrimp Egg Foo Young",
+          "price": 11.75
+        },
+        {
+          "id": 58,
+          "name": "Beef Egg Foo Young",
+          "price": 11.75
+        },
+        {
+          "id": 59,
+          "name": "House Special Egg Foo Young",
+          "price": 12.50
+        }
+      ]
+    },
+    "chow_mei_fun": {
+      "note": "Thin Rice Noodle",
+      "items": [
+        {
+          "id": 61,
+          "name": "Vegetable Mei Fun",
+          "price": 11.50
+        },
+        {
+          "id": 62,
+          "name": "Pork Mei Fun",
+          "price": 11.50
+        },
+        {
+          "id": 63,
+          "name": "Chicken Mei Fun",
+          "price": 11.50
+        },
+        {
+          "id": 64,
+          "name": "Shrimp Mei Fun",
+          "price": 12.25
+        },
+        {
+          "id": 65,
+          "name": "Beef Mei Fun",
+          "price": 12.25
+        },
+        {
+          "id": 65,
+          "name": "House Special Mei Fun",
+          "price": 12.75
+        }
+      ]
+    },
+    "moo_shu": {
+      "note": "w. Pancakes & White Rice",
+      "items": [
+        {
+          "id": 67,
+          "name": "Moo Shu Vegetable",
+          "price": 11.75
+        },
+        {
+          "id": 68,
+          "name": "Moo Shu Pork",
+          "price": 11.75
+        },
+        {
+          "id": 69,
+          "name": "Moo Shu Chicken",
+          "price": 11.75
+        },
+        {
+          "id": 70,
+          "name": "Moo Shu Shrimp",
+          "price": 12.25
+        },
+        {
+          "id": 71,
+          "name": "Moo Shu Beef",
+          "price": 12.75
+        }
+      ]
+    },
+    "sweet_and_sour": {
+      "note": "w. Steamed Rice",
+      "items": [
+        {
+          "id": 72,
+          "name": "Sweet & Sour Pork",
+          "price": 12.25
+        },
+        {
+          "id": 73,
+          "name": "Sweet & Sour Chicken",
+          "price": 12.25
+        },
+        {
+          "id": 74,
+          "name": "Sweet & Sour Shrimp",
+          "price": 12.50
+        },
+        {
+          "id": 75,
+          "name": "Sweet & Sour Sampler",
+          "price": 12.50
+        }
+      ]
+    },
+    "vegetable": {
+      "note": "w. White Rice",
+      "items": [
+        {
+          "id": 76,
+          "name": "Mixed Vegetable",
+          "price": 11.50
+        },
+        {
+          "id": 78,
+          "name": "Bean Curd Szechuan Style",
+          "price": 11.50
+        },
+        {
+          "id": 79,
+          "name": "Bean Curd Homemode Style",
+          "price": 11.50
+        },
+        {
+          "id": 80,
+          "name": "Sauteed Broccoli",
+          "price": 11.50
+        },
+        {
+          "id": 81,
+          "name": "Broccoli w. Garlic Sauce",
+          "price": 11.50
+        },
+        {
+          "id": 82,
+          "name": "General Tso's Tofu",
+          "price": 11.50
+        },
+        {
+          "id": 83,
+          "name": "Mapo Tofu",
+          "price": 11.50
+        }
+      ]
+    },
+    "pork": {
+      "note": "w. White Rice",
+      "items": [
+        {
+          "id": 83,
+          "name": "Roast Pork w. Mixed Vegetable",
+          "price": {
+            "pint": 8.50,
+            "quart": 12.99
+          }
+        },
+        {
+          "id": 84,
+          "name": "Roast Pork w. Broccoli",
+          "price": {
+            "pint": 8.50,
+            "quart": 12.99
+          }
+        },
+        {
+          "id": 85,
+          "name": "Roast Pork w. Snow Peas",
+          "price": {
+            "pint": 8.50,
+            "quart": 12.99
+          }
+        },
+        {
+          "id": 86,
+          "name": "Roast Pork w. Mushroom",
+          "price": {
+            "pint": 8.50,
+            "quart": 12.99
+          }
+        },
+        {
+          "id": 87,
+          "name": "Shredded Pork w. Garlic Sauce",
+          "price": 12.99
+        },
+        {
+          "id": 88,
+          "name": "Shredded Pork w. Szechuan Sauce",
+          "price": 12.99
+        },
+        {
+          "id": 89,
+          "name": "Shredded Pork w. Hunan Sauce",
+          "price": 12.99
+        }
+      ]
+    },
+    "chicken": {
+      "note": "w. White Rice",
+      "items": [
+        {
+          "id": 91,
+          "name": "Chicken w. Mushrooms",
+          "price": {
+            "pint": 8.50,
+            "quart": 12.99
+          }
+        },
+        {
+          "id": 92,
+          "name": "Moo Goo Gai Pan",
+          "price": {
+            "pint": 8.50,
+            "quart": 12.99
+          }
+        },
+        {
+          "id": 93,
+          "name": "Chicken w. Broccoli",
+          "price": {
+            "pint": 8.50,
+            "quart": 12.99
+          }
+        },
+        {
+          "id": 94,
+          "name": "Chicken w. Snow Peas",
+          "price": {
+            "pint": 8.50,
+            "quart": 12.99
+          }
+        },
+        {
+          "id": 95,
+          "name": "Chicken w. Curry Sauce",
+          "price": {
+            "pint": 8.50,
+            "quart": 12.99
+          }
+        },
+        {
+          "id": 96,
+          "name": "Chicken w. Black Bean Sauce",
+          "price": {
+            "pint": 8.50,
+            "quart": 12.99
+          }
+        },
+        {
+          "id": 97,
+          "name": "Chicken w. Mixed Vegetable",
+          "price": 12.99
+        },
+        {
+          "id": 98,
+          "name": "Chicken w. Cashew Nuts",
+          "price": 12.99
+        },
+        {
+          "id": 99,
+          "name": "Kung Pao Chicken",
+          "price": 12.99
+        },
+        {
+          "id": 100,
+          "name": "Chicken w. Garlic Sauce",
+          "price": 12.99
+        },
+        {
+          "id": 101,
+          "name": "Chicken Szechuan Style",
+          "price": 12.99
+        },
+        {
+          "id": 102,
+          "name": "Chicken Hunan Style",
+          "price": 12.99
+        },
+        {
+          "id": 103,
+          "name": "Hot & Spicy Chicken",
+          "price": 12.99
+        },
+        {
+          "id": 104,
+          "name": "Lemon Chicken",
+          "price": 12.99
+        },
+        {
+          "id": 105,
+          "name": "Boneless Gai",
+          "price": 12.99
+        },
+        {
+          "id": 106,
+          "name": "Mala Chicken",
+          "price": 12.99
+        },
+        {
+          "id": "106a",
+          "name": "Mongolian Chicken",
+          "price": 12.99
+        }
+      ]
+    }
+  }
+}

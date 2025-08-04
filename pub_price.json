@@ -1,0 +1,374 @@
+{
+  "restaurant_name": "Granville Pub",
+  "menu": {
+    "starters": [
+      {
+        "name": "Cheesy Fries or Cheesy Tots",
+        "price": 8.00,
+        "description": "Homemade queso & shredded cheese."
+      },
+      {
+        "name": "Bourbon Sriracha Brussels (V)",
+        "price": {
+          "half_pound": 8.00,
+          "full_pound": 12.00
+        },
+        "description": "Half pound deep-fried brussel sprouts tossed in Granny’s own bourbon sriracha sauce."
+      },
+      {
+        "name": "Hummus Platter (V)",
+        "price": 10.00,
+        "description": "Assorted veggies & tortilla chips."
+      },
+      {
+        "name": "Loaded Nachos, Fries, or Tots",
+        "price": 9.00,
+        "description": "Homemade chili, queso, diced tomatoes, jalapenos and onions."
+      },
+      {
+        "name": "Buffalo Chicken Dip",
+        "price": 8.00,
+        "description": "Served with seasoned tortilla chips."
+      },
+      {
+        "name": "Pepper Jack Cheese Balls",
+        "price": 8.00,
+        "description": "Spicy ranch dipping sauce."
+      },
+      {
+        "name": "Mozzarella Sticks",
+        "price": 8.00,
+        "description": "6 sticks with house made marinara sauce."
+      },
+      {
+        "name": "Fried Pickles",
+        "price": 8.00,
+        "description": "Spicy ranch dipping sauce."
+      },
+      {
+        "name": "Chips & Queso",
+        "price": 7.00,
+        "description": "Tortilla chips with house made queso."
+      },
+      {
+        "name": "Homemade Potato Chips",
+        "price": 7.00,
+        "description": "Spicy ranch dipping sauce."
+      }
+    ],
+    "tenders_and_wings": {
+      "sauces": [
+        "Mango habanero",
+        "Hot buffalo",
+        "Bourbon sriracha",
+        "Spicy garlic",
+        "Mild buffalo",
+        "BBQ",
+        "Honey mustard",
+        "Garlic parmesan"
+      ],
+      "items": [
+        {
+          "name": "Hand Breaded Tenders",
+          "price": 10.00,
+          "description": "3 tenders & 2 sauces with fries, tots, or chips."
+        },
+        {
+          "name": "6 Dry Rub Wings",
+          "price": 10.00,
+          "description": "Your choice of 1 sauce. Comes with blue cheese or ranch."
+        },
+        {
+          "name": "12 Dry Rub Wings",
+          "price": 17.00,
+          "description": "Your choice of 1 or 2 sauces. Comes with blue cheese or ranch."
+        }
+      ]
+    },
+    "flame_grilled_burgers": {
+      "note": "All hand pattied burgers served with fries, tots, or homemade chips! Add lettuce, tomato, onion, and pickle for no extra charge. Upgrade your side for an additional cost.",
+      "items": [
+        {
+          "name": "Granville Burger",
+          "price": 12.00,
+          "description": "Our famous burger with our signature Granville sauce on the side | Add cheese for an additional $1.00"
+        },
+        {
+          "name": "Bacon Cheddar",
+          "price": 14.00,
+          "description": "Cheddar cheese, apple wood smoked bacon, our signature Granville sauce."
+        },
+        {
+          "name": "Rajun' Cajun",
+          "price": 13.00,
+          "description": "Cajun seasoned topped with pepper jack cheese, our house made spicy mayo."
+        },
+        {
+          "name": "Bacon Blue",
+          "price": 14.00,
+          "description": "Melted blue cheese, apple wood smoked bacon, and our signature Granville sauce."
+        },
+        {
+          "name": "Charlie",
+          "price": 14.00,
+          "description": "Smothered in our homemade steak sauce, sautéed mushrooms & onions topped with melted swiss cheese."
+        },
+        {
+          "name": "Bourbon Bacon Jam",
+          "price": 14.00,
+          "description": "Smothered with our homemade bourbon jam, two slices of applewood smoked bacon, cheddar cheese, and homemade coleslaw."
+        },
+        {
+          "name": "Kiss Me Now Maybe Later Garlic Burger",
+          "price": 13.00,
+          "description": "Our famous hand-pattied burger on a grilled brioche bun topped with grilled tomato and garlic aioli."
+        },
+        {
+          "name": "Tijuana",
+          "price": 13.00,
+          "description": "Topped with homemade queso, jalapeño peppers, homemade fried shoestring onions, and spicy mayo."
+        },
+        {
+          "name": "Impossible Burger (V)",
+          "price": 13.00,
+          "description": "Plant based burger with our signature Granville sauce."
+        }
+      ]
+    },
+    "salads": [
+      {
+        "name": "House Salad",
+        "price": 9.00,
+        "description": "Mixed greens topped with tomatoes, red onion, carrots, cucumber, shredded cheese, and house made croutons. Served with your choice of dressing."
+      },
+      {
+        "name": "Grilled Wedge Salad (V)",
+        "price": 11.00,
+        "description": "Grilled romaine wedge topped with corn medley and feta cheese. Served with Caesar dressing",
+        "options": "Add protein - 3oz salmon filet or 8oz chicken breast +$4.00"
+      },
+      {
+        "name": "Chef Salad",
+        "price": 14.00,
+        "description": "Kentucky smoked ham and turkey, applewood smoked bacon, tomatoes, red onion, carrots, cucumber, croutons, and shredded cheese over a bed of mixed greens and your choice of dressing."
+      },
+      {
+        "name": "Grilled Chicken Salad",
+        "price": 14.00,
+        "description": "Mixed greens, tomato, cucumbers, onion, carrots, cheddar cheese, and croutons. Topped with your choice of grilled or rajun cajun chicken and your choice of dressing."
+      },
+      {
+        "name": "Crispy Buffalo Chicken Salad",
+        "price": 15.00,
+        "description": "Mixed greens, tomato, cucumbers, onion, carrots, cheddar cheese, and croutons. Topped with buffalo sauced fried chicken with your choice of dressing."
+      }
+    ],
+    "flatbread_pizzas": [
+      {
+        "name": "Cheese",
+        "price": 8.00,
+        "description": "Our house pizza sauce topped with shredded mozzarella cheese."
+      },
+      {
+        "name": "Pepperoni",
+        "price": 9.00,
+        "description": "Our house pizza sauce topped with shredded mozzarella cheese and pepperoni."
+      },
+      {
+        "name": "Margherita (V)",
+        "price": 9.00,
+        "description": "Our twist on a classic - a thin, crispy crust topped with diced tomato, fresh tomato sauce, mozzarella cheese, and fresh basil leaves."
+      },
+      {
+        "name": "BBQ Bacon Chicken",
+        "price": 11.00,
+        "description": "Shredded mozzarella, grilled chicken, bacon, pickled jalapeños, sautéed onions, and drizzled BBQ sauce."
+      },
+      {
+        "name": "Meat Lovers",
+        "price": 12.00,
+        "description": "Ham, sausage, bacon, and pepperoni."
+      },
+      {
+        "name": "Supreme",
+        "price": 13.00,
+        "description": "Pepperoni, sausage, ham, diced red onion, diced tomato, black olives, green peppers and mushrooms."
+      },
+      {
+        "name": "Veggie",
+        "price": 13.00,
+        "description": "Ranch base, topped with grilled chicken, diced red onions, mozzarella cheese and drizzled buffalo sauce."
+      },
+      {
+        "name": "Pesto Basil (V)",
+        "price": 10.00,
+        "description": "Delicious shredded mozzarella cheese, pesto sauce, and fresh basil leaves."
+      }
+    ],
+    "bowls_and_plates": [
+      {
+        "name": "Granny’s Chili",
+        "price": {
+          "cup": 5.00,
+          "bowl": 8.00
+        },
+        "description": "Topped with cheese, onion, and croutons | Add a grilled cheese for $3.00"
+      },
+      {
+        "name": "Rajun' Cajun' Mac & Cheese",
+        "price": 14.00,
+        "description": "Queso mac with rajun cajun chicken breast, mixed with red onions, applewood smoked bacon, & topped with diced tomatoes and shredded cheese."
+      },
+      {
+        "name": "Bourbon Sriracha Glazed Salmon Dinner",
+        "price": 17.00,
+        "description": "Two 3oz salmon filets served with grilled corn on the cob and baby baked potatoes."
+      }
+    ],
+    "sandwiches": [
+      {
+        "name": "Rajun' Cajun Chicken Sandwich",
+        "price": 12.00,
+        "description": "Grilled chicken cajun spiced and topped with spicy mayo."
+      },
+      {
+        "name": "Grilled Chicken Sandwich",
+        "price": 12.00,
+        "description": "A breast filet grilled to perfection and served with mayo."
+      },
+      {
+        "name": "BBQ Chicken Bacon Cheddar Sandwich",
+        "price": 14.00,
+        "description": "Grilled chicken breast, smothered in BBQ sauce, and topped with cheddar cheese."
+      },
+      {
+        "name": "Granny's Buffalo Chicken Sandwich",
+        "price": 13.00,
+        "description": "Fried chicken sandwich tossed in buffalo sauce and topped with our spicy ranch and pickles | Add your choice of cheese for $1.00"
+      },
+      {
+        "name": "The Granville Pub Fish & Chips",
+        "price": 14.00,
+        "description": "Half pound fried cod served with lettuce, tomato, pickles, and onions. Comes with tarter sauce or house made spicy ranch."
+      },
+      {
+        "name": "Salmon BLT",
+        "price": 14.00,
+        "description": "Two 3oz salmon filets served on grilled Texas toast and choice of house made garlic aioli or bourbon sriracha."
+      },
+      {
+        "name": "Granny's Club Sandwich",
+        "price": 13.00,
+        "description": "Our triple decker club with house smoked turkey and ham, apple wood smoked bacon, American cheese, honey dijon mustard and mayo."
+      },
+      {
+        "name": "Turkey Bourbon Bacon Jam Sandwich",
+        "price": 12.00,
+        "description": "House smoked turkey and applewood smoked bacon. Topped with house made bourbon bacon jam, homemade coleslaw, and cheddar cheese."
+      },
+      {
+        "name": "Chicken Wrap",
+        "price": 11.00,
+        "description": "Grilled or fried chicken breast in a spinach wrap with shredded cheese served with our house made sauce."
+      },
+      {
+        "name": "Granny’s Hot Wrap",
+        "price": 13.00,
+        "description": "Tomato basil wrap with 2 chicken tenders tossed in bourbon sriracha sauce, house made slaw, and pickles."
+      },
+      {
+        "name": "Granny’s Cheesiest Grilled Cheese (V)",
+        "price": 8.00,
+        "description": "Cheddar cheese, swiss cheese, and grilled tomato slices stuffed between grilled Texas toast."
+      },
+      {
+        "name": "Veggie Wrap",
+        "price": 13.00,
+        "description": "Hummus, roasted red pepper, tomato, onion, mushroom, black olives, green peppers, lettuce, and your choice of dressing | Add feta cheese for $1.00"
+      }
+    ],
+    "sides": [
+      { "name": "Fries", "price": 4.00 },
+      { "name": "Tots", "price": 4.00 },
+      { "name": "Baby Potatoes", "price": 5.00 },
+      { "name": "Grilled Corn Medley", "price": 4.00 },
+      { "name": "Grilled Corn on the Cob", "price": 4.00 },
+      { "name": "Pasta Salad", "price": 4.00 },
+      { "name": "Queso Mac", "price": 5.00 },
+      { "name": "House Made Potato Chips", "price": 4.00 },
+      { "name": "Potato Salad", "price": 5.00 },
+      { "name": "Slaw", "price": 5.00 },
+      { "name": "Side Salad", "price": 5.00 }
+    ],
+    "dessert": [
+      {
+        "name": "Lava Cake",
+        "price": 7.50,
+        "description": "Served with whipped cream and caramel. Serves two."
+      },
+      {
+        "name": "Fried Raspberry Cheesecake",
+        "price": 6.00,
+        "description": "Deep fried, drizzled with caramel."
+      }
+    ]
+  },
+  "brunch": {
+    "note": "Brunch Saturday & Sundays 11 am-2 pm",
+    "items": [
+      {
+        "name": "Eggs Your Way",
+        "price": 8.00,
+        "description": "2 eggs, breakfast potatoes, and 2 pieces of toast | Add 2 pieces of apple wood smoked bacon $2"
+      },
+      {
+        "name": "Omelette Your Way",
+        "price": 6.00,
+        "description": "3 egg omelette with a side of breakfast potatoes | Each topping $1 | Smother in chili $2 | Topping Selection: Ham, Bacon, Sausage, Shredded Cheese, Green Peppers, Onions, Tomatoes, Black Olives, Mushrooms"
+      },
+      {
+        "name": "Breakfast Burrito",
+        "price": 8.00,
+        "description": "Scrambled eggs, breakfast potatoes, dice tomatoes, dice red onion, shredded cheese | Add ham or bacon $2"
+      },
+      {
+        "name": "Granny's Chicken and Waffles",
+        "price": 8.00,
+        "description": "2 tenders homemade waffle | Add bacon $2"
+      },
+      {
+        "name": "Redneck Breakfast Sandwich",
+        "price": 7.00,
+        "description": "2 fried eggs, pepper jack cheese with spicy mayo on toast. With side of breakfast potatoes | Add ham or bacon $2"
+      }
+    ],
+    "sides": [
+      { "name": "2 Pieces Apple Wood Bacon", "price": 2.00 },
+      { "name": "2 Slices Ham", "price": 2.00 },
+      { "name": "Breakfast Tots", "price": 4.00 },
+      { "name": "2 Slices Toast", "price": 2.00 },
+      { "name": "2 Eggs Your Way", "price": 4.00 }
+    ],
+    "coffee_drinks": [
+      { "name": "American Drip", "price": 3.00 },
+      { "name": "Latte", "price": 4.00 },
+      { "name": "Cappuccino", "price": 4.00 },
+      { "name": "Iced Coffee", "price": 4.00 },
+      { "name": "Mocha", "price": 4.00 },
+      { "name": "Irish Whiskey Coffee", "price": 8.00 }
+    ],
+    "drink_specials": [
+      { "name": "Bottle of Champagne + Juice", "price": 12.00 },
+      { "name": "Classic Mimosa", "price": 3.00 },
+      { "name": "Jumbo Mimosa", "price": 5.00 },
+      { "name": "Classic Bloody Mary", "price": 5.00 },
+      { "name": "Spicy Bloody Mary", "price": 6.00 },
+      { "name": "Michelada", "price": 5.00, "description": "Made with Granville Pub Amber Ale" },
+      { "name": "Vodka Bulls", "price": 4.50, "description": "All Day Saturday" },
+      { "name": "Screwdriver", "price": 4.00, "description": "All Day Sunday" },
+      { "name": "PBR + Well Shot", "price": 5.00, "description": "All Day Everyday" },
+      { "name": "Wells", "price": 4.00, "description": "All Day Everyday" },
+      { "name": "Granny Pub Beer", "price": 4.00, "description": "All Day Everyday" }
+    ]
+  }
+}

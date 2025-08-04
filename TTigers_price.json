@@ -1,0 +1,260 @@
+{
+  "restaurant_name": "Three Tigers",
+  "menu": {
+    "shareables": [
+      {
+        "name": "Jumbo Pretzel",
+        "price": 15.00,
+        "description": "Baked, not fried, pretzel served with house-made Belgian beer cheese sauce and Stout beer mustard."
+      },
+      {
+        "name": "Wings",
+        "price": 9.75,
+        "description": "Hot Buffalo, Mai Chau Hot, Thai Curry, Buffalo, Garlic Parmesan, Buffalo Ranch Dry Rub, or Viet Style."
+      },
+      {
+        "name": "Saigon Sliders",
+        "price": 8.00,
+        "description": "Sriracha pulled pork, Mai Chau sauce, ginger slaw."
+      },
+      {
+        "name": "Fried Cheese Curds",
+        "price": 15.00,
+        "description": "Local Black Radish Creamery curds with Marinara."
+      },
+      {
+        "name": "Fried Pickle Chips",
+        "price": 11.00,
+        "description": "Pub sauce"
+      },
+      {
+        "name": "Pub Fries",
+        "price": 7.00,
+        "description": "Hand cut with house pub sauce."
+      },
+      {
+        "name": "Loaded Fries",
+        "price": 10.00,
+        "description": "Pub fries loaded with cheese, bacon, jalapeño, tomato, with red and green onion."
+      },
+      {
+        "name": "Mai Chau Cracklins",
+        "price": 6.00,
+        "description": "Served with house-made honey Aleppo seasoning."
+      },
+      {
+        "name": "Thai Nachos",
+        "price": 14.00,
+        "description": "Corn tortillas, your choice of house beer cheese OR Colby cheese, avocado, bean sprouts, Mai Chau sauce, green onion, cilantro, and peanuts.",
+        "options": "Add pulled pork, chicken, or tofu +4"
+      },
+      {
+        "name": "Pork Dumplings",
+        "price": 9.00,
+        "description": "Served with house-made dim sum dipping sauce."
+      },
+      {
+        "name": "Summer Roll",
+        "price": 4.00,
+        "description": "Hand rolled vermicelli rice noodle, fresh veggies, and herbs in a rice paper roll served with house-made peanut sauce."
+      },
+      {
+        "name": "Viet Style Veggie Spring Rolls",
+        "price": 9.00,
+        "description": "Served with sweet Thai chili sauce."
+      }
+    ],
+    "og_street_food": {
+      "items": [
+        {
+          "name": "Pho",
+          "price": 13.75,
+          "description": "House made Vietnamese beef stock with rice noodles, white and green onion, bean sprouts, sliced jalapeño, fresh herbs, lime wedge with your choice of beef brisket, rare beef*, or a combination."
+        },
+        {
+          "name": "Rice or Noodle Bowl",
+          "price": 14.75,
+          "description": "Choose steamed Jasmine rice or Vermicelli rice noodles with leaf lettuce, cucumber, carrot, bean sprouts, cilantro, crushed peanuts, fried garlic, soy sauce, and house made peanut sauce with your choice of protein/veg."
+        },
+        {
+          "name": "Fried Rice Bowl",
+          "price": 14.75,
+          "description": "Stir fried rice with cucumber, carrot, bean sprouts, cilantro, crushed peanuts, fried garlic, soy sauce, and yum yum sauce with your choice of protein/veg."
+        },
+        {
+          "name": "Banh Mi",
+          "price": 14.75,
+          "description": "Traditional Vietnamese toasted French baguette sandwich with house made spicy mayo, jalapeño, cucumber, ginger slaw, cilantro, and your choice of protein/veg."
+        }
+      ],
+      "protein_and_veg_options": {
+        "base_options": [
+          "Filipino Style Fried Pork Belly",
+          "Thai Chili Tofu",
+          "Lemongrass Grilled Chicken",
+          "Sriracha Pulled Pork",
+          "Sweet & Spicy Cauliflower"
+        ],
+        "premium_options": [
+          { "name": "Steak", "add_price": 6 },
+          { "name": "Grilled Chicken Breast", "add_price": 5 },
+          { "name": "Tempura Shrimp", "add_price": 6 }
+        ],
+        "extra_options": [
+          { "name": "Extra protein/veg", "add_price": 3 },
+          { "name": "Extra protein/steak, shrimp", "add_price": 6 }
+        ]
+      }
+    },
+    "steamed_buns": {
+      "pricing": "5 ea / 3 for 14",
+      "items": [
+        {
+          "name": "Tempura Shrimp",
+          "description": "Tempura fried shrimp, creamy ginger cabbage, and green onion."
+        },
+        {
+          "name": "Fried Pork Belly",
+          "description": "Filipino style fried pork belly, cucumber, jalapeno, and Mai Chau sauce."
+        },
+        {
+          "name": "Fried Mushroom",
+          "description": "Marinated portobello, wasabi slaw, spicy mayo, and cilantro."
+        },
+        {
+          "name": "Japanese Fried Chicken",
+          "description": "Karaage style fried chicken thigh, miso ginger marinated cabbage, and yum-yum sauce."
+        },
+        {
+          "name": "Thai Burger",
+          "description": "House pickled veggies, lettuce and Thai ketchup."
+        }
+      ]
+    },
+    "handhelds": {
+      "note": "Served with hand cut fries. Sub any burger with grilled marinated portobello.",
+      "items": [
+        {
+          "name": "Viet Dip",
+          "price": 16.75,
+          "description": "Shaved roast beef, Swiss and white American cheese, caramelized onion, sautéed peppers and mushrooms, and bean sprouts on baguette with side of pho jus."
+        },
+        {
+          "name": "Lamb Gyro",
+          "price": 15.75,
+          "description": "Marinated sliced lamb, lettuce, tomato, red onion, Tzatziki sauce, and feta cheese. (Fries and hummus as your side.)"
+        },
+        {
+          "name": "Fiesta Chicken Sandwich",
+          "price": 15.75,
+          "description": "Seasoned chicken, guacamole, lettuce, onion, jalapeno, and pico de Gallo on a sesame seed bun.",
+          "options": "Add cheese +1"
+        },
+        {
+          "name": "Cajun Fish Sandwich",
+          "price": 18.75,
+          "description": "Blackened walleye fillet, red onion, tomato, and spring mix on sesame seed bun."
+        },
+        {
+          "name": "Classic Burger",
+          "price": 14.75,
+          "description": "6oz Steak burger, American cheese, lettuce, tomato, and onion on sesame seed bun.",
+          "options": "Add bacon +1, sub beef patty for grilled chicken."
+        },
+        {
+          "name": "Mai Chau Burger",
+          "price": 16.00,
+          "description": "Double decker of two 6oz American Wagyu beef patties, American cheese, thousand Thailand dressing, shredded lettuce, sliced pickle, and white onion on sesame seed bun.",
+          "options": "ADD A PATTY + 4"
+        },
+        {
+          "name": "Mushroom + Swiss Burger",
+          "price": 15.75,
+          "description": "6oz Steak burger sautéed mushrooms and Swiss cheese on a sesame seed bun."
+        },
+        {
+          "name": "Butter Burger",
+          "price": 16.00,
+          "description": "8oz steak burger, griddled over diced onion and herb butter, topped with American cheese.",
+          "options": "add bacon +1"
+        },
+        {
+          "name": "Grilled Portobello Wrap",
+          "price": 13.00,
+          "description": "Grilled marinated portobello cap, goat cheese, red onion, Spring mix, tomato, and spicy mayo on spinach wrap."
+        }
+      ]
+    },
+    "salads": {
+      "note": "Add lemongrass chicken, Filipino pork belly, sriracha pulled pork, Thai chili tofu, sweet and spicy cauliflower, grilled chicken breast +5, or steak +6",
+      "items": [
+        {
+          "name": "Mai Chau Salad Bowl",
+          "price": 15.00,
+          "description": "Mixed greens, cucumber, carrot, bean sprouts, herbs, and crushed peanuts with our ginger sesame vinaigrette."
+        },
+        {
+          "name": "The Firehouse",
+          "price": 15.00,
+          "description": "Spring mix greens, tomato, carrot, red onion, cucumber, fresh strawberries, Mandarin oranges, Chow Mein noodles, with a Chai balsamic vinaigrette."
+        },
+        {
+          "name": "Cobb Salad",
+          "price": null,
+          "description": "Romaine lettuce, avocado, tomato, bacon bits, guacamole, hard boiled egg, and grilled chicken. served with our house made ranch dressing."
+        },
+        {
+          "name": "Caesar",
+          "price": 14.00,
+          "description": "Romaine, shaved parm, croutons, and house made Caesar dressing."
+        }
+      ]
+    },
+    "kids": {
+      "price": 9.00,
+      "note": "For children 12 and under, includes drink. Buns, nuggets, and burger also includes a side.",
+      "items": [
+        {
+          "name": "Little Tiger Bowl",
+          "description": "Steamed rice, fried rice or noodles, cucumber, carrot, soy sauce, and choice of protein/veg."
+        },
+        {
+          "name": "Jeb Dude",
+          "description": "Kid size pho with chicken and carrot."
+        },
+        {
+          "name": "Fried Rice",
+          "description": "With choice of protein/veg."
+        },
+        {
+          "name": "Pizza Steamed Buns",
+          "description": "Pizza sauce, pepperoni, and mozzarella."
+        },
+        {
+          "name": "Japanese Chicken Nuggets",
+          "description": "Served with honey for dipping."
+        },
+        {
+          "name": "Classic Cheeseburger",
+          "description": "5oz beef patty, American cheese, lettuce, and tomato on a split-up bun.",
+          "options": "Add bacon +1, add an extra patty +"
+        }
+      ]
+    },
+    "desserts": {
+      "price": 8.00,
+      "items": [
+        {
+          "name": "Brownie Sundae"
+        },
+        {
+          "name": "Thai Donuts",
+          "description": "with powdered sugar & chocolate sauce"
+        },
+        {
+          "name": "Seasonal Desserts"
+        }
+      ]
+    }
+  }
+}

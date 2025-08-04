@@ -1,0 +1,414 @@
+{
+  "restaurant_name": "Pocho's Tequila & Cocina",
+  "menu": {
+    "starters": [
+      {
+        "name": "Queso Dip",
+        "price": 4,
+        "options": [
+          { "item": "+Chorizo", "price": 3 },
+          { "item": "+Spinach +Beans", "price": 2 }
+        ]
+      },
+      {
+        "name": "Guacamole",
+        "price": 4
+      },
+      {
+        "name": "Street Corn",
+        "price": 6,
+        "description": "Cotija cheese, chili powder, lime juice, mayo"
+      },
+      {
+        "name": "Tres Amigos Sampler",
+        "price": 10,
+        "description": "Queso dip, guacamole. Chicharrón +2"
+      },
+      {
+        "name": "Salsa Flight",
+        "price": 5,
+        "description": "4 mini traditional homemade salsas"
+      },
+      {
+        "name": "Consome de Pollo",
+        "price": 3,
+        "description": "Small chicken broth"
+      },
+      {
+        "name": "Momias",
+        "price": 12,
+        "description": "Bacon wrapped shrimp, sliced oranges, chipotle ranch"
+      },
+      {
+        "name": "Taquitos de Papa",
+        "price": 10,
+        "description": "3 mini crunchy potato tacos, cabbage, cotija cheese, salsa de tomate"
+      },
+      {
+        "name": "Flauta Flight",
+        "price": 10,
+        "description": "4 deep fried rolled chicken tacos, salsa, cotija cheese"
+      },
+      {
+        "name": "Nachos Supremos",
+        "price": 15,
+        "description": "Tortilla chips, topped with steak, grilled chicken, beans, queso, lettuce, tomato, and sour cream"
+      },
+      {
+        "name": "Quesadilla de Pollo",
+        "price": 12,
+        "description": "Flour tortilla filled with grilled Chicken and cheese. Accompanied with lettuce, tomato, guac, and sour cream"
+      },
+      {
+        "name": "Chicken-Spinach Chimis",
+        "price": 10,
+        "description": "4 mini chicken and spinach chimis. Served with chipotle dipping sauce"
+      },
+      {
+        "name": "Ceviche de Atun",
+        "price": 16,
+        "description": "Fresh ahi tuna, cucumber, pico de gallo, diced tomato, lime."
+      },
+      {
+        "name": "Sopes Mexicanos",
+        "price": 12,
+        "description": "Fried masa base with savory toppings. Cabbage, cotija cheese, homemade tomato sauce, tomato, and crema.",
+        "options": [
+            { "item": "STEAK", "price": 3 },
+            { "item": "TINGA", "price": 2 }
+        ]
+      }
+    ],
+    "soups_and_salads": [
+      {
+        "name": "Tinga Tortilla Soup",
+        "price": 10,
+        "description": "Shredded chicken in a chipotle-tomato sauce, onion, avocado, cilantro, fried tortilla strips"
+      },
+      {
+        "name": "Consome de Birria",
+        "price": 15,
+        "description": "Juicy birria served in its own steaming broth, cilantro, onion, rice, lime, and corn tortillas"
+      },
+      {
+        "name": "Chicken Salad",
+        "price": 12,
+        "description": "Tender chicken, lettuce, diced tomatoes, onion, broccoli, bell peppers, croutons and shredded cheese"
+      },
+      {
+        "name": "Baja-Salad",
+        "price": 18,
+        "description": "Shrimp, ahi tuna, lettuce, diced tomatoes, onion, broccoli, bell peppers, croutons and shredded cheese"
+      },
+      {
+        "name": "Pozole Verde",
+        "price": 10,
+        "description": "Green tomatillo chicken soup with hominy. Cabbage and lime on the side"
+      }
+    ],
+    "bowls": {
+        "description": "Romaine lettuce, black beans, guacamole. cilantro-lime white rice, pico de gallo",
+        "price": 12,
+        "options": [
+            {"item": "CARNE ASADA", "price": 3},
+            {"item": "GRILLED CHICKEN", "price": 3},
+            {"item": "BIRRIA", "price": 3},
+            {"item": "PORK CARNITAS", "price": 3},
+            {"item": "AL PASTOR", "price": 3},
+            {"item": "TINGA", "price": 2},
+            {"item": "FAJITA VEGGIE", "price": 2},
+            {"item": "SHRIMP", "price": 4},
+            {"item": "CALABACITAS SQUASH", "price": 2},
+            {"item": "Add queso dip", "price": 2}
+        ]
+    },
+    "specialties": {
+      "fajitas": {
+        "description": "Served with fajita veggies, rice, beans, mexi-salad, and tortillas",
+        "options": [
+          { "item": "CHICKEN", "price": 17, "options": ["STEAK +1"] },
+          { "item": "POCHO'S (CHICKEN, SHRIMP, STEAK)", "price": 20 },
+          { "item": "VEGGIE", "price": 14 }
+        ]
+      },
+      "burritos": [
+        {
+          "name": "Pocho's Burrito",
+          "price": 18,
+          "description": "Steak, chicken, shrimp, rice, beans, sliced avocado, wrapped up and grilled and drizzled with habanero cream sauce"
+        },
+        {
+          "name": "Blazing Burrito",
+          "price": 15,
+          "description": "A big burrito filled with rice, beans and your choice of protein: STEAK OR CHICKEN. Topped with cheese dip, homemade hot sauce, and jalapeno chiles toreados. SHRIMP/BIRRIA +3"
+        },
+        {
+          "name": "Fajita Burrito",
+          "price": 15,
+          "description": "Filled with fajita vegetables, topped with cheese dip, served with rice and your choice of steak or chicken. BIRRIA+3"
+        }
+      ],
+      "quesadillas": [
+        {
+          "name": "Pocho Quesadilla",
+          "price": 15,
+          "description": "Flour tortilla filled with steak or chicken, cheese and fajita vegetables. Served with rice and beans"
+        }
+      ],
+      "enchiladas": [
+        {
+          "name": "Lobster Enchiladas",
+          "price": 17,
+          "description": "Three lobster stuffed enchiladas, spinach cream sauce. Served with rice and habanero sauce."
+        },
+        {
+          "name": "Pocho's Enchiladas",
+          "price": 12,
+          "description": "3 tinga enchiladas, topped with red sauce, green sauce, and cream sauce. Served with rice and avocado salad."
+        }
+      ]
+    },
+    "seafood": [
+      {
+        "name": "Seafood Poblano",
+        "price": 18,
+        "description": "Poblano pepper stuffed with lobster, shrimp, sauteed onions, and peppers topped with spinach cream sauce. Served with white rice and esquite corn"
+      },
+      {
+        "name": "Camarones al Ajillo",
+        "price": 15,
+        "description": "Shrimp, garlic, chiles guajillos, chile de árbol, cilantro slowly roasted in lime zest. Accompanied by cilantro lime rice"
+      },
+      {
+        "name": "Camarones a la Diabla",
+        "price": 15,
+        "description": "Shrimp coated in a thick served with white rice and black beans"
+      },
+      {
+        "name": "Herradura Salmon",
+        "price": 18,
+        "description": "Perfectly grilled salmon your choice of creamy mango sauce or diabla sauce, spinach, red peppers. Served with white rice"
+      }
+    ],
+    "steaks": [
+      {
+        "name": "Carne en su Jugo",
+        "price": 15,
+        "description": "Small pieces of flank steak cooked in their juices, mixed with whole beans, and crispy crumbled bacon. Served with tortillas, cilantro, onion, and lime on the side."
+      },
+      {
+        "name": "Carne Asada",
+        "price": 20,
+        "description": "Grilled carne asada rib eye, mexican rice, re-fried beans, mixed greens, pico de gallo, cJalapenos. Served with tortillas."
+      },
+      {
+        "name": "Mar y Tierra",
+        "price": 28,
+        "description": "Grilled rib eye, grilled shrimp, served with street corn and choice of rice and beans"
+      }
+    ],
+    "chicken": [
+      {
+        "name": "Pollo con Calabaza",
+        "price": 15,
+        "description": "Grilled chicken breast, zucchini, squash, roasted peppers, corn, spicy cream sauce"
+      },
+      {
+        "name": "Pollo Santos",
+        "price": 15,
+        "description": "Grilled chicken breast topped with chorizo and papas, queso sauce served with rice and beans and tortillas"
+      },
+      {
+        "name": "Pocho's Combo",
+        "price": 15,
+        "description": "Your choice of grilled steak or grilled chicken served on a bed of rice, topped with queso sauce"
+      }
+    ],
+    "street_tacos": [
+      {
+        "name": "Birria Tacos",
+        "price": 16,
+        "description": "3 marinated beef, cheese, cilantro, onion. Lime and consome dip (no side)"
+      },
+      {
+        "name": "Carne Asada Tacos",
+        "price": 14,
+        "description": "Flank steak, street tacos, cilantro, onion, tomatillo sauce, lime and 1 side"
+      },
+      {
+        "name": "Pollo Asado",
+        "price": 14,
+        "description": "Asado grilled chicken, cilantro, onion, tomatillo sauce, lime and 1 side"
+      },
+      {
+        "name": "Tacos al Pastor",
+        "price": 15,
+        "description": "Marinated pork, pineapple, cilantro, onion, tomatillo sauce, lime and 1 side"
+      },
+      {
+        "name": "Tacos de Carnitas",
+        "price": 15,
+        "description": "Slow cooked braising pulled pork, cilantro, onion, tomatillo sauce, lime and 1 side"
+      },
+      {
+        "name": "Vegan Tacos",
+        "price": 14,
+        "description": "Spicy veggie & quinoa mix, cilantro, onion, lime. Served in a corn tortilla and 1 side"
+      },
+      {
+        "name": "Tacos de Alambre",
+        "price": 15,
+        "description": "Ribeye steak, chorizo, bacon, chihuahua cheese, tomatillo sauce, lime and 1 side"
+      },
+      {
+        "name": "Tacos Campechanos",
+        "price": 15,
+        "description": "Flank steak, chorizo, crispy chicharrón, cilantro, onion, tomatillo sauce, lime and 1 side"
+      },
+      {
+        "name": "Tacos Cancun",
+        "price": 15,
+        "description": "Grilled shrimp, coconut, pineapple, wrapped in jicama, with corn salsa"
+      },
+      {
+        "name": "Tacos de Chorizo con Papa",
+        "price": 14,
+        "description": "Chorizo mixed with potato, cilantro, onion, lime and 1 side"
+      },
+      {
+        "name": "Tacos La Paz",
+        "price": 16,
+        "description": "Fish (grilled or fried), red cabbage, pico de gallo, chipotle sauce"
+      },
+      {
+        "name": "BBQ Carnitas Tacos",
+        "price": 15,
+        "description": "Slow-cooked bbq pork, corn salsa, pineapple-lime onion, and 1 side"
+      },
+      {
+        "name": "Ahi Tuna Tacos",
+        "price": 18,
+        "description": "Ahi tuna, cucumber, pico de gallo"
+      },
+      {
+        "name": "Tacos de Tinga",
+        "price": 14,
+        "description": "Simmered tinga chicken, avocado, queso fresco"
+      }
+    ],
+    "sides": [
+      "BLACK BEANS",
+      "REFRIED BEANS",
+      "MEXICAN RICE",
+      "CILANTRO WHITE RICE",
+      "SAUTEED VEGGIE MIX",
+      "ESQUITE CORN"
+    ],
+    "childrens_menu": {
+      "note": "ONLY CHILDREN 12 YEARS OF AGE AND UNDER",
+      "items": [
+        { "name": "MINI CORN DOGS AND FRENCH FRIES", "price": 6 },
+        { "name": "CHEESEBURGER AND FRENCH FRIES", "price": 6 },
+        { "name": "MAC N CHEESE AND FRENCH FRIES", "price": 6 },
+        { "name": "CHEESE QUESADILLA", "price": 6 },
+        { "name": "CHEESE STICKS", "price": 6 },
+        { "name": "CHICKEN NUGGETS", "price": 6 }
+      ]
+    },
+    "dessert_menu": [
+      {
+        "name": "Flan",
+        "price": 5,
+        "description": "Homemade sweet caramelized custard"
+      },
+      {
+        "name": "Tamales Dulces",
+        "price": 8,
+        "description": "Cinnamon-raisin apple or sweet chocolate Tamal served with vanilla ice cream"
+      },
+      {
+        "name": "Tres Leches Cake",
+        "price": 8,
+        "description": "Sponge cake soaked in evaporated, condensed, and whole milk"
+      },
+      {
+        "name": "Churros",
+        "price": 6,
+        "description": "Deep fried pastry bites dipped in cinnamon sugar and a caramelo dip"
+      },
+      {
+        "name": "Fried Ice Cream",
+        "price": 6
+      }
+    ],
+    "lunch_menu": {
+      "note": "SERVED FROM 11AM-3PM MON-FRI ONLY",
+      "bowls": {
+        "name": "Pochos Rice Bowls",
+        "price": 12,
+        "description": "Romaine lettuce, black beans, guacamole, cilantro-lime, white rice, pico de gallo",
+        "options": [
+            {"item": "CARNE ASADA", "price": 3},
+            {"item": "GRILLED CHICKEN", "price": 3},
+            {"item": "BIRRIA", "price": 3},
+            {"item": "PORK CARNITAS", "price": 3},
+            {"item": "AL PASTOR", "price": 3},
+            {"item": "TINGA", "price": 2},
+            {"item": "FAJITA VEGGIE", "price": 2},
+            {"item": "SHRIMP", "price": 4},
+            {"item": "CALABACITAS SQUASH", "price": 2},
+            {"item": "ADD QUESO DIP", "price": 2}
+        ]
+      },
+      "tacos": {
+        "note": "Two per order, served with beans and rice of your choice.",
+        "items": [
+          {
+            "name": "Carne Asada Tacos",
+            "price": 12,
+            "description": "Flank steak, street tacos, cilantro, onion, tomatillo sauce"
+          },
+          {
+            "name": "Tacos de Tinga",
+            "price": 12,
+            "description": "Simmered tinga chicken, avocado, queso fresco"
+          },
+          {
+              "name": "Ahi Tuna Tacos",
+              "price": 16,
+              "description": "Ahi tuna, cucumber, pico de gallo"
+          }
+        ]
+      },
+      "salads": [
+        {
+          "name": "Chicken Salad",
+          "price": 12,
+          "description": "Tender chicken, lettuce, diced tomatoes, onion, broccoli, bell peppers, croutons and shredded cheese"
+        },
+        {
+          "name": "Baja-Salad",
+          "price": 18,
+          "description": "Shrimp, ahi tuna, lettuce, diced tomatoes, onion, broccoli, bell peppers, croutons and shredded cheese"
+        }
+      ],
+      "entrees": [
+        {
+          "name": "Chilaquiles",
+          "price": 12,
+          "description": "Rojo or verde simmered corn chips with your choice of carne asada or pollo asado"
+        },
+        {
+          "name": "Mini Pocho Quesadilla",
+          "price": 11,
+          "description": "Flour tortilla filled with steak or chicken, cheese and fajita vegetables. Served with rice"
+        },
+        {
+          "name": "Special Fajita Burrito",
+          "price": 12,
+          "description": "Filled with fajita vegetables, topped with cheese dip, served with rice and your choice of steak or chicken"
+        }
+      ]
+    }
+  }
+}

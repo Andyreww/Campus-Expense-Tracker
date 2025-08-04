@@ -1,0 +1,121 @@
+{
+  "restaurant_name": "Unknown",
+  "menu_title": "All Day Menu",
+  "sections": {
+    "hot_kitchen": {
+      "name": "Food Service from the Hot Kitchen until 2pm",
+      "items": [
+        {
+          "name": "The Station Egg Sandwich",
+          "price": 9.00,
+          "description": "Herbed farmers cheese, pickled red onion, folded egg, arugula on ciabatta.",
+          "options": "Add bacon, pork sausage, chicken sausage, or vegan sausage +3"
+        },
+        {
+          "name": "Potato Bowl",
+          "price": 12.00,
+          "description": "Chopped bacon, roasted jalapeno, green onion, cheddar cheese, ancho aioli, sunnyside egg, pickled red onion."
+        },
+        {
+          "name": "Smoked Salmon Bagel",
+          "price": 14.50,
+          "description": "Herbed farmers cheese, smoked salmon, shaved red onion, capers."
+        },
+        {
+          "name": "Veggie Sammie (V)",
+          "price": 10.00,
+          "description": "Cucumber, heirloom tomato, and alfalfa sprouts with red pepper pesto, pickled red onions on sourdough bread with vegan mayo."
+        },
+        {
+          "name": "Smash Burger",
+          "price": 12.00,
+          "description": "Local ground beef blend, american cheese, burger sauce, shaved red onion, bibb lettuce.",
+          "options": "Impossible patty (vegan) +1"
+        },
+        {
+          "name": "Grilled Chicken Melt",
+          "price": 11.00,
+          "description": "Grilled chicken, red pepper pesto, gruyere cheese, pickled reds, heirloom tomato, arugula on multi-grain bread."
+        },
+        {
+          "name": "Signature Salad",
+          "price": 12.00,
+          "description": "Seasonal greens, cucumber, cherry tomato, shaved red onion, asparagus, chickpeas, goat cheese, herb toasted almonds and citrus-herb vinaigrette.",
+          "options": [
+            { "item": "Add grilled chicken", "price": 3 },
+            { "item": "Add smoked salmon", "price": 5 }
+          ]
+        }
+      ]
+    },
+    "grab_and_go": {
+      "name": "Grab and Go",
+      "items": [
+        {
+          "name": "Cucumber Salad",
+          "price": 6.00,
+          "description": "Cucumber, red onion, asparagus, cherry tomato with a dill vinegar dressing."
+        },
+        {
+          "name": "Overnight Oats (V)",
+          "price": 8.00,
+          "description": "Rolled oats soaked in oat milk, maple syrup and cinnamon. Topped with toasted almonds, blueberries, strawberry, almond butter and preserves."
+        },
+        {
+          "name": "Yogurt Parfait",
+          "price": 6.00,
+          "description": "Ronnybrook vanilla yogurt, fresh berries, granola, house fruit preserves."
+        },
+        {
+          "name": "Turkey Club",
+          "price": 9.00,
+          "description": "Herb-roasted turkey breast, gruyere cheese, heirloom tomato, bibb lettuce, bacon aioli on white bread."
+        }
+      ]
+    },
+    "a_la_carte": {
+      "name": "A La Carte",
+      "items": [
+        {
+          "name": "Simple Salad",
+          "price": 5.00,
+          "description": "Seasonal greens, citrus-herb vinaigrette."
+        },
+        {
+          "name": "Seasoned Fried Potatoes",
+          "price": 4.00
+        },
+        {
+          "name": "Eggs",
+          "price": 2.00,
+          "description": "Soft-scrambled, over-easy, folded, etc."
+        },
+        {
+          "name": "Toast",
+          "price": 2.00,
+          "description": "Sourdough, white, multigrain, gluten free."
+        },
+        {
+          "name": "Toasted Bagel",
+          "price": 6.00,
+          "description": "Your choice of: cream cheese, farmers cheese, or butter."
+        },
+        {
+          "name": "Sausage",
+          "price": 4.00,
+          "description": "House-made, chicken, pork, or vegan."
+        },
+        {
+          "name": "Bacon",
+          "price": 4.00
+        },
+        {
+          "name": "Bag of Kettle Chips",
+          "price": 2.50,
+          "description": "Boulder canyon sea salt."
+        }
+      ]
+    }
+  },
+  "disclaimer": "Consuming raw or undercooked meats, poultry, seafood, shellfish, or eggs may increase your risk of foodborne illness, especially if you have certain medical conditions."
+}

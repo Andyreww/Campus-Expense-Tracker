@@ -1,0 +1,125 @@
+{
+  "custards": [
+    {
+      "name": "Cake Cone or Cup",
+      "sizes": {
+        "1 Scoop": "$4.15",
+        "2 Scoops": "$5.55"
+      }
+    },
+    {
+      "name": "Waffle Cone",
+      "sizes": {
+        "1 Scoop": "$5.05",
+        "2 Scoops": "$6.45"
+      }
+    },
+    {
+      "name": "Dipped Waffle Cone",
+      "sizes": {
+        "1 Scoop": "$5.30",
+        "2 Scoops": "$6.70"
+      }
+    },
+    {
+      "name": "Create Your Own Sundae",
+      "sizes": {
+        "1 Scoop": "$5.15",
+        "2 Scoops": "$6.55"
+      }
+    },
+    {
+      "name": "Whitson",
+      "sizes": {
+        "Mini": "$5.10",
+        "Small": "$5.65",
+        "Medium": "$6.65",
+        "Large": "$7.75"
+      }
+    }
+  ],
+  "favorites": [
+    {
+      "name": "Banana Split",
+      "price": "$6.95"
+    },
+    {
+      "name": "Brownie Blitz",
+      "price": "$6.95"
+    },
+    {
+      "name": "Strawberry Shortcake",
+      "price": "$6.95"
+    },
+    {
+      "name": "Dreamsicle Float",
+      "sizes": {
+        "Medium": "$5.65",
+        "Large": "$6.85"
+      }
+    },
+    {
+      "name": "Root Beer Float",
+      "sizes": {
+        "Medium": "$5.65",
+        "Large": "$6.85"
+      }
+    },
+    {
+      "name": "Shake",
+      "price": "$5.50 to $6.25"
+    }
+  ],
+  "specialties": [
+    {
+      "name": "Specialty Sundae",
+      "sizes": {
+        "Mini": "$5.50",
+        "Small": "$6.50",
+        "Medium": "$7.50",
+        "Large": "$8.50"
+      },
+      "note": "Starts with Whit’s vanilla custard, specialty Whitson, or sundae base"
+    },
+    {
+      "name": "Buckeye Madness",
+      "description": "Reese’s Cup, Chocolate Syrup, and Peanut Butter"
+    },
+    {
+      "name": "Caramel Apple",
+      "description": "Hot Caramel and Apple topping"
+    },
+    {
+      "name": "Cool Coffee",
+      "description": "Mocha Syrup and Irish Cream"
+    },
+    {
+      "name": "Denison Delight",
+      "description": "Brownie Bites, Hot Fudge, and Chopped Nuts"
+    },
+    {
+      "name": "Granville Gem",
+      "description": "Hot Fudge, Hot Caramel, and Pecans"
+    },
+    {
+      "name": "Grasshoppa",
+      "description": "Chocolate Flakes and Mint Syrup"
+    },
+    {
+      "name": "Hawaiian Lūʻau",
+      "description": "Pineapple, Coconut, Hot Fudge, and Macadamias"
+    },
+    {
+      "name": "Mud Pie",
+      "description": "Mocha, Cookies n’ Cream, and Caramel"
+    },
+    {
+      "name": "O’Henry George",
+      "description": "Hot Fudge, Hot Caramel, and Spanish Peanuts"
+    },
+    {
+      "name": "Yeah Red",
+      "description": "Raspberries, Hot Fudge, and Macadamias"
+    }
+  ]
+}
