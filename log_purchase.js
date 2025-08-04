@@ -40,10 +40,10 @@ async function main() {
             { id: 'china-garden', name: 'Dragon Village', file: 'DV_price.json' },
             { id: 'three-tigers', name: 'Three Tigers', file: 'TTigers_price.json' },
             { id: 'harvest-pizza', name: 'Harvest Pizza', file: 'harvest_price.json' },
-            { id: 'pochos', name: "Pocho's", file: 'pochos_price.json' },
+            { id: 'pochos', name: "Pocho's Tequila & Cocina", file: 'pochos_price.json' },
             { id: 'granville-pub', name: 'Granville Pub', file: 'pub_price.json' },
             { id: 'the-station', name: 'The Station', file: 'station_price.json' },
-            { id: 'whitts', name: "Whitt's", file: 'whitts_price.json' }
+            { id: 'whitts', name: "Whitt's Frozen Custard", file: 'whitts_price.json' }
         ];
 
         // --- DOM ELEMENTS ---
@@ -227,6 +227,16 @@ async function main() {
                 customStoreActions.classList.add('hidden');
                 categorySidebar.classList.remove('hidden');
                 
+                // Update subtitle for restaurants with price disclaimers
+                const storeSubtitle = document.querySelector('.store-subtitle');
+                if (storeSubtitle) {
+                    if (currentStoreId === 'china-garden' || currentStoreId === 'whitts') {
+                        storeSubtitle.innerHTML = 'Grab what you need! <span style="color: var(--text-secondary); font-size: 0.85em;">(Prices approximate)</span>';
+                    } else {
+                        storeSubtitle.textContent = 'Grab what you need!';
+                    }
+                }
+                
                 if (currentStoreId === 'ross') {
                     await loadRossStoreData();
                 } else {
@@ -248,6 +258,13 @@ async function main() {
                     
                     customStoreActions.classList.remove('hidden');
                     categorySidebar.classList.add('hidden');
+                    
+                    // Reset subtitle for custom stores
+                    const storeSubtitle = document.querySelector('.store-subtitle');
+                    if (storeSubtitle) {
+                        storeSubtitle.textContent = 'Grab what you need!';
+                    }
+                    
                     await loadCustomStoreItems(currentStoreId);
                 }
             }
@@ -320,6 +337,11 @@ async function main() {
                         break;
                     default:
                         allItems = [];
+                }
+                
+                // Show price disclaimer for China Garden and Whitt's
+                if (restaurantId === 'china-garden' || restaurantId === 'whitts') {
+                    showPriceDisclaimer(restaurant.name);
                 }
                 
                 renderCategories();
@@ -1912,6 +1934,60 @@ async function main() {
             alertModal.querySelector('#simple-alert-title').textContent = title;
             alertModal.querySelector('#simple-alert-message').textContent = message;
             alertModal.classList.remove('hidden');
+        }
+        
+        function showPriceDisclaimer(restaurantName) {
+            // Check if disclaimer was already shown this session
+            const disclaimerKey = `disclaimer_${restaurantName.replace(/\s+/g, '_')}`;
+            if (sessionStorage.getItem(disclaimerKey)) return;
+            
+            let disclaimerModal = document.getElementById('price-disclaimer-modal');
+            if (!disclaimerModal) {
+                disclaimerModal = document.createElement('div');
+                disclaimerModal.id = 'price-disclaimer-modal';
+                disclaimerModal.className = 'modal-overlay';
+                disclaimerModal.innerHTML = `
+                    <div class="modal-paper" style="max-width: 450px;">
+                        <div class="modal-pin"></div>
+                        <h2 class="modal-title" style="font-family: 'Patrick Hand', cursive; font-size: 1.6rem; color: var(--text-primary);">
+                            📝 Quick Note!
+                        </h2>
+                        <div style="text-align: left; margin: 1rem 0;">
+                            <p style="margin-bottom: 0.75rem; font-size: 0.95rem; line-height: 1.6;">
+                                Hey friend! Just a heads up - <strong id="disclaimer-restaurant-name"></strong> doesn't have their menu readily available online, so these prices are based on the best info we could find.
+                            </p>
+                            <p style="margin-bottom: 0.75rem; font-size: 0.95rem; line-height: 1.6;">
+                                If you spot any incorrect prices while you're there, we'd super appreciate it if you could let us know! 
+                            </p>
+                            <div style="font-size: 0.9rem; text-align: center; padding: 0.75rem; background: var(--bg-secondary); border-radius: 0.5rem; margin: 1rem 0; border: 2px dashed var(--border-color);">
+                                📧 Email corrections to:<br>
+                                <strong style="color: var(--brand-primary); font-family: 'Nunito', sans-serif;">ajangulo8@gmail.com</strong>
+                            </div>
+                        </div>
+                        <div class="modal-actions">
+                            <button id="disclaimer-ok-btn" class="modal-btn confirm" style="width: 100%;">
+                                <span>Got it, thanks!</span>
+                            </button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(disclaimerModal);
+                
+                disclaimerModal.querySelector('#disclaimer-ok-btn').addEventListener('click', () => {
+                    disclaimerModal.classList.add('hidden');
+                    // Remember that we showed this disclaimer
+                    sessionStorage.setItem(disclaimerKey, 'shown');
+                });
+                
+                disclaimerModal.addEventListener('click', (e) => { 
+                    if (e.target === disclaimerModal) {
+                        disclaimerModal.classList.add('hidden');
+                        sessionStorage.setItem(disclaimerKey, 'shown');
+                    }
+                });
+            }
+            
+            disclaimerModal.querySelector('#disclaimer-restaurant-name').textContent = restaurantName;
+            disclaimerModal.classList.remove('hidden');
         }
         
         function detectCategory(item) {
