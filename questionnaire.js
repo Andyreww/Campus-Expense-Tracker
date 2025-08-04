@@ -475,6 +475,17 @@ async function main() {
                 if (parseFloat(input.value) < 0) {
                     input.value = '0';
                 }
+                
+                // NEW: Cap at maximum default for Denison students
+                if (isDenison && DENISON_DEFAULTS[selectedYear][balanceType.id] !== undefined) {
+                    const maxValue = DENISON_DEFAULTS[selectedYear][balanceType.id];
+                    const currentValue = parseFloat(input.value);
+                    
+                    if (currentValue > maxValue) {
+                        input.value = maxValue.toString();
+                    }
+                }
+                
                 validateForm();
             });
             
