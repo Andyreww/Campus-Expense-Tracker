@@ -173,11 +173,11 @@ body {
     align-items: center;
     justify-content: center;
 }
-.auth-button:hover {
+.auth-button:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
 }
-.auth-button:active {
+.auth-button:active:not(:disabled) {
     transform: translateY(1px);
     border-bottom-width: 1px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
@@ -198,7 +198,7 @@ body {
     border: 1px solid var(--border-color);
     border-bottom: 3px solid var(--border-color);
 }
-.secondary-button:hover {
+.secondary-button:hover:not(:disabled) {
     background: #e5dccb;
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
@@ -301,6 +301,12 @@ body {
     z-index: 1000;
     padding: 1rem;
     backdrop-filter: blur(4px);
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .modal-content {

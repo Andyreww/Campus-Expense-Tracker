@@ -52,8 +52,8 @@
                     <div id="auth-error" class="auth-error-message hidden"></div>
 
                     <div class="button-group">
-                        <button type="submit" id="primary-button" class="auth-button">Sign In</button>
-                        <button type="button" id="secondary-button" class="auth-button secondary-button">Create Account</button>
+                        <button type="submit" id="primary-action-button" class="auth-button">Sign In</button>
+                        <button type="button" id="secondary-action-button" class="auth-button secondary-button">Create Account</button>
                     </div>
                 </form>
 
@@ -142,16 +142,15 @@
     <!-- Firebase and Page Logic -->
     <script type="module" src="auth.js"></script>
     <script>
-        // --- Page Interaction Logic ---
         document.addEventListener('DOMContentLoaded', () => {
             // --- Elements ---
             const formTitle = document.getElementById('form-title');
             const formSubtitle = document.getElementById('form-subtitle');
-            const primaryButton = document.getElementById('primary-button');
-            const secondaryButton = document.getElementById('secondary-button');
+            const primaryButton = document.getElementById('primary-action-button');
+            const secondaryButton = document.getElementById('secondary-action-button');
             const tosAgreement = document.getElementById('tos-agreement');
             const tosCheckbox = document.getElementById('tos-checkbox');
-            const authForm = document.getElementById('auth-form');
+            const authError = document.getElementById('auth-error');
 
             // --- Modal Elements ---
             const tosModal = document.getElementById('tos-modal');
@@ -161,18 +160,21 @@
             // --- State ---
             let isCreateMode = false;
 
-            // --- Functions ---
+            // --- Function to toggle views ---
             const setCreateMode = (create) => {
                 isCreateMode = create;
+                authError.classList.add('hidden'); // Hide any errors when switching modes
+
                 if (create) {
+                    // --- Set up CREATE ACCOUNT view ---
                     formTitle.textContent = 'Create an Account';
                     formSubtitle.textContent = 'Let\'s get you set up.';
                     primaryButton.textContent = 'Create Account';
                     secondaryButton.textContent = 'Back to Sign In';
                     tosAgreement.classList.remove('hidden');
-                    primaryButton.disabled = true; // Disable until checkbox is checked
-                    tosCheckbox.checked = false;
+                    primaryButton.disabled = !tosCheckbox.checked; // Disable button until TOS is checked
                 } else {
+                    // --- Set up SIGN IN view ---
                     formTitle.textContent = 'Grab a Seat';
                     formSubtitle.textContent = 'It\'s all here, waiting for you.';
                     primaryButton.textContent = 'Sign In';
@@ -184,10 +186,12 @@
 
             // --- Event Listeners ---
             secondaryButton.addEventListener('click', () => {
+                // The secondary button's only job is to toggle the mode
                 setCreateMode(!isCreateMode);
             });
 
             tosCheckbox.addEventListener('change', () => {
+                // When in create mode, the primary button's state depends on the checkbox
                 if (isCreateMode) {
                     primaryButton.disabled = !tosCheckbox.checked;
                 }
@@ -204,7 +208,8 @@
             });
 
             tosModal.addEventListener('click', (e) => {
-                if (e.target === tosModal) { // Click on overlay, not content
+                // Close modal if user clicks on the dark overlay
+                if (e.target === tosModal) {
                     tosModal.classList.add('hidden');
                 }
             });
