@@ -304,6 +304,11 @@ body {
     animation: fadeIn 0.3s ease;
 }
 
+/* This is the fix: A more specific rule to ensure the modal is hidden by default */
+.modal-overlay.hidden {
+    display: none;
+}
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
