@@ -32,7 +32,7 @@
                 <h1 id="form-title" class="login-title">Grab a Seat</h1>
                 <p id="form-subtitle" class="login-subtitle">It's all here, waiting for you</p>
 
-                <!-- Note: The button types are important for the original auth.js script -->
+                <!-- The data-mode attribute will be used by CSS to show/hide elements -->
                 <form id="auth-form" class="auth-form" data-mode="login">
                     <div>
                         <label for="email" class="form-label">Email Address</label>
@@ -52,16 +52,14 @@
                     <div id="auth-error" class="auth-error-message hidden"></div>
 
                     <div class="button-group">
-                        <!-- Sign in is a submit button -->
+                        <!-- These buttons have the original IDs so auth.js can find them -->
                         <button type="submit" id="sign-in-button" class="auth-button">Sign In</button>
-                        <!-- Create account is a regular button -->
                         <button type="button" id="create-account-button" class="auth-button secondary-button">Create Account</button>
                     </div>
                 </form>
 
                 <div class="separator">or</div>
 
-                <!-- Google sign in is a regular button -->
                 <button type="button" id="google-signin-button" class="google-button">
                     <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.19 4.212-4.048 5.574l6.19 5.238C39.999 35.591 44 29.891 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
                     Continue with Google
@@ -110,6 +108,8 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const authForm = document.getElementById('auth-form');
+            const formTitle = document.getElementById('form-title');
+            const formSubtitle = document.getElementById('form-subtitle');
             const signInButton = document.getElementById('sign-in-button');
             const createAccountButton = document.getElementById('create-account-button');
             const tosCheckbox = document.getElementById('tos-checkbox');
@@ -119,37 +119,56 @@
             const tosLink = document.getElementById('tos-link');
             const closeModalButton = document.getElementById('close-modal-button');
 
-            // This listener intercepts the click on the "Create Account" button
-            createAccountButton.addEventListener('click', (e) => {
-                // Check if we're in "signup" mode yet
-                const isSignupMode = authForm.dataset.mode === 'signup';
+            const setMode = (mode) => {
+                authForm.dataset.mode = mode;
+                authError.classList.add('hidden'); // Hide errors on mode switch
 
-                if (!isSignupMode) {
-                    // If not in signup mode, switch to it and PREVENT the original click action
-                    e.preventDefault();
-                    e.stopImmediatePropagation(); // Stops auth.js from firing
-                    
-                    authForm.dataset.mode = 'signup';
-                    document.getElementById('form-title').textContent = 'Create an Account';
-                    document.getElementById('form-subtitle').textContent = 'Just one more step!';
-                    
-                    // Hide the original sign-in button and show the TOS agreement
-                    signInButton.classList.add('hidden');
-                    authForm.querySelector('.tos-agreement-group').style.display = 'flex';
-                    
-                    // Change this button's text to confirm
+                if (mode === 'signup') {
+                    formTitle.textContent = 'Create an Account';
+                    formSubtitle.textContent = 'Let\'s get you set up.';
                     createAccountButton.textContent = 'Confirm & Create Account';
+                    signInButton.textContent = 'Back to Sign In';
+                    // Change the sign-in button to a 'button' type so it doesn't submit the form
+                    signInButton.type = 'button'; 
+                } else { // mode === 'login'
+                    formTitle.textContent = 'Grab a Seat';
+                    formSubtitle.textContent = 'It\'s all here, waiting for you.';
+                    createAccountButton.textContent = 'Create Account';
+                    signInButton.textContent = 'Sign In';
+                    // Restore the sign-in button to a 'submit' type
+                    signInButton.type = 'submit';
+                }
+            };
 
+            // This listener handles the "Create Account" / "Confirm" button
+            createAccountButton.addEventListener('click', (e) => {
+                if (authForm.dataset.mode === 'login') {
+                    // If in login mode, switch to signup mode.
+                    // This click should NOT bubble up to auth.js
+                    e.stopImmediatePropagation();
+                    setMode('signup');
                 } else {
-                    // If we ARE in signup mode, check the checkbox
+                    // If in signup mode, check the TOS box.
+                    // If unchecked, block the click from reaching auth.js
                     if (!tosCheckbox.checked) {
-                        e.preventDefault(); // Stop submission
-                        e.stopImmediatePropagation(); // Stop auth.js
-                        authError.textContent = 'Please agree to the Terms of Service to continue.';
+                        e.stopImmediatePropagation();
+                        authError.textContent = 'Please agree to the Terms of Service.';
                         authError.classList.remove('hidden');
                     }
-                    // If the box is checked, do nothing. The event will proceed to auth.js
+                    // If the box IS checked, this listener does nothing,
+                    // allowing the click event to be handled by auth.js
                 }
+            });
+
+            // This listener handles the "Sign In" / "Back to Sign In" button
+            signInButton.addEventListener('click', (e) => {
+                if (authForm.dataset.mode === 'signup') {
+                    // If in signup mode, this is a "Back" button.
+                    // It should not submit the form.
+                    e.preventDefault();
+                    setMode('login');
+                }
+                // If in login mode, this is a normal submit button and does its thing.
             });
 
             // Modal display logic
@@ -169,5 +188,6 @@
             });
         });
     </script>
+    <script type="module" src="auth.js"></script>
 </body>
 </html>
