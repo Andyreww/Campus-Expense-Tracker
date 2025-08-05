@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="icon" href="logo.ico" type="image/x-icon">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nooksii - Login</title>
@@ -33,7 +32,8 @@
                 <h1 id="form-title" class="login-title">Grab a Seat</h1>
                 <p id="form-subtitle" class="login-subtitle">It's all here, waiting for you</p>
 
-                <form id="auth-form" class="auth-form">
+                <!-- The data-mode attribute will be used to toggle UI states -->
+                <form id="auth-form" class="auth-form" data-mode="login">
                     <div>
                         <label for="email" class="form-label">Email Address</label>
                         <input type="email" id="email" placeholder="you@school.edu" class="form-input" required>
@@ -43,23 +43,25 @@
                         <input type="password" id="password" placeholder="••••••••" class="form-input" required>
                     </div>
 
-                    <!-- TOS Agreement Checkbox -->
-                    <div id="tos-agreement" class="tos-agreement-group hidden">
+                    <!-- TOS Agreement Checkbox for sign-up mode -->
+                    <div class="tos-agreement-group">
                         <input type="checkbox" id="tos-checkbox" name="tos">
                         <label for="tos-checkbox">I have read and agree to the <a href="#" id="tos-link">Terms of Service</a>.</label>
                     </div>
 
-
                     <div id="auth-error" class="auth-error-message hidden"></div>
 
                     <div class="button-group">
-                        <button type="submit" id="primary-action-button" class="auth-button">Sign In</button>
-                        <button type="button" id="secondary-action-button" class="auth-button secondary-button">Create Account</button>
+                        <!-- This is the main action button. Its text will change, but the ID stays the same. -->
+                        <button type="submit" id="sign-in-button" class="auth-button">Sign In</button>
+                        <!-- This button toggles between modes. Its ID also stays the same. -->
+                        <button type="button" id="create-account-button" class="auth-button secondary-button">Create Account</button>
                     </div>
                 </form>
 
                 <div class="separator">or</div>
 
+                <!-- The Google button ID is unchanged -->
                 <button type="button" id="google-signin-button" class="google-button">
                     <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.19 4.212-4.048 5.574l6.19 5.238C39.999 35.591 44 29.891 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
                     Continue with Google
@@ -141,66 +143,55 @@
         </div>
     </div>
 
-
-    <!-- Firebase and Page Logic -->
-    <script type="module" src="auth.js"></script>
+    <!-- This script handles UI toggling and should not conflict with auth.js -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- Elements ---
+            const authForm = document.getElementById('auth-form');
             const formTitle = document.getElementById('form-title');
             const formSubtitle = document.getElementById('form-subtitle');
-            const primaryButton = document.getElementById('primary-action-button');
-            const secondaryButton = document.getElementById('secondary-action-button');
-            const tosAgreement = document.getElementById('tos-agreement');
+            const signInButton = document.getElementById('sign-in-button');
+            const createAccountButton = document.getElementById('create-account-button');
             const tosCheckbox = document.getElementById('tos-checkbox');
             const authError = document.getElementById('auth-error');
 
-            // --- Modal Elements ---
             const tosModal = document.getElementById('tos-modal');
             const tosLink = document.getElementById('tos-link');
             const closeModalButton = document.getElementById('close-modal-button');
 
-            // --- State ---
-            let isCreateMode = false;
+            // Function to switch between login and signup modes
+            const setMode = (mode) => {
+                authForm.dataset.mode = mode;
+                authError.classList.add('hidden'); // Hide errors on mode switch
 
-            // --- Function to toggle views ---
-            const setCreateMode = (create) => {
-                isCreateMode = create;
-                authError.classList.add('hidden'); // Hide any errors when switching modes
-
-                if (create) {
-                    // --- Set up CREATE ACCOUNT view ---
+                if (mode === 'signup') {
                     formTitle.textContent = 'Create an Account';
                     formSubtitle.textContent = 'Let\'s get you set up.';
-                    primaryButton.textContent = 'Create Account';
-                    secondaryButton.textContent = 'Back to Sign In';
-                    tosAgreement.classList.remove('hidden');
-                    primaryButton.disabled = !tosCheckbox.checked; // Disable button until TOS is checked
-                } else {
-                    // --- Set up SIGN IN view ---
+                    signInButton.textContent = 'Create Account';
+                    createAccountButton.textContent = 'Back to Sign In';
+                    signInButton.disabled = !tosCheckbox.checked;
+                } else { // mode === 'login'
                     formTitle.textContent = 'Grab a Seat';
                     formSubtitle.textContent = 'It\'s all here, waiting for you.';
-                    primaryButton.textContent = 'Sign In';
-                    secondaryButton.textContent = 'Create Account';
-                    tosAgreement.classList.add('hidden');
-                    primaryButton.disabled = false;
+                    signInButton.textContent = 'Sign In';
+                    createAccountButton.textContent = 'Create Account';
+                    signInButton.disabled = false;
                 }
             };
 
-            // --- Event Listeners ---
-            secondaryButton.addEventListener('click', () => {
-                // The secondary button's only job is to toggle the mode
-                setCreateMode(!isCreateMode);
+            // Event listener for the secondary button to toggle modes
+            createAccountButton.addEventListener('click', () => {
+                const currentMode = authForm.dataset.mode;
+                setMode(currentMode === 'login' ? 'signup' : 'login');
             });
 
+            // Enable/disable the main button based on the checkbox in signup mode
             tosCheckbox.addEventListener('change', () => {
-                // When in create mode, the primary button's state depends on the checkbox
-                if (isCreateMode) {
-                    primaryButton.disabled = !tosCheckbox.checked;
+                if (authForm.dataset.mode === 'signup') {
+                    signInButton.disabled = !tosCheckbox.checked;
                 }
             });
-            
-            // --- Modal Logic ---
+
+            // Modal display logic
             tosLink.addEventListener('click', (e) => {
                 e.preventDefault();
                 tosModal.classList.remove('hidden');
@@ -211,11 +202,13 @@
             });
 
             tosModal.addEventListener('click', (e) => {
-                // Close modal if user clicks on the dark overlay
                 if (e.target === tosModal) {
                     tosModal.classList.add('hidden');
                 }
             });
+
+            // Set initial state
+            setMode('login');
         });
     </script>
 </body>

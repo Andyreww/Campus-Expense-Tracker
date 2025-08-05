@@ -265,11 +265,20 @@ body {
 
 /* --- TOS Agreement Styles --- */
 .tos-agreement-group {
-    display: flex;
     align-items: center;
     gap: 0.5rem;
     font-size: 0.875rem;
     color: var(--text-secondary);
+}
+
+/* Hide TOS by default in login mode */
+.auth-form[data-mode="login"] .tos-agreement-group {
+    display: none;
+}
+
+/* Show TOS in signup mode */
+.auth-form[data-mode="signup"] .tos-agreement-group {
+    display: flex;
 }
 
 .tos-agreement-group input[type="checkbox"] {
@@ -304,7 +313,6 @@ body {
     animation: fadeIn 0.3s ease;
 }
 
-/* This is the fix: A more specific rule to ensure the modal is hidden by default */
 .modal-overlay.hidden {
     display: none;
 }
