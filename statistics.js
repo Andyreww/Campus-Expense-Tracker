@@ -671,6 +671,255 @@ function renderHistory(purchases) {
     });
 }
 
+// --- ENHANCED INSIGHTS SYSTEM ---
+function generateInsight(type, data, priority = 5) {
+    return {
+        type,
+        priority,
+        icon: data.icon,
+        text: data.text,
+        data // Store raw data for potential future use
+    };
+}
+
+function calculateInsightData(purchases, balanceInfo) {
+    const now = new Date();
+    const insights = [];
+    
+    // Only proceed if we have purchases
+    if (purchases.length === 0) return insights;
+    
+    // Prepare common data
+    const allItems = purchases.flatMap(p => p.items);
+    const totalSpent = purchases.reduce((sum, p) => sum + p.total, 0);
+    
+    // Time-based analysis
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    
+    const thisWeekPurchases = purchases.filter(p => p.purchaseDate > oneWeekAgo);
+    const lastWeekPurchases = purchases.filter(p => p.purchaseDate > twoWeeksAgo && p.purchaseDate <= oneWeekAgo);
+    const thisMonthPurchases = purchases.filter(p => p.purchaseDate > oneMonthAgo);
+    
+    const thisWeekSpending = thisWeekPurchases.reduce((sum, p) => sum + p.total, 0);
+    const lastWeekSpending = lastWeekPurchases.reduce((sum, p) => sum + p.total, 0);
+    const thisMonthSpending = thisMonthPurchases.reduce((sum, p) => sum + p.total, 0);
+    
+    // 1. Spending Trend Insight (High Priority)
+    if (lastWeekPurchases.length > 0 && thisWeekPurchases.length > 0) {
+        const percentChange = ((thisWeekSpending - lastWeekSpending) / lastWeekSpending) * 100;
+        if (Math.abs(percentChange) > 10) {
+            const trend = percentChange > 0 ? 'up' : 'down';
+            const emoji = percentChange > 30 ? '🚨' : percentChange > 0 ? '📈' : '📉';
+            const trendText = percentChange > 0 ? 'increased' : 'decreased';
+            insights.push(generateInsight('trend', {
+                icon: emoji,
+                text: `Spending ${trendText} ${Math.abs(percentChange).toFixed(0)}% vs last week.`
+            }, percentChange > 30 ? 9 : 7));
+        }
+    }
+    
+    // 2. Budget Pace Insight (Critical Priority if overspending)
+    if (userDataCache && userDataCache.balances && userDataCache.balances[selectedBalanceType]) {
+        const currentBalance = userDataCache.balances[selectedBalanceType];
+        const avgDailySpending = thisWeekSpending / 7;
+        const daysUntilEmpty = avgDailySpending > 0 ? currentBalance / avgDailySpending : 999;
+        
+        if (daysUntilEmpty < 30) {
+            const emoji = daysUntilEmpty < 7 ? '⚠️' : daysUntilEmpty < 14 ? '⏰' : '📅';
+            const urgency = daysUntilEmpty < 7 ? 'Alert: ' : '';
+            insights.push(generateInsight('budget_pace', {
+                icon: emoji,
+                text: `${urgency}At this rate, funds last ~${Math.floor(daysUntilEmpty)} days.`
+            }, daysUntilEmpty < 7 ? 10 : 8));
+        }
+    }
+    
+    // 3. Category Breakdown (if enough variety)
+    const categorySpending = {};
+    purchases.forEach(p => {
+        p.items.forEach(item => {
+            const category = item.category || 'Other';
+            categorySpending[category] = (categorySpending[category] || 0) + (item.price * item.quantity);
+        });
+    });
+    
+    const categories = Object.entries(categorySpending);
+    if (categories.length >= 2) {
+        const topCategory = categories.reduce((max, curr) => curr[1] > max[1] ? curr : max);
+        const percentage = ((topCategory[1] / totalSpent) * 100).toFixed(0);
+        const categoryEmoji = {
+            'Coffee': '☕',
+            'Food': '🍔',
+            'Drinks': '🥤',
+            'Snacks': '🍿',
+            'Other': '📦'
+        }[topCategory[0]] || '🛍️';
+        
+        insights.push(generateInsight('category', {
+            icon: categoryEmoji,
+            text: `${topCategory[0]} is ${percentage}% of your spending.`
+        }, 6));
+    }
+    
+    // 4. Store Frequency Insight
+    const storeVisits = {};
+    purchases.forEach(p => {
+        storeVisits[p.store] = (storeVisits[p.store] || 0) + 1;
+    });
+    
+    const storeArray = Object.entries(storeVisits);
+    if (storeArray.length > 0) {
+        const favoriteStore = storeArray.reduce((max, curr) => curr[1] > max[1] ? curr : max);
+        if (favoriteStore[1] >= 3) {
+            insights.push(generateInsight('store', {
+                icon: '🏪',
+                text: `You're a regular at ${favoriteStore[0]} (${favoriteStore[1]} visits).`
+            }, 5));
+        }
+    }
+    
+    // 5. Expensive Day Alert
+    const dailySpending = {};
+    purchases.forEach(p => {
+        const day = p.purchaseDate.toISOString().split('T')[0];
+        dailySpending[day] = (dailySpending[day] || 0) + p.total;
+    });
+    
+    const dailyValues = Object.values(dailySpending);
+    if (dailyValues.length >= 3) {
+        const avgDaily = dailyValues.reduce((sum, val) => sum + val, 0) / dailyValues.length;
+        const maxDaily = Math.max(...dailyValues);
+        if (maxDaily > avgDaily * 2) {
+            const bigSpendDay = Object.entries(dailySpending).find(([day, amount]) => amount === maxDaily);
+            const dayDate = new Date(bigSpendDay[0]);
+            const daysAgo = Math.floor((now - dayDate) / (1000 * 60 * 60 * 24));
+            const when = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo} days ago`;
+            
+            insights.push(generateInsight('spike', {
+                icon: '💰',
+                text: `${when} was a big spend day (${formatBalanceValue(maxDaily, balanceInfo)}).`
+            }, daysAgo <= 1 ? 8 : 4));
+        }
+    }
+    
+    // 6. Time Pattern Insight
+    const hourCounts = new Array(24).fill(0);
+    purchases.forEach(p => {
+        const hour = p.purchaseDate.getHours();
+        hourCounts[hour]++;
+    });
+    
+    const peakHour = hourCounts.indexOf(Math.max(...hourCounts));
+    if (Math.max(...hourCounts) >= 3) {
+        let timeDescription;
+        let timeEmoji;
+        if (peakHour >= 5 && peakHour < 12) {
+            timeDescription = 'morning person';
+            timeEmoji = '☀️';
+        } else if (peakHour >= 12 && peakHour < 17) {
+            timeDescription = 'lunch regular';
+            timeEmoji = '🌤️';
+        } else if (peakHour >= 17 && peakHour < 21) {
+            timeDescription = 'dinner crowd';
+            timeEmoji = '🌆';
+        } else {
+            timeDescription = 'night owl';
+            timeEmoji = '🌙';
+        }
+        
+        insights.push(generateInsight('time_pattern', {
+            icon: timeEmoji,
+            text: `You're a ${timeDescription} - most active around ${peakHour > 12 ? peakHour - 12 : peakHour}${peakHour >= 12 ? 'pm' : 'am'}.`
+        }, 4));
+    }
+    
+    // 7. Streak Detection
+    const purchaseDates = purchases.map(p => p.purchaseDate.toDateString());
+    const uniqueDates = [...new Set(purchaseDates)];
+    
+    // Check for no-spend streaks
+    if (uniqueDates.length > 0) {
+        const sortedDates = uniqueDates.map(d => new Date(d)).sort((a, b) => a - b);
+        let maxGap = 0;
+        let gapStart = null;
+        
+        for (let i = 1; i < sortedDates.length; i++) {
+            const gap = Math.floor((sortedDates[i] - sortedDates[i-1]) / (1000 * 60 * 60 * 24));
+            if (gap > maxGap) {
+                maxGap = gap;
+                gapStart = sortedDates[i-1];
+            }
+        }
+        
+        if (maxGap >= 3) {
+            insights.push(generateInsight('streak', {
+                icon: '🎯',
+                text: `Longest no-spend streak: ${maxGap} days!`
+            }, 5));
+        }
+    }
+    
+    // 8. Smart Shopping Pattern
+    const weekdayPurchases = purchases.filter(p => {
+        const day = p.purchaseDate.getDay();
+        return day >= 1 && day <= 5;
+    });
+    const weekendPurchases = purchases.filter(p => {
+        const day = p.purchaseDate.getDay();
+        return day === 0 || day === 6;
+    });
+    
+    if (weekdayPurchases.length > 3 && weekendPurchases.length > 3) {
+        const avgWeekday = weekdayPurchases.reduce((sum, p) => sum + p.total, 0) / weekdayPurchases.length;
+        const avgWeekend = weekendPurchases.reduce((sum, p) => sum + p.total, 0) / weekendPurchases.length;
+        
+        if (avgWeekend > avgWeekday * 1.5) {
+            insights.push(generateInsight('weekend', {
+                icon: '🎉',
+                text: `Weekends hit different - you spend ${((avgWeekend / avgWeekday - 1) * 100).toFixed(0)}% more!`
+            }, 6));
+        } else if (avgWeekday > avgWeekend * 1.3) {
+            insights.push(generateInsight('weekday', {
+                icon: '💼',
+                text: `Weekday warrior - spending more during the grind.`
+            }, 5));
+        }
+    }
+    
+    // 9. Item Loyalty
+    const itemCounts = {};
+    allItems.forEach(item => {
+        itemCounts[item.name] = (itemCounts[item.name] || 0) + item.quantity;
+    });
+    
+    const itemArray = Object.entries(itemCounts);
+    if (itemArray.length > 0) {
+        const favoriteItem = itemArray.reduce((max, curr) => curr[1] > max[1] ? curr : max);
+        if (favoriteItem[1] >= 5) {
+            insights.push(generateInsight('loyalty', {
+                icon: '❤️',
+                text: `True love: ${favoriteItem[0]} (${favoriteItem[1]}x ordered).`
+            }, 4));
+        }
+    }
+    
+    // 10. Recent Activity
+    const daysSinceLastPurchase = Math.floor((now - purchases[0].purchaseDate) / (1000 * 60 * 60 * 24));
+    if (daysSinceLastPurchase >= 3) {
+        insights.push(generateInsight('activity', {
+            icon: '📍',
+            text: `${daysSinceLastPurchase} days since last purchase - saving mode?`
+        }, 3));
+    }
+    
+    return insights;
+}
+
 function renderInsights(purchases) {
     if (!insightsList) return;
     insightsList.innerHTML = '';
@@ -695,77 +944,36 @@ function renderInsights(purchases) {
         return;
     }
 
-    const allItems = filteredPurchases.flatMap(p => p.items);
-
-    // Insight 1: Most frequent purchase
-    const purchaseCounts = allItems.reduce((acc, item) => {
-        acc[item.name] = (acc[item.name] || 0) + item.quantity;
-        return acc;
-    }, {});
-
-    const countsArray = Object.entries(purchaseCounts);
-    if (countsArray.length > 0) {
-        const [mostFrequentItem] = countsArray.reduce((max, current) => 
-            current[1] > max[1] ? current : max, 
-            countsArray[0]
-        );
-        
-        const insight1 = document.createElement('li');
-        insight1.className = 'insight-item';
-        insight1.innerHTML = `<span class="insight-icon">🏆</span><span class="insight-text">Your usual seems to be the ${mostFrequentItem}.</span>`;
-        insightsList.appendChild(insight1);
-    }
-
-    // Insight 2: Total spending this week
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    const weeklySpending = filteredPurchases
-        .filter(p => p.purchaseDate > oneWeekAgo)
-        .reduce((sum, p) => sum + p.total, 0);
-
-    const weeklyDisplay = formatBalanceValue(weeklySpending, balanceInfo);
-
-    const insight2 = document.createElement('li');
-    insight2.className = 'insight-item';
-    const spentText = balanceInfo && balanceInfo.type === 'count' ? 'used' : 'spent';
-    insight2.innerHTML = `<span class="insight-icon">💸</span><span class="insight-text">You've ${spentText} ${weeklyDisplay} in the last 7 days.</span>`;
-    insightsList.appendChild(insight2);
-
-    // Insight 3: Most expensive time of day
-    const spendingByTime = {
-        "Morning": 0,
-        "Afternoon": 0,
-        "Evening": 0,
-        "Late Night": 0
-    };
-
-    filteredPurchases.forEach(p => {
-        const hour = p.purchaseDate.getHours();
-        if (hour >= 5 && hour <= 11) {
-            spendingByTime["Morning"] += p.total;
-        } else if (hour >= 12 && hour <= 16) {
-            spendingByTime["Afternoon"] += p.total;
-        } else if (hour >= 17 && hour <= 21) {
-            spendingByTime["Evening"] += p.total;
-        } else {
-            spendingByTime["Late Night"] += p.total;
-        }
-    });
-
-    const timeSpendingArray = Object.entries(spendingByTime);
-    if (timeSpendingArray.some(time => time[1] > 0)) {
-        const [topTime] = timeSpendingArray.reduce((max, current) =>
-            current[1] > max[1] ? current : max
-        );
-        
-        const timeEmojis = { "Morning": "☀️", "Afternoon": "😎", "Evening": "🌆", "Late Night": "🌙" };
-        const timeEmoji = timeEmojis[topTime] || '⏰';
-
-        const insight3 = document.createElement('li');
-        insight3.className = 'insight-item';
-        const useText = balanceInfo && balanceInfo.type === 'count' ? 'using' : 'spending';
-        insight3.innerHTML = `<span class="insight-icon">${timeEmoji}</span><span class="insight-text">${topTime} seems to be your prime ${useText} time.</span>`;
-        insightsList.appendChild(insight3);
+    // Generate all possible insights
+    const insights = calculateInsightData(filteredPurchases, balanceInfo);
+    
+    // Sort by priority (higher = more important)
+    insights.sort((a, b) => b.priority - a.priority);
+    
+    // Take top 4 insights (or less if not enough data)
+    const topInsights = insights.slice(0, 4);
+    
+    // Render insights
+    if (topInsights.length > 0) {
+        topInsights.forEach(insight => {
+            const insightElement = document.createElement('li');
+            insightElement.className = 'insight-item';
+            insightElement.innerHTML = `
+                <span class="insight-icon">${insight.icon}</span>
+                <span class="insight-text">${insight.text}</span>
+            `;
+            insightsList.appendChild(insightElement);
+        });
+    } else {
+        // Fallback to basic insight if no smart insights available
+        const basicInsight = document.createElement('li');
+        basicInsight.className = 'insight-item';
+        const spentText = balanceInfo && balanceInfo.type === 'count' ? 'used' : 'spent';
+        basicInsight.innerHTML = `
+            <span class="insight-icon">📊</span>
+            <span class="insight-text">Keep logging to unlock personalized insights!</span>
+        `;
+        insightsList.appendChild(basicInsight);
     }
 }
 
