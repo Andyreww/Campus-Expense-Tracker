@@ -610,12 +610,14 @@ async function deleteUserDataAndLogout() {
     }
 }
 
-// Renders all parts of the page with whatever data it's given
+// --- Renders all parts of the page with whatever data it's given
 function renderAllComponents(userData, purchaseHistory) {
     renderHeader(userData);
     renderHistory(purchaseHistory);
     renderInsights(purchaseHistory);
     renderChart(userData, purchaseHistory);
+    initializeWhatIfScenario(userData, purchaseHistory);
+    initializeViewToggle(userData, purchaseHistory);
 }
 
 function renderHeader(userData) {
@@ -984,6 +986,12 @@ function calculateInsightData(purchases, balanceInfo) {
             icon: '📍',
             text: `${daysSinceLastPurchase} days since last purchase - saving mode?`
         }, 3));
+    }
+    
+    // 11. Peer Comparison (for Denison students)
+    const peerInsight = generatePeerComparisonInsight(purchases, balanceInfo);
+    if (peerInsight) {
+        insights.push(peerInsight);
     }
     
     return insights;
@@ -1706,6 +1714,416 @@ function toggleProjectionTooltip() {
             });
         }, 0);
     }
+}
+
+// --- NEW FEATURE FUNCTIONS ---
+
+// Initialize view toggle for forecast/heatmap
+function initializeViewToggle(userData, purchaseHistory) {
+    const viewButtons = document.querySelectorAll('.view-toggle-btn');
+    const forecastView = document.getElementById('forecast-view');
+    const heatmapView = document.getElementById('heatmap-view');
+    
+    if (!viewButtons.length || !forecastView || !heatmapView) return;
+    
+    viewButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const view = btn.dataset.view;
+            
+            // Update button states
+            viewButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Toggle views
+            if (view === 'forecast') {
+                forecastView.classList.remove('hidden');
+                heatmapView.classList.add('hidden');
+            } else if (view === 'heatmap') {
+                forecastView.classList.add('hidden');
+                heatmapView.classList.remove('hidden');
+                renderHeatmap(purchaseHistory);
+            }
+        });
+    });
+    
+    // Initialize heatmap period buttons
+    const periodButtons = document.querySelectorAll('.period-btn');
+    periodButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            periodButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderHeatmap(purchaseHistory);
+        });
+    });
+}
+
+// Render spending heatmap
+function renderHeatmap(purchases) {
+    const heatmapContainer = document.getElementById('spending-heatmap');
+    if (!heatmapContainer) return;
+    
+    // Get selected period
+    const activePeriodBtn = document.querySelector('.period-btn.active');
+    const days = parseInt(activePeriodBtn?.dataset.days || 30);
+    
+    // Filter purchases for selected balance type
+    const filteredPurchases = purchases.filter(p => 
+        !p.balanceType || p.balanceType === selectedBalanceType
+    );
+    
+    // Calculate daily spending
+    const dailySpending = {};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    filteredPurchases.forEach(p => {
+        const date = new Date(p.purchaseDate);
+        date.setHours(0, 0, 0, 0);
+        const dateKey = date.toISOString().split('T')[0];
+        dailySpending[dateKey] = (dailySpending[dateKey] || 0) + p.total;
+    });
+    
+    // Find max spending for color scaling
+    const spendingValues = Object.values(dailySpending);
+    const maxSpending = Math.max(...spendingValues, 1);
+    
+    // Generate calendar grid
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - days + 1);
+    
+    // Clear container
+    heatmapContainer.innerHTML = '';
+    
+    // Add day labels
+    const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    const labelRow = document.createElement('div');
+    labelRow.className = 'heatmap-day-labels';
+    dayLabels.forEach(label => {
+        const dayLabel = document.createElement('div');
+        dayLabel.className = 'heatmap-day-label';
+        dayLabel.textContent = label;
+        labelRow.appendChild(dayLabel);
+    });
+    heatmapContainer.appendChild(labelRow);
+    
+    // Create weeks container
+    const weeksContainer = document.createElement('div');
+    weeksContainer.className = 'heatmap-weeks';
+    
+    // Generate calendar cells
+    const currentDate = new Date(startDate);
+    let currentWeek = document.createElement('div');
+    currentWeek.className = 'heatmap-week';
+    
+    // Add empty cells for first week
+    const firstDayOfWeek = startDate.getDay();
+    for (let i = 0; i < firstDayOfWeek; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'heatmap-cell empty';
+        currentWeek.appendChild(emptyCell);
+    }
+    
+    while (currentDate <= today) {
+        const dateKey = currentDate.toISOString().split('T')[0];
+        const spending = dailySpending[dateKey] || 0;
+        const intensity = spending / maxSpending;
+        
+        const cell = document.createElement('div');
+        cell.className = 'heatmap-cell';
+        cell.dataset.date = dateKey;
+        cell.dataset.spending = spending.toFixed(2);
+        
+        // Set color based on intensity
+        if (spending === 0) {
+            cell.classList.add('no-spend');
+        } else if (intensity < 0.25) {
+            cell.classList.add('low-spend');
+        } else if (intensity < 0.5) {
+            cell.classList.add('med-spend');
+        } else if (intensity < 0.75) {
+            cell.classList.add('high-spend');
+        } else {
+            cell.classList.add('max-spend');
+        }
+        
+        // Add tooltip on hover
+        cell.addEventListener('mouseenter', (e) => showHeatmapTooltip(e, dateKey, spending));
+        cell.addEventListener('mouseleave', hideHeatmapTooltip);
+        
+        currentWeek.appendChild(cell);
+        
+        // Start new week on Sunday
+        if (currentDate.getDay() === 6) {
+            weeksContainer.appendChild(currentWeek);
+            currentWeek = document.createElement('div');
+            currentWeek.className = 'heatmap-week';
+        }
+        
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    // Add last week if it has cells
+    if (currentWeek.children.length > 0) {
+        weeksContainer.appendChild(currentWeek);
+    }
+    
+    heatmapContainer.appendChild(weeksContainer);
+    
+    // Add month labels
+    const monthLabels = generateMonthLabels(startDate, today);
+    const monthRow = document.createElement('div');
+    monthRow.className = 'heatmap-month-labels';
+    monthLabels.forEach(label => {
+        const monthLabel = document.createElement('div');
+        monthLabel.className = 'heatmap-month-label';
+        monthLabel.style.gridColumn = `span ${label.span}`;
+        monthLabel.textContent = label.month;
+        monthRow.appendChild(monthLabel);
+    });
+    heatmapContainer.insertBefore(monthRow, weeksContainer);
+}
+
+function generateMonthLabels(startDate, endDate) {
+    const labels = [];
+    const current = new Date(startDate);
+    let currentMonth = current.getMonth();
+    let weekCount = 1;
+    
+    while (current <= endDate) {
+        if (current.getMonth() !== currentMonth) {
+            labels.push({
+                month: new Date(current.getFullYear(), currentMonth).toLocaleDateString('en-US', { month: 'short' }),
+                span: weekCount
+            });
+            currentMonth = current.getMonth();
+            weekCount = 1;
+        } else {
+            if (current.getDay() === 6) weekCount++;
+        }
+        current.setDate(current.getDate() + 1);
+    }
+    
+    // Add last month
+    labels.push({
+        month: new Date(endDate.getFullYear(), currentMonth).toLocaleDateString('en-US', { month: 'short' }),
+        span: weekCount
+    });
+    
+    return labels;
+}
+
+function showHeatmapTooltip(event, date, spending) {
+    const tooltip = document.getElementById('heatmap-tooltip');
+    if (!tooltip) return;
+    
+    const dateObj = new Date(date);
+    const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+    
+    const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
+    const spendingDisplay = formatBalanceValue(spending, balanceInfo);
+    
+    tooltip.innerHTML = `
+        <div class="tooltip-date">${dayName}, ${formattedDate}</div>
+        <div class="tooltip-amount">${spending > 0 ? spendingDisplay : 'No spending'}</div>
+    `;
+    
+    tooltip.classList.remove('hidden');
+    
+    // Position tooltip
+    const rect = event.target.getBoundingClientRect();
+    tooltip.style.left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2) + 'px';
+    tooltip.style.top = rect.top - tooltip.offsetHeight - 8 + 'px';
+}
+
+function hideHeatmapTooltip() {
+    const tooltip = document.getElementById('heatmap-tooltip');
+    if (tooltip) tooltip.classList.add('hidden');
+}
+
+// Initialize What-If Scenario controls
+function initializeWhatIfScenario(userData, purchases) {
+    const whatIfControls = document.getElementById('what-if-controls');
+    const whatIfToggle = document.getElementById('what-if-toggle');
+    const whatIfPanel = document.getElementById('what-if-panel');
+    const spendingSlider = document.getElementById('spending-slider');
+    const spendingValue = document.getElementById('spending-value');
+    
+    if (!whatIfControls || !selectedBalanceType) {
+        return;
+    }
+    
+    // Show controls only if we have enough data
+    const filteredPurchases = purchases.filter(p => 
+        !p.balanceType || p.balanceType === selectedBalanceType
+    );
+    
+    if (filteredPurchases.length >= 3) {
+        whatIfControls.classList.remove('hidden');
+    } else {
+        return;
+    }
+    
+    // Calculate current average daily spending
+    const totalSpent = filteredPurchases.reduce((sum, p) => sum + p.total, 0);
+    const dayCount = [...new Set(filteredPurchases.map(p => 
+        p.purchaseDate.toISOString().split('T')[0]
+    ))].length;
+    const avgDaily = totalSpent / dayCount;
+    
+    // Set slider initial value
+    spendingSlider.value = Math.round(avgDaily);
+    spendingSlider.max = Math.round(avgDaily * 3);
+    spendingSlider.min = Math.round(avgDaily * 0.3);
+    
+    const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
+    spendingValue.textContent = formatBalanceValue(avgDaily, balanceInfo);
+    
+    // Toggle button handler
+    whatIfToggle.addEventListener('click', () => {
+        const isEnabled = whatIfToggle.textContent === 'Enable';
+        whatIfToggle.textContent = isEnabled ? 'Disable' : 'Enable';
+        whatIfToggle.classList.toggle('active');
+        whatIfPanel.classList.toggle('hidden');
+        
+        if (isEnabled) {
+            updateWhatIfProjection(userData, purchases);
+        } else {
+            // Reset to normal chart
+            renderChart(userData, purchases);
+        }
+    });
+    
+    // Slider handler
+    spendingSlider.addEventListener('input', () => {
+        const value = parseFloat(spendingSlider.value);
+        spendingValue.textContent = formatBalanceValue(value, balanceInfo);
+        
+        if (whatIfToggle.classList.contains('active')) {
+            updateWhatIfProjection(userData, purchases);
+        }
+    });
+}
+
+// Update projection based on What-If scenario
+function updateWhatIfProjection(userData, purchases) {
+    const spendingSlider = document.getElementById('spending-slider');
+    const targetDaily = parseFloat(spendingSlider.value);
+    const currentBalance = userData.balances?.[selectedBalanceType] || 0;
+    
+    if (!spendingChart || !targetDaily) return;
+    
+    // Calculate new projection
+    const now = new Date();
+    const filteredPurchases = purchases.filter(p => 
+        !p.balanceType || p.balanceType === selectedBalanceType
+    );
+    
+    // Get existing chart data
+    const chartData = spendingChart.data;
+    const actualDataLength = filteredPurchases.length > 0 ? 
+        [...new Set(filteredPurchases.map(p => p.purchaseDate.toISOString().split('T')[0]))].length : 1;
+    
+    // Create new projection data
+    const newProjectionData = new Array(actualDataLength - 1).fill(null);
+    const lastActualBalance = actualDataLength > 0 ? 
+        chartData.datasets[0].data[actualDataLength - 1] : currentBalance;
+    newProjectionData.push(lastActualBalance);
+    
+    let projectedBalance = lastActualBalance;
+    let projectedDate = new Date(now);
+    let daysUntilEmpty = 0;
+    
+    // For Denison students, consider semester boundaries
+    let semesterInfo = null;
+    if (userData.isDenisonStudent) {
+        semesterInfo = getDenisonSemesterInfo(now);
+    }
+    
+    // Project forward with new daily rate
+    for (let i = actualDataLength; i < chartData.labels.length; i++) {
+        projectedDate.setDate(projectedDate.getDate() + 1);
+        
+        // Check if it's a break day for Denison students
+        let dailySpend = targetDaily;
+        if (semesterInfo) {
+            const dateInfo = getDenisonSemesterInfo(projectedDate);
+            if (dateInfo.currentPeriod === 'break' || dateInfo.currentPeriod === 'winter-break' || 
+                dateInfo.currentPeriod === 'summer') {
+                dailySpend = 0;
+            }
+        }
+        
+        projectedBalance = Math.max(0, projectedBalance - dailySpend);
+        newProjectionData.push(projectedBalance);
+        
+        if (projectedBalance > 0) {
+            daysUntilEmpty++;
+        }
+    }
+    
+    // Update chart
+    spendingChart.data.datasets[1].data = newProjectionData;
+    spendingChart.data.datasets[1].label = 'What-If Projection';
+    spendingChart.data.datasets[1].borderColor = '#9C27B0';
+    spendingChart.data.datasets[1].backgroundColor = 'rgba(156, 39, 176, 0.1)';
+    
+    // Update what-if results
+    const whatIfDate = document.getElementById('what-if-date');
+    const whatIfSavings = document.getElementById('what-if-savings');
+    
+    if (whatIfDate && whatIfSavings) {
+        const endDate = new Date(now);
+        endDate.setDate(endDate.getDate() + daysUntilEmpty);
+        whatIfDate.textContent = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        
+        // Calculate savings needed
+        const currentAvg = filteredPurchases.reduce((sum, p) => sum + p.total, 0) / 
+            [...new Set(filteredPurchases.map(p => p.purchaseDate.toISOString().split('T')[0]))].length;
+        const savings = currentAvg - targetDaily;
+        const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
+        whatIfSavings.textContent = savings > 0 ? 
+            formatBalanceValue(savings, balanceInfo) : 
+            `Spend ${formatBalanceValue(Math.abs(savings), balanceInfo)} more`;
+    }
+    
+    spendingChart.update();
+}
+
+// Add peer comparison to insights
+function generatePeerComparisonInsight(purchases, balanceInfo) {
+    // This would normally fetch from Firebase aggregated data
+    // For now, using realistic hardcoded averages for Denison students
+    
+    if (!userDataCache || !userDataCache.isDenisonStudent) return null;
+    
+    const avgDaily = purchases.length > 0 ? 
+        purchases.reduce((sum, p) => sum + p.total, 0) / 
+        [...new Set(purchases.map(p => p.purchaseDate.toISOString().split('T')[0]))].length : 0;
+    
+    // Hardcoded peer averages by class year (would be from Firebase in production)
+    const peerAverages = {
+        'Freshman': { credits: 18, dining: 22 },
+        'Sophomore': { credits: 16, dining: 20 },
+        'Junior': { credits: 15, dining: 18 },
+        'Senior': { credits: 14, dining: 16 }
+    };
+    
+    const classYear = userDataCache.classYear || 'Sophomore';
+    const peerAvg = peerAverages[classYear]?.[selectedBalanceType] || 15;
+    
+    if (avgDaily > 0) {
+        const percentDiff = ((avgDaily - peerAvg) / peerAvg) * 100;
+        const comparison = percentDiff > 0 ? 'more' : 'less';
+        const emoji = Math.abs(percentDiff) < 10 ? '👥' : percentDiff > 0 ? '📊' : '💰';
+        
+        return generateInsight('peer_comparison', {
+            icon: emoji,
+            text: `You spend ${Math.abs(percentDiff).toFixed(0)}% ${comparison} than avg ${classYear}.`
+        }, 7);
+    }
+    
+    return null;
 }
 
 // --- Run the app ---
