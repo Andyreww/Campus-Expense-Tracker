@@ -32,7 +32,7 @@
                 <h1 id="form-title" class="login-title">Grab a Seat</h1>
                 <p id="form-subtitle" class="login-subtitle">It's all here, waiting for you</p>
 
-                <!-- The data-mode attribute will be used to toggle UI states -->
+                <!-- Note: The button types are important for the original auth.js script -->
                 <form id="auth-form" class="auth-form" data-mode="login">
                     <div>
                         <label for="email" class="form-label">Email Address</label>
@@ -52,16 +52,16 @@
                     <div id="auth-error" class="auth-error-message hidden"></div>
 
                     <div class="button-group">
-                        <!-- This is the main action button. Its text will change, but the ID stays the same. -->
+                        <!-- Sign in is a submit button -->
                         <button type="submit" id="sign-in-button" class="auth-button">Sign In</button>
-                        <!-- This button toggles between modes. Its ID also stays the same. -->
+                        <!-- Create account is a regular button -->
                         <button type="button" id="create-account-button" class="auth-button secondary-button">Create Account</button>
                     </div>
                 </form>
 
                 <div class="separator">or</div>
 
-                <!-- The Google button ID is unchanged -->
+                <!-- Google sign in is a regular button -->
                 <button type="button" id="google-signin-button" class="google-button">
                     <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.19 4.212-4.048 5.574l6.19 5.238C39.999 35.591 44 29.891 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
                     Continue with Google
@@ -77,10 +77,9 @@
             <div class="tos-text">
                 <h2>🌿 Nooksii Terms of Service</h2>
                 <p class="updated-date">Updated: August 5, 2025</p>
-
+                <!-- Full TOS text here... -->
                 <h3>Hey! Welcome to Nooksii 💛</h3>
-                <p>This app was made with one goal: to help students keep track of their campus spending in a simple, cozy, stress free way. We’re not here to profit off your info, and we really don’t care about collecting data on you. Promise.</p>
-
+                <p>This app was made with one goal: to help students keep track of their campus spending in a simple, cozy, stress-free way. We’re not here to profit off your info, and we really don’t care about collecting data on you. Promise.</p>
                 <h3>🧠 What is Nooksii?</h3>
                 <p>Nooksii is a little app built by students, for students. It helps you:</p>
                 <ul>
@@ -89,56 +88,20 @@
                     <li>see your spending habits and plan better</li>
                 </ul>
                 <p>That’s it! No ads, no selling stuff, no hidden charges. Just helpful vibes.</p>
-
                 <h3>🔐 What Info We Collect (And What We Don’t)</h3>
-                <p>We keep it minimal:</p>
-                <ul>
-                    <li>your email and username, so your account can exist</li>
-                    <li>your spending balance and logged items, so your info shows up when you log in</li>
-                </ul>
-                <p>What we don’t do:</p>
-                <ul>
-                    <li>❌ we don’t sell your data</li>
-                    <li>❌ we don’t track your behavior</li>
-                    <li>❌ we don’t care about your habits beyond helping you</li>
-                    <li>❌ we’re not sending anything to 3rd parties, advertisers, or any creepy data people</li>
-                </ul>
-                <p>Your data stays between you and Nooksii, and honestly… we don’t even wanna look at it unless we have to fix a bug or help you out.</p>
-
+                <p>We keep it minimal: your email and username, so your account can exist, and your spending balance and logged items — so your info shows up when you log in. What we don’t do: we don’t sell your data, we don’t track your behavior, we don’t care about your habits beyond helping you, and we’re not sending anything to 3rd parties, advertisers, or any creepy data people. Your data stays between you and Nooksii, and honestly… we don’t even wanna look at it unless we have to fix a bug or help you out.</p>
                 <h3>💫 Deleting Your Account</h3>
-                <p>Don’t wanna use Nooksii anymore? That’s totally okay. You can delete your account any time in the dashboard. It will remove everything related to you from our system. No drama, no weird “please stay!” popups. Just poof... it’s gone.</p>
-
+                <p>Don’t wanna use Nooksii anymore? That’s totally okay. You can delete your account any time in your settings. We’ll remove everything related to you from our system. No drama, no weird “please stay!” popups. Just poof — it’s gone.</p>
                 <h3>🚫 What Not to Do</h3>
-                <p>We’re a small team (like… one person lol :3), so we ask that you please:</p>
-                <ul>
-                    <li>don’t try to break or hack the site</li>
-                    <li>don’t spam or troll</li>
-                    <li>don’t pretend to be someone else</li>
-                    <li>don’t use it for anything other than good, helpful reasons</li>
-                    <li>don't use anything NSFW or else you will be banned forever (no appeals)</li>
-                </ul>
-                <p>Basically: be a good human and respect the space 🌱</p>
-
+                <p>We’re a small team, so we ask that you please: don’t try to break or hack the site, don’t spam or troll, don’t pretend to be someone else, and don’t use it for anything other than good, helpful reasons. Basically: be a good human and respect the space 🌱</p>
                 <h3>⚠️ No Promises, Just Vibes</h3>
-                <p>This is a personal project. It’s not backed by a big company. That means:</p>
-                <ul>
-                    <li>things might go down sometimes</li>
-                    <li>bugs can happen</li>
-                    <li>we can’t guarantee perfection</li>
-                    <li>we’re not liable if something glitches or your balance looks off</li>
-                </ul>
-                <p>That said, I do our best to keep it stable and helpful. If something breaks, and I'll try to fix it fast.</p>
-
+                <p>This is a personal project. It’s not backed by a big company. That means: things might go down sometimes, bugs can happen, we can’t guarantee perfection, and we’re not liable if something glitches or your balance looks off. That said — we do our best to keep it stable and helpful. If something breaks, we’ll try to fix it fast.</p>
                 <h3>📌 Updates to These Terms</h3>
                 <p>If we ever change how Nooksii works or update our policies, we’ll let you know ahead of time. Nothing shady, no surprise changes. You’ll always be in the loop.</p>
-
                 <h3>💌 Got Questions?</h3>
-                <p>I'm just an alumni trying to make a helpful tool that I would've appreciated when I was in university. If you ever have questions, issues, or just wanna say hi, email us at: ajangulo8@gmail.com</p>
-                <p>I will get back to you as soon as we can! But pls dont spam me ;-;</p>
-
+                <p>We’re just students trying to make a helpful tool. If you ever have questions, issues, or just wanna say hi, email us at: [insert email/contact link]. We’ll get back to you as soon as we can (probably with a coffee in hand ☕).</p>
                 <h3>✅ By using Nooksii…</h3>
                 <p>You’re saying “cool, I’m down with these vibes” and you agree to everything above. That’s it!</p>
-                <p>I hope you enjoy Nooksii I really poured my heart into it!</p>
             </div>
         </div>
     </div>
@@ -147,8 +110,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const authForm = document.getElementById('auth-form');
-            const formTitle = document.getElementById('form-title');
-            const formSubtitle = document.getElementById('form-subtitle');
             const signInButton = document.getElementById('sign-in-button');
             const createAccountButton = document.getElementById('create-account-button');
             const tosCheckbox = document.getElementById('tos-checkbox');
@@ -158,36 +119,36 @@
             const tosLink = document.getElementById('tos-link');
             const closeModalButton = document.getElementById('close-modal-button');
 
-            // Function to switch between login and signup modes
-            const setMode = (mode) => {
-                authForm.dataset.mode = mode;
-                authError.classList.add('hidden'); // Hide errors on mode switch
+            // This listener intercepts the click on the "Create Account" button
+            createAccountButton.addEventListener('click', (e) => {
+                // Check if we're in "signup" mode yet
+                const isSignupMode = authForm.dataset.mode === 'signup';
 
-                if (mode === 'signup') {
-                    formTitle.textContent = 'Create an Account';
-                    formSubtitle.textContent = 'Let\'s get you set up.';
-                    signInButton.textContent = 'Create Account';
-                    createAccountButton.textContent = 'Back to Sign In';
-                    signInButton.disabled = !tosCheckbox.checked;
-                } else { // mode === 'login'
-                    formTitle.textContent = 'Grab a Seat';
-                    formSubtitle.textContent = 'It\'s all here, waiting for you.';
-                    signInButton.textContent = 'Sign In';
-                    createAccountButton.textContent = 'Create Account';
-                    signInButton.disabled = false;
-                }
-            };
+                if (!isSignupMode) {
+                    // If not in signup mode, switch to it and PREVENT the original click action
+                    e.preventDefault();
+                    e.stopImmediatePropagation(); // Stops auth.js from firing
+                    
+                    authForm.dataset.mode = 'signup';
+                    document.getElementById('form-title').textContent = 'Create an Account';
+                    document.getElementById('form-subtitle').textContent = 'Just one more step!';
+                    
+                    // Hide the original sign-in button and show the TOS agreement
+                    signInButton.classList.add('hidden');
+                    authForm.querySelector('.tos-agreement-group').style.display = 'flex';
+                    
+                    // Change this button's text to confirm
+                    createAccountButton.textContent = 'Confirm & Create Account';
 
-            // Event listener for the secondary button to toggle modes
-            createAccountButton.addEventListener('click', () => {
-                const currentMode = authForm.dataset.mode;
-                setMode(currentMode === 'login' ? 'signup' : 'login');
-            });
-
-            // Enable/disable the main button based on the checkbox in signup mode
-            tosCheckbox.addEventListener('change', () => {
-                if (authForm.dataset.mode === 'signup') {
-                    signInButton.disabled = !tosCheckbox.checked;
+                } else {
+                    // If we ARE in signup mode, check the checkbox
+                    if (!tosCheckbox.checked) {
+                        e.preventDefault(); // Stop submission
+                        e.stopImmediatePropagation(); // Stop auth.js
+                        authError.textContent = 'Please agree to the Terms of Service to continue.';
+                        authError.classList.remove('hidden');
+                    }
+                    // If the box is checked, do nothing. The event will proceed to auth.js
                 }
             });
 
@@ -206,9 +167,6 @@
                     tosModal.classList.add('hidden');
                 }
             });
-
-            // Set initial state
-            setMode('login');
         });
     </script>
 </body>
