@@ -29,8 +29,8 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
                     <span>Back to Nook</span>
                 </a>
-                <h1 class="login-title">Grab a Seat</h1>
-                <p class="login-subtitle">It's all here, waiting for you</p>
+                <h1 id="form-title" class="login-title">Grab a Seat</h1>
+                <p id="form-subtitle" class="login-subtitle">It's all here, waiting for you</p>
 
                 <form id="auth-form" class="auth-form">
                     <div>
@@ -42,11 +42,18 @@
                         <input type="password" id="password" placeholder="••••••••" class="form-input" required>
                     </div>
 
+                    <!-- TOS Agreement Checkbox -->
+                    <div id="tos-agreement" class="tos-agreement-group hidden">
+                        <input type="checkbox" id="tos-checkbox" name="tos">
+                        <label for="tos-checkbox">I have read and agree to the <a href="#" id="tos-link">Terms of Service</a>.</label>
+                    </div>
+
+
                     <div id="auth-error" class="auth-error-message hidden"></div>
 
                     <div class="button-group">
-                        <button type="submit" id="sign-in-button" class="auth-button">Sign In</button>
-                        <button type="button" id="create-account-button" class="auth-button secondary-button">Create Account</button>
+                        <button type="submit" id="primary-button" class="auth-button">Sign In</button>
+                        <button type="button" id="secondary-button" class="auth-button secondary-button">Create Account</button>
                     </div>
                 </form>
 
@@ -60,8 +67,148 @@
         </div>
     </main>
 
-    <!-- Firebase -->
-    <script type="module" src="auth.js"></script>
+    <!-- TOS Modal -->
+    <div id="tos-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button id="close-modal-button" class="modal-close-button">&times;</button>
+            <div class="tos-text">
+                <h2>🌿 Nooksii Terms of Service</h2>
+                <p class="updated-date">Updated: August 5, 2025</p>
 
+                <h3>Hey! Welcome to Nooksii 💛</h3>
+                <p>This app was made with one goal: to help students keep track of their campus spending in a simple, cozy, stress-free way. We’re not here to profit off your info, and we really don’t care about collecting data on you. Promise.</p>
+
+                <h3>🧠 What is Nooksii?</h3>
+                <p>Nooksii is a little app built by students, for students. It helps you:</p>
+                <ul>
+                    <li>track how much money you’ve spent (or have left) on campus</li>
+                    <li>log little purchases like coffees and snacks</li>
+                    <li>see your spending habits and plan better</li>
+                </ul>
+                <p>That’s it! No ads, no selling stuff, no hidden charges. Just helpful vibes.</p>
+
+                <h3>🔐 What Info We Collect (And What We Don’t)</h3>
+                <p>We keep it minimal:</p>
+                <ul>
+                    <li>your email and username, so your account can exist</li>
+                    <li>your spending balance and logged items — so your info shows up when you log in</li>
+                </ul>
+                <p>What we don’t do:</p>
+                <ul>
+                    <li>❌ we don’t sell your data</li>
+                    <li>❌ we don’t track your behavior</li>
+                    <li>❌ we don’t care about your habits beyond helping you</li>
+                    <li>❌ we’re not sending anything to 3rd parties, advertisers, or any creepy data people</li>
+                </ul>
+                <p>Your data stays between you and Nooksii, and honestly… we don’t even wanna look at it unless we have to fix a bug or help you out.</p>
+
+                <h3>💫 Deleting Your Account</h3>
+                <p>Don’t wanna use Nooksii anymore? That’s totally okay. You can delete your account any time in your settings. We’ll remove everything related to you from our system. No drama, no weird “please stay!” popups. Just poof — it’s gone.</p>
+
+                <h3>🚫 What Not to Do</h3>
+                <p>We’re a small team (like… one or two people kind of small), so we ask that you please:</p>
+                <ul>
+                    <li>don’t try to break or hack the site</li>
+                    <li>don’t spam or troll</li>
+                    <li>don’t pretend to be someone else</li>
+                    <li>don’t use it for anything other than good, helpful reasons</li>
+                </ul>
+                <p>Basically: be a good human and respect the space 🌱</p>
+
+                <h3>⚠️ No Promises, Just Vibes</h3>
+                <p>This is a personal project. It’s not backed by a big company. That means:</p>
+                <ul>
+                    <li>things might go down sometimes</li>
+                    <li>bugs can happen</li>
+                    <li>we can’t guarantee perfection</li>
+                    <li>we’re not liable if something glitches or your balance looks off</li>
+                </ul>
+                <p>That said — we do our best to keep it stable and helpful. If something breaks, we’ll try to fix it fast.</p>
+
+                <h3>📌 Updates to These Terms</h3>
+                <p>If we ever change how Nooksii works or update our policies, we’ll let you know ahead of time. Nothing shady, no surprise changes. You’ll always be in the loop.</p>
+
+                <h3>💌 Got Questions?</h3>
+                <p>We’re just students trying to make a helpful tool. If you ever have questions, issues, or just wanna say hi, email us at: [insert email/contact link].</p>
+                <p>We’ll get back to you as soon as we can (probably with a coffee in hand ☕).</p>
+
+                <h3>✅ By using Nooksii…</h3>
+                <p>You’re saying “cool, I’m down with these vibes” and you agree to everything above. That’s it!</p>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Firebase and Page Logic -->
+    <script type="module" src="auth.js"></script>
+    <script>
+        // --- Page Interaction Logic ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Elements ---
+            const formTitle = document.getElementById('form-title');
+            const formSubtitle = document.getElementById('form-subtitle');
+            const primaryButton = document.getElementById('primary-button');
+            const secondaryButton = document.getElementById('secondary-button');
+            const tosAgreement = document.getElementById('tos-agreement');
+            const tosCheckbox = document.getElementById('tos-checkbox');
+            const authForm = document.getElementById('auth-form');
+
+            // --- Modal Elements ---
+            const tosModal = document.getElementById('tos-modal');
+            const tosLink = document.getElementById('tos-link');
+            const closeModalButton = document.getElementById('close-modal-button');
+
+            // --- State ---
+            let isCreateMode = false;
+
+            // --- Functions ---
+            const setCreateMode = (create) => {
+                isCreateMode = create;
+                if (create) {
+                    formTitle.textContent = 'Create an Account';
+                    formSubtitle.textContent = 'Let\'s get you set up.';
+                    primaryButton.textContent = 'Create Account';
+                    secondaryButton.textContent = 'Back to Sign In';
+                    tosAgreement.classList.remove('hidden');
+                    primaryButton.disabled = true; // Disable until checkbox is checked
+                    tosCheckbox.checked = false;
+                } else {
+                    formTitle.textContent = 'Grab a Seat';
+                    formSubtitle.textContent = 'It\'s all here, waiting for you.';
+                    primaryButton.textContent = 'Sign In';
+                    secondaryButton.textContent = 'Create Account';
+                    tosAgreement.classList.add('hidden');
+                    primaryButton.disabled = false;
+                }
+            };
+
+            // --- Event Listeners ---
+            secondaryButton.addEventListener('click', () => {
+                setCreateMode(!isCreateMode);
+            });
+
+            tosCheckbox.addEventListener('change', () => {
+                if (isCreateMode) {
+                    primaryButton.disabled = !tosCheckbox.checked;
+                }
+            });
+            
+            // --- Modal Logic ---
+            tosLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                tosModal.classList.remove('hidden');
+            });
+
+            closeModalButton.addEventListener('click', () => {
+                tosModal.classList.add('hidden');
+            });
+
+            tosModal.addEventListener('click', (e) => {
+                if (e.target === tosModal) { // Click on overlay, not content
+                    tosModal.classList.add('hidden');
+                }
+            });
+        });
+    </script>
 </body>
 </html>
