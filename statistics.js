@@ -709,6 +709,75 @@ function calculateInsightData(purchases, balanceInfo) {
     const lastWeekSpending = lastWeekPurchases.reduce((sum, p) => sum + p.total, 0);
     const thisMonthSpending = thisMonthPurchases.reduce((sum, p) => sum + p.total, 0);
     
+    // SEMESTER-AWARE INSIGHTS FOR DENISON STUDENTS
+    if (userDataCache && userDataCache.isDenisonStudent) {
+        const semesterInfo = getDenisonSemesterInfo(now);
+        
+        // Critical semester warnings
+        if (semesterInfo.currentSemester && semesterInfo.daysUntilSemesterEnd) {
+            const currentBalance = userDataCache.balances?.[selectedBalanceType] || 0;
+            const avgDailySpending = thisWeekSpending / 7;
+            
+            // Calculate active days remaining
+            const semesterEndDate = semesterInfo.currentSemester === 'fall' 
+                ? semesterInfo.semesters.fall.end 
+                : semesterInfo.semesters.spring.end;
+            const activeRemainingDays = calculateActiveSpendingDays(now, semesterEndDate, semesterInfo);
+            
+            const projectedDaysUntilEmpty = avgDailySpending > 0 ? currentBalance / avgDailySpending : 999;
+            
+            // Finals week warning
+            if (semesterInfo.isFinalsWeek) {
+                insights.push(generateInsight('finals_alert', {
+                    icon: '📚',
+                    text: `Finals week! Expect 40% higher spending on coffee & late food.`
+                }, 10));
+            }
+            
+            // Upcoming break reminder
+            else if (semesterInfo.upcomingBreak && semesterInfo.upcomingBreak.daysUntil <= 7) {
+                insights.push(generateInsight('break_coming', {
+                    icon: '🏖️',
+                    text: `${semesterInfo.upcomingBreak.name} in ${semesterInfo.upcomingBreak.daysUntil} days - budget accordingly!`
+                }, 9));
+            }
+            
+            // Semester end warning
+            if (projectedDaysUntilEmpty < activeRemainingDays && semesterInfo.daysUntilSemesterEnd > 14) {
+                const daysShort = Math.floor(activeRemainingDays - projectedDaysUntilEmpty);
+                insights.push(generateInsight('semester_warning', {
+                    icon: '🚨',
+                    text: `At this rate, you'll run out ${daysShort} days before semester ends!`
+                }, 10));
+            }
+            
+            // Positive reinforcement if on track
+            else if (projectedDaysUntilEmpty > activeRemainingDays + 10 && avgDailySpending > 5) {
+                insights.push(generateInsight('on_track', {
+                    icon: '✅',
+                    text: `Great job! On track to have funds through semester end.`
+                }, 6));
+            }
+            
+            // Semester progress insight
+            if (semesterInfo.semesterProgress >= 75) {
+                const remainingWeeks = Math.ceil(semesterInfo.daysUntilSemesterEnd / 7);
+                insights.push(generateInsight('semester_progress', {
+                    icon: '📅',
+                    text: `Home stretch! ${remainingWeeks} weeks left in the semester.`
+                }, 5));
+            }
+        }
+        
+        // Break period insight
+        if (semesterInfo.currentPeriod === 'break' || semesterInfo.currentPeriod === 'winter-break') {
+            insights.push(generateInsight('on_break', {
+                icon: '🏝️',
+                text: `Enjoy break! Your funds are safe while you're off campus.`
+            }, 8));
+        }
+    }
+    
     // 1. Spending Trend Insight (High Priority)
     if (lastWeekPurchases.length > 0 && thisWeekPurchases.length > 0) {
         const percentChange = ((thisWeekSpending - lastWeekSpending) / lastWeekSpending) * 100;
@@ -723,8 +792,8 @@ function calculateInsightData(purchases, balanceInfo) {
         }
     }
     
-    // 2. Budget Pace Insight (Critical Priority if overspending)
-    if (userDataCache && userDataCache.balances && userDataCache.balances[selectedBalanceType]) {
+    // 2. Budget Pace Insight (Critical Priority if overspending) - Non-Denison version
+    if (userDataCache && userDataCache.balances && userDataCache.balances[selectedBalanceType] && !userDataCache.isDenisonStudent) {
         const currentBalance = userDataCache.balances[selectedBalanceType];
         const avgDailySpending = thisWeekSpending / 7;
         const daysUntilEmpty = avgDailySpending > 0 ? currentBalance / avgDailySpending : 999;
@@ -977,7 +1046,205 @@ function renderInsights(purchases) {
     }
 }
 
-// Smart prediction algorithm with pattern recognition
+// Denison semester configuration
+function getDenisonSemesterInfo(date) {
+    const year = date.getFullYear();
+    
+    // Dynamic year calculation for breaks and finals
+    const academicYear = date.getMonth() >= 8 ? year : year - 1; // Aug-Dec uses current year, Jan-July uses previous
+    const springYear = academicYear + 1;
+    
+    // Define semester periods with dynamic years
+    const semesters = {
+        fall: {
+            start: new Date(academicYear, 7, 20), // Aug 20
+            end: new Date(academicYear, 11, 18), // Dec 18
+            finals: {
+                start: new Date(academicYear, 11, 14), // Dec 14
+                end: new Date(academicYear, 11, 18) // Dec 18
+            },
+            breaks: [
+                {
+                    name: 'Fall Break',
+                    start: new Date(academicYear, 9, 16), // Oct 16
+                    end: new Date(academicYear, 9, 20) // Oct 20
+                },
+                {
+                    name: 'Thanksgiving',
+                    start: new Date(academicYear, 10, 27), // Nov 27
+                    end: new Date(academicYear, 10, 30) // Nov 30
+                }
+            ]
+        },
+        spring: {
+            start: new Date(springYear, 0, 19), // Jan 19
+            end: new Date(springYear, 4, 12), // May 12
+            finals: {
+                start: new Date(springYear, 4, 6), // May 6
+                end: new Date(springYear, 4, 12) // May 12
+            },
+            breaks: [
+                {
+                    name: 'Spring Break',
+                    start: new Date(springYear, 2, 16), // March 16
+                    end: new Date(springYear, 2, 22) // March 22
+                }
+            ]
+        },
+        winter: {
+            name: 'Winter Break',
+            start: new Date(academicYear, 11, 19), // Dec 19
+            end: new Date(springYear, 0, 18) // Jan 18
+        }
+    };
+    
+    // Determine current semester and period
+    let currentSemester = null;
+    let currentPeriod = 'off-campus';
+    let daysUntilSemesterEnd = null;
+    let upcomingBreak = null;
+    let isFinalsWeek = false;
+    let semesterProgress = 0;
+    
+    // Check if in Fall semester
+    if (date >= semesters.fall.start && date <= semesters.fall.end) {
+        currentSemester = 'fall';
+        daysUntilSemesterEnd = Math.ceil((semesters.fall.end - date) / (1000 * 60 * 60 * 24));
+        
+        // Check if in finals
+        if (date >= semesters.fall.finals.start && date <= semesters.fall.finals.end) {
+            currentPeriod = 'finals';
+            isFinalsWeek = true;
+        } else {
+            currentPeriod = 'active';
+            // Check for breaks
+            for (const breakPeriod of semesters.fall.breaks) {
+                if (date >= breakPeriod.start && date <= breakPeriod.end) {
+                    currentPeriod = 'break';
+                    break;
+                } else if (date < breakPeriod.start) {
+                    const daysUntil = Math.ceil((breakPeriod.start - date) / (1000 * 60 * 60 * 24));
+                    if (!upcomingBreak || daysUntil < upcomingBreak.daysUntil) {
+                        upcomingBreak = { name: breakPeriod.name, daysUntil, ...breakPeriod };
+                    }
+                }
+            }
+            // Check for upcoming finals
+            if (!upcomingBreak && date < semesters.fall.finals.start) {
+                const daysUntil = Math.ceil((semesters.fall.finals.start - date) / (1000 * 60 * 60 * 24));
+                upcomingBreak = { name: 'Finals Week', daysUntil, start: semesters.fall.finals.start };
+            }
+        }
+        
+        const totalDays = Math.ceil((semesters.fall.end - semesters.fall.start) / (1000 * 60 * 60 * 24));
+        const daysElapsed = Math.ceil((date - semesters.fall.start) / (1000 * 60 * 60 * 24));
+        semesterProgress = Math.min(100, Math.max(0, (daysElapsed / totalDays) * 100));
+    }
+    // Check if in Spring semester
+    else if (date >= semesters.spring.start && date <= semesters.spring.end) {
+        currentSemester = 'spring';
+        daysUntilSemesterEnd = Math.ceil((semesters.spring.end - date) / (1000 * 60 * 60 * 24));
+        
+        // Check if in finals
+        if (date >= semesters.spring.finals.start && date <= semesters.spring.finals.end) {
+            currentPeriod = 'finals';
+            isFinalsWeek = true;
+        } else {
+            currentPeriod = 'active';
+            // Check for breaks
+            for (const breakPeriod of semesters.spring.breaks) {
+                if (date >= breakPeriod.start && date <= breakPeriod.end) {
+                    currentPeriod = 'break';
+                    break;
+                } else if (date < breakPeriod.start) {
+                    const daysUntil = Math.ceil((breakPeriod.start - date) / (1000 * 60 * 60 * 24));
+                    if (!upcomingBreak || daysUntil < upcomingBreak.daysUntil) {
+                        upcomingBreak = { name: breakPeriod.name, daysUntil, ...breakPeriod };
+                    }
+                }
+            }
+            // Check for upcoming finals
+            if (!upcomingBreak && date < semesters.spring.finals.start) {
+                const daysUntil = Math.ceil((semesters.spring.finals.start - date) / (1000 * 60 * 60 * 24));
+                upcomingBreak = { name: 'Finals Week', daysUntil, start: semesters.spring.finals.start };
+            }
+        }
+        
+        const totalDays = Math.ceil((semesters.spring.end - semesters.spring.start) / (1000 * 60 * 60 * 24));
+        const daysElapsed = Math.ceil((date - semesters.spring.start) / (1000 * 60 * 60 * 24));
+        semesterProgress = Math.min(100, Math.max(0, (daysElapsed / totalDays) * 100));
+    }
+    // Check if in Winter break
+    else if ((date >= semesters.winter.start && date.getFullYear() === academicYear) || 
+             (date <= semesters.winter.end && date.getFullYear() === springYear)) {
+        currentPeriod = 'winter-break';
+        // Calculate days until spring semester
+        daysUntilSemesterEnd = Math.ceil((semesters.spring.start - date) / (1000 * 60 * 60 * 24));
+    }
+    // Summer or other periods
+    else {
+        currentPeriod = 'summer';
+    }
+    
+    return {
+        currentSemester,
+        currentPeriod,
+        daysUntilSemesterEnd,
+        upcomingBreak,
+        isFinalsWeek,
+        semesterProgress,
+        semesters,
+        academicYear
+    };
+}
+
+// Calculate active spending days (excluding breaks)
+function calculateActiveSpendingDays(startDate, endDate, semesterInfo) {
+    let activeDays = 0;
+    const current = new Date(startDate);
+    const end = new Date(endDate);
+    
+    while (current <= end) {
+        const dayOfWeek = current.getDay();
+        let isActiveDay = true;
+        
+        // Check if it's during winter break
+        if ((current >= semesterInfo.semesters.winter.start && current.getFullYear() === semesterInfo.academicYear) ||
+            (current <= semesterInfo.semesters.winter.end && current.getFullYear() === semesterInfo.academicYear + 1)) {
+            isActiveDay = false;
+        }
+        
+        // Check fall breaks
+        if (isActiveDay && semesterInfo.semesters.fall.breaks) {
+            for (const breakPeriod of semesterInfo.semesters.fall.breaks) {
+                if (current >= breakPeriod.start && current <= breakPeriod.end) {
+                    isActiveDay = false;
+                    break;
+                }
+            }
+        }
+        
+        // Check spring breaks
+        if (isActiveDay && semesterInfo.semesters.spring.breaks) {
+            for (const breakPeriod of semesterInfo.semesters.spring.breaks) {
+                if (current >= breakPeriod.start && current <= breakPeriod.end) {
+                    isActiveDay = false;
+                    break;
+                }
+            }
+        }
+        
+        if (isActiveDay) {
+            activeDays++;
+        }
+        
+        current.setDate(current.getDate() + 1);
+    }
+    
+    return activeDays;
+}
+
+// Smart prediction algorithm with pattern recognition and semester awareness
 function calculateSmartProjection(purchases, currentBalance, userData) {
     const now = new Date();
     
@@ -1069,15 +1336,52 @@ function calculateSmartProjection(purchases, currentBalance, userData) {
         confidence = "medium-high";
     }
     
-    // For Denison students, apply semester awareness
+    // For Denison students, apply ADVANCED semester awareness
+    let semesterInfo = null;
+    let spendingMultipliers = {};
+    
     if (userData.isDenisonStudent) {
-        const semesterMonths = 4; // August to December
-        const targetDays = semesterMonths * 30;
-        const maxReasonableBurn = currentBalance / targetDays;
+        semesterInfo = getDenisonSemesterInfo(now);
         
-        // Cap the burn rate for semester students
-        if (dailyBurnRate && dailyBurnRate > maxReasonableBurn * 1.5) {
-            dailyBurnRate = maxReasonableBurn * 1.2; // Allow 20% faster than ideal
+        // Set spending multipliers based on semester patterns
+        spendingMultipliers = {
+            'pre-break': 1.3,      // Students spend more before breaks
+            'post-break': 1.15,    // Slightly elevated after returning
+            'finals': 1.4,         // Coffee and late-night food spike
+            'early-semester': 1.2, // First 2 weeks higher spending
+            'mid-semester': 1.0,   // Normal baseline
+            'late-semester': 0.9,  // Students start conserving
+            'break': 0,            // No spending during breaks
+        };
+        
+        // If we have semester info and are in an active period
+        if (semesterInfo.currentSemester && semesterInfo.daysUntilSemesterEnd) {
+            // Calculate how many active days remain (excluding breaks)
+            const semesterEndDate = semesterInfo.currentSemester === 'fall' 
+                ? semesterInfo.semesters.fall.end 
+                : semesterInfo.semesters.spring.end;
+            
+            const activeRemainingDays = calculateActiveSpendingDays(now, semesterEndDate, semesterInfo);
+            
+            // Adjust burn rate to make money last the semester
+            const targetDailyBurn = currentBalance / Math.max(activeRemainingDays, 1);
+            
+            // Blend current burn rate with target
+            if (dailyBurnRate) {
+                // If burning too fast, apply stronger correction
+                if (dailyBurnRate > targetDailyBurn * 1.5) {
+                    dailyBurnRate = targetDailyBurn * 1.1; // Allow 10% overage
+                    projectionMethod += " (semester-adjusted)";
+                } else if (dailyBurnRate > targetDailyBurn * 1.2) {
+                    dailyBurnRate = (dailyBurnRate * 0.6 + targetDailyBurn * 0.4);
+                    projectionMethod += " (semester-balanced)";
+                }
+            }
+            
+            // Add semester context to confidence
+            if (semesterInfo.semesterProgress > 70) {
+                confidence = confidence === "high" ? "high" : "medium-high";
+            }
         }
     }
     
@@ -1086,7 +1390,9 @@ function calculateSmartProjection(purchases, currentBalance, userData) {
         weekdayAverages,
         projectionMethod,
         confidence,
-        hasWeekdayPattern: hasWeekdayPattern && dayCount >= 14
+        hasWeekdayPattern: hasWeekdayPattern && dayCount >= 14,
+        semesterInfo,
+        spendingMultipliers
     };
 }
 
@@ -1180,8 +1486,10 @@ function renderChart(userData, purchases) {
     let projectedBalance = lastActualBalance;
     let dayCounter = 1;
     let zeroDate = null;
+    let semesterEndWarning = null;
     const maxProjectionDays = 180;
     
+    // Enhanced projection loop for Denison students
     while (projectedBalance > 0 && dayCounter <= maxProjectionDays) {
         const projectionDate = new Date(lastActualDate);
         projectionDate.setDate(lastActualDate.getDate() + dayCounter);
@@ -1190,6 +1498,39 @@ function renderChart(userData, purchases) {
         let dailyBurn = projection.hasWeekdayPattern 
             ? projection.weekdayAverages[projectionDate.getDay()] 
             : projection.dailyBurnRate;
+        
+        // Apply semester-aware spending for Denison students
+        if (userData.isDenisonStudent && projection.semesterInfo) {
+            const dateInfo = getDenisonSemesterInfo(projectionDate);
+            
+            // Check if we're in a break period
+            if (dateInfo.currentPeriod === 'break' || dateInfo.currentPeriod === 'winter-break' || 
+                dateInfo.currentPeriod === 'summer' || dateInfo.currentPeriod === 'off-campus') {
+                dailyBurn = 0; // No spending during breaks
+            } else if (dateInfo.isFinalsWeek) {
+                dailyBurn *= projection.spendingMultipliers['finals'] || 1.4;
+            } else if (dateInfo.upcomingBreak && dateInfo.upcomingBreak.daysUntil <= 3) {
+                dailyBurn *= projection.spendingMultipliers['pre-break'] || 1.3;
+            } else if (dateInfo.semesterProgress < 15) {
+                dailyBurn *= projection.spendingMultipliers['early-semester'] || 1.2;
+            } else if (dateInfo.semesterProgress > 80) {
+                dailyBurn *= projection.spendingMultipliers['late-semester'] || 0.9;
+            }
+            
+            // Check if balance runs out before semester end
+            if (!semesterEndWarning && projectedBalance > 0 && projectedBalance - dailyBurn <= 0) {
+                if (dateInfo.currentSemester && dateInfo.daysUntilSemesterEnd && dateInfo.daysUntilSemesterEnd > 7) {
+                    const semEndDate = dateInfo.currentSemester === 'fall' 
+                        ? dateInfo.semesters.fall.end 
+                        : dateInfo.semesters.spring.end;
+                    semesterEndWarning = {
+                        date: projectionDate,
+                        semesterEnd: semEndDate,
+                        daysShort: Math.ceil((semEndDate - projectionDate) / (1000 * 60 * 60 * 24))
+                    };
+                }
+            }
+        }
         
         projectedBalance -= dailyBurn;
         projectionData.push(Math.max(0, projectedBalance));
@@ -1200,10 +1541,40 @@ function renderChart(userData, purchases) {
         dayCounter++;
     }
 
-    const zeroDateText = !zeroDate ? "more than 6 months" : zeroDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    // Generate smart title text based on semester context
+    let titleText;
     const zeroValueDisplay = formatBalanceValue(0, balanceInfo);
     const confidenceEmoji = { 'low': '🔮', 'medium': '📊', 'medium-high': '📈', 'high': '🎯' }[projection.confidence];
-    const titleText = `${confidenceEmoji} Projected to reach ${zeroValueDisplay} around ${zeroDateText}`;
+    
+    if (userData.isDenisonStudent && projection.semesterInfo) {
+        const semInfo = projection.semesterInfo;
+        
+        if (semesterEndWarning) {
+            titleText = `⚠️ Running out ${semesterEndWarning.daysShort} days before semester ends!`;
+        } else if (semInfo.currentPeriod === 'finals') {
+            titleText = `${confidenceEmoji} Finals mode - expect higher spending this week`;
+        } else if (semInfo.upcomingBreak && semInfo.upcomingBreak.daysUntil <= 7) {
+            titleText = `${confidenceEmoji} ${semInfo.upcomingBreak.name} in ${semInfo.upcomingBreak.daysUntil} days`;
+        } else if (semInfo.currentPeriod === 'winter-break' || semInfo.currentPeriod === 'break') {
+            titleText = `${confidenceEmoji} On break - projections resume when semester starts`;
+        } else if (semInfo.daysUntilSemesterEnd && semInfo.daysUntilSemesterEnd <= 30) {
+            const runOutBeforeSem = zeroDate && zeroDate < (semInfo.currentSemester === 'fall' 
+                ? semInfo.semesters.fall.end 
+                : semInfo.semesters.spring.end);
+            
+            if (runOutBeforeSem) {
+                titleText = `⚠️ Projected to run out before semester ends (${semInfo.daysUntilSemesterEnd} days left)`;
+            } else {
+                titleText = `${confidenceEmoji} On track to last the semester (${semInfo.daysUntilSemesterEnd} days)`;
+            }
+        } else {
+            const zeroDateText = !zeroDate ? "past semester end" : zeroDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+            titleText = `${confidenceEmoji} Projected to reach ${zeroValueDisplay} around ${zeroDateText}`;
+        }
+    } else {
+        const zeroDateText = !zeroDate ? "more than 6 months" : zeroDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+        titleText = `${confidenceEmoji} Projected to reach ${zeroValueDisplay} around ${zeroDateText}`;
+    }
 
     spendingChart = new Chart(spendingChartCanvas, {
         type: 'line',
