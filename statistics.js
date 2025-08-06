@@ -1723,6 +1723,8 @@ function initializeViewToggle(userData, purchaseHistory) {
     const viewButtons = document.querySelectorAll('.view-toggle-btn');
     const forecastView = document.getElementById('forecast-view');
     const heatmapView = document.getElementById('heatmap-view');
+    const whatIfControls = document.getElementById('what-if-controls');
+    const whatIfToggle = document.getElementById('what-if-toggle');
     
     if (!viewButtons.length || !forecastView || !heatmapView) return;
     
@@ -1738,10 +1740,22 @@ function initializeViewToggle(userData, purchaseHistory) {
             if (view === 'forecast') {
                 forecastView.classList.remove('hidden');
                 heatmapView.classList.add('hidden');
+                // Show what-if controls if they were visible before
+                if (whatIfControls && !whatIfControls.classList.contains('hidden')) {
+                    whatIfControls.style.display = 'block';
+                }
             } else if (view === 'heatmap') {
                 forecastView.classList.add('hidden');
                 heatmapView.classList.remove('hidden');
                 renderHeatmap(purchaseHistory);
+                // Hide what-if controls when in heatmap view
+                if (whatIfControls) {
+                    whatIfControls.style.display = 'none';
+                    // Reset what-if if it was active
+                    if (whatIfToggle && whatIfToggle.classList.contains('active')) {
+                        whatIfToggle.click(); // Disable it
+                    }
+                }
             }
         });
     });
@@ -1930,10 +1944,35 @@ function showHeatmapTooltip(event, date, spending) {
     
     tooltip.classList.remove('hidden');
     
-    // Position tooltip
+    // Position tooltip - check if near bottom of viewport
     const rect = event.target.getBoundingClientRect();
-    tooltip.style.left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2) + 'px';
-    tooltip.style.top = rect.top - tooltip.offsetHeight - 8 + 'px';
+    const tooltipHeight = tooltip.offsetHeight;
+    const viewportHeight = window.innerHeight;
+    
+    // Calculate position
+    let top = rect.top - tooltipHeight - 8; // Default: above the cell
+    let left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2);
+    
+    // If tooltip would go above viewport, position below instead
+    if (top < 10) {
+        top = rect.bottom + 8;
+    }
+    
+    // If near bottom of viewport, position above
+    if (rect.bottom + tooltipHeight + 20 > viewportHeight) {
+        top = rect.top - tooltipHeight - 8;
+    }
+    
+    // Keep tooltip within horizontal bounds
+    const tooltipWidth = tooltip.offsetWidth;
+    if (left < 10) {
+        left = 10;
+    } else if (left + tooltipWidth > window.innerWidth - 10) {
+        left = window.innerWidth - tooltipWidth - 10;
+    }
+    
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
 }
 
 function hideHeatmapTooltip() {
@@ -1971,35 +2010,76 @@ function initializeWhatIfScenario(userData, purchases) {
     ))].length;
     const avgDaily = totalSpent / dayCount;
     
-    // Set slider initial value
+    // Set slider range and initial value
+    const minSpending = 5;
+    const maxSpending = Math.min(100, Math.round(avgDaily * 2.5));
+    spendingSlider.min = minSpending;
+    spendingSlider.max = maxSpending;
     spendingSlider.value = Math.round(avgDaily);
-    spendingSlider.max = Math.round(avgDaily * 3);
-    spendingSlider.min = Math.round(avgDaily * 0.3);
     
     const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
     spendingValue.textContent = formatBalanceValue(avgDaily, balanceInfo);
     
-    // Toggle button handler
-    whatIfToggle.addEventListener('click', () => {
-        const isEnabled = whatIfToggle.textContent === 'Enable';
-        whatIfToggle.textContent = isEnabled ? 'Disable' : 'Enable';
-        whatIfToggle.classList.toggle('active');
-        whatIfPanel.classList.toggle('hidden');
+    // Update what-if title to be clearer
+    const whatIfTitle = document.querySelector('.what-if-title');
+    if (whatIfTitle) {
+        whatIfTitle.innerHTML = `💡 What If I Spend <span style="color: var(--brand-primary)">${formatBalanceValue(avgDaily, balanceInfo)}</span> Daily?`;
+    }
+    
+    // Toggle button handler - remove old listeners first
+    const newToggle = whatIfToggle.cloneNode(true);
+    whatIfToggle.parentNode.replaceChild(newToggle, whatIfToggle);
+    
+    newToggle.addEventListener('click', () => {
+        const isEnabling = newToggle.textContent === 'Enable';
         
-        if (isEnabled) {
+        if (isEnabling) {
+            newToggle.textContent = 'Reset';
+            newToggle.classList.add('active');
+            whatIfPanel.classList.remove('hidden');
+            
+            // Show initial projection immediately
             updateWhatIfProjection(userData, purchases);
+            
+            // Add helper text
+            const helperText = document.createElement('div');
+            helperText.className = 'what-if-helper';
+            helperText.innerHTML = '👆 Drag the slider to see how different spending habits affect your balance';
+            if (!whatIfPanel.querySelector('.what-if-helper')) {
+                whatIfPanel.insertBefore(helperText, whatIfPanel.firstChild);
+            }
         } else {
+            newToggle.textContent = 'Enable';
+            newToggle.classList.remove('active');
+            whatIfPanel.classList.add('hidden');
+            
+            // Remove helper text
+            const helperText = whatIfPanel.querySelector('.what-if-helper');
+            if (helperText) helperText.remove();
+            
             // Reset to normal chart
             renderChart(userData, purchases);
         }
     });
     
-    // Slider handler
-    spendingSlider.addEventListener('input', () => {
-        const value = parseFloat(spendingSlider.value);
-        spendingValue.textContent = formatBalanceValue(value, balanceInfo);
+    // Slider handler - remove old listeners first
+    const newSlider = spendingSlider.cloneNode(true);
+    spendingSlider.parentNode.replaceChild(newSlider, spendingSlider);
+    
+    newSlider.addEventListener('input', () => {
+        const value = parseFloat(newSlider.value);
+        const valueDisplay = document.getElementById('spending-value');
+        if (valueDisplay) {
+            valueDisplay.textContent = formatBalanceValue(value, balanceInfo);
+        }
         
-        if (whatIfToggle.classList.contains('active')) {
+        // Update title with new value
+        const whatIfTitle = document.querySelector('.what-if-title');
+        if (whatIfTitle) {
+            whatIfTitle.innerHTML = `💡 What If I Spend <span style="color: var(--brand-primary)">${formatBalanceValue(value, balanceInfo)}</span> Daily?`;
+        }
+        
+        if (newToggle.classList.contains('active')) {
             updateWhatIfProjection(userData, purchases);
         }
     });
@@ -2019,20 +2099,38 @@ function updateWhatIfProjection(userData, purchases) {
         !p.balanceType || p.balanceType === selectedBalanceType
     );
     
-    // Get existing chart data
-    const chartData = spendingChart.data;
-    const actualDataLength = filteredPurchases.length > 0 ? 
-        [...new Set(filteredPurchases.map(p => p.purchaseDate.toISOString().split('T')[0]))].length : 1;
+    // Get historical data for the chart
+    const spendingByDay = {};
+    filteredPurchases.forEach(p => {
+        const day = p.purchaseDate.toISOString().split('T')[0];
+        spendingByDay[day] = (spendingByDay[day] || 0) + p.total;
+    });
+    const uniqueSpendingDays = Object.keys(spendingByDay).sort();
     
-    // Create new projection data
-    const newProjectionData = new Array(actualDataLength - 1).fill(null);
-    const lastActualBalance = actualDataLength > 0 ? 
-        chartData.datasets[0].data[actualDataLength - 1] : currentBalance;
-    newProjectionData.push(lastActualBalance);
+    const totalSpent = filteredPurchases.reduce((sum, p) => sum + p.total, 0);
+    let runningBalance = currentBalance + totalSpent;
+    
+    // Build historical data
+    const labels = [];
+    const actualData = [];
+    uniqueSpendingDays.forEach(day => {
+        runningBalance -= spendingByDay[day];
+        labels.push(day);
+        actualData.push(runningBalance);
+    });
+    
+    const lastActualBalance = actualData.length > 0 ? actualData[actualData.length - 1] : currentBalance;
+    const lastActualDate = uniqueSpendingDays.length > 0 ? 
+        new Date(uniqueSpendingDays[uniqueSpendingDays.length - 1]) : new Date();
+    
+    // Create what-if projection
+    const projectionData = new Array(actualData.length - 1).fill(null);
+    projectionData.push(lastActualBalance);
     
     let projectedBalance = lastActualBalance;
-    let projectedDate = new Date(now);
+    let projectedDate = new Date(lastActualDate);
     let daysUntilEmpty = 0;
+    let endDate = null;
     
     // For Denison students, consider semester boundaries
     let semesterInfo = null;
@@ -2040,51 +2138,91 @@ function updateWhatIfProjection(userData, purchases) {
         semesterInfo = getDenisonSemesterInfo(now);
     }
     
-    // Project forward with new daily rate
-    for (let i = actualDataLength; i < chartData.labels.length; i++) {
-        projectedDate.setDate(projectedDate.getDate() + 1);
+    // Project forward with new daily rate - STOP when balance hits 0
+    const maxProjectionDays = 180;
+    for (let dayCounter = 1; dayCounter <= maxProjectionDays && projectedBalance > 0; dayCounter++) {
+        projectedDate = new Date(lastActualDate);
+        projectedDate.setDate(lastActualDate.getDate() + dayCounter);
         
         // Check if it's a break day for Denison students
         let dailySpend = targetDaily;
         if (semesterInfo) {
             const dateInfo = getDenisonSemesterInfo(projectedDate);
             if (dateInfo.currentPeriod === 'break' || dateInfo.currentPeriod === 'winter-break' || 
-                dateInfo.currentPeriod === 'summer') {
+                dateInfo.currentPeriod === 'summer' || dateInfo.currentPeriod === 'off-campus') {
                 dailySpend = 0;
             }
         }
         
-        projectedBalance = Math.max(0, projectedBalance - dailySpend);
-        newProjectionData.push(projectedBalance);
+        // Only spend if there's money left
+        if (dailySpend > 0 && projectedBalance > 0) {
+            projectedBalance = Math.max(0, projectedBalance - dailySpend);
+            
+            if (projectedBalance > 0) {
+                daysUntilEmpty++;
+            }
+        }
         
-        if (projectedBalance > 0) {
-            daysUntilEmpty++;
+        labels.push(projectedDate.toISOString().split('T')[0]);
+        projectionData.push(projectedBalance);
+        
+        // Stop projecting once we hit $0
+        if (projectedBalance <= 0 && !endDate) {
+            endDate = projectedDate;
+            break; // Stop the loop - don't continue projecting
         }
     }
     
-    // Update chart
-    spendingChart.data.datasets[1].data = newProjectionData;
-    spendingChart.data.datasets[1].label = 'What-If Projection';
+    // Update chart with new data
+    spendingChart.data.labels = labels;
+    spendingChart.data.datasets[0].data = actualData;
+    spendingChart.data.datasets[1].data = projectionData;
+    spendingChart.data.datasets[1].label = 'What-If Scenario';
     spendingChart.data.datasets[1].borderColor = '#9C27B0';
     spendingChart.data.datasets[1].backgroundColor = 'rgba(156, 39, 176, 0.1)';
+    spendingChart.data.datasets[1].borderDash = [8, 4]; // More distinct dashing
+    
+    // Update chart title
+    const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
+    const endDateText = endDate ? 
+        endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) : 
+        'Beyond 6 months';
+    
+    spendingChart.options.plugins.title.text = `💭 If you spend ${formatBalanceValue(targetDaily, balanceInfo)}/day, funds last until ${endDateText}`;
     
     // Update what-if results
     const whatIfDate = document.getElementById('what-if-date');
     const whatIfSavings = document.getElementById('what-if-savings');
     
     if (whatIfDate && whatIfSavings) {
-        const endDate = new Date(now);
-        endDate.setDate(endDate.getDate() + daysUntilEmpty);
-        whatIfDate.textContent = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        whatIfDate.textContent = endDateText;
         
-        // Calculate savings needed
+        // Calculate difference from current spending
         const currentAvg = filteredPurchases.reduce((sum, p) => sum + p.total, 0) / 
             [...new Set(filteredPurchases.map(p => p.purchaseDate.toISOString().split('T')[0]))].length;
-        const savings = currentAvg - targetDaily;
-        const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
-        whatIfSavings.textContent = savings > 0 ? 
-            formatBalanceValue(savings, balanceInfo) : 
-            `Spend ${formatBalanceValue(Math.abs(savings), balanceInfo)} more`;
+        const difference = currentAvg - targetDaily;
+        
+        if (Math.abs(difference) < 0.50) {
+            whatIfSavings.textContent = 'Same as now';
+        } else if (difference > 0) {
+            whatIfSavings.textContent = `Save ${formatBalanceValue(difference, balanceInfo)}`;
+        } else {
+            whatIfSavings.textContent = `Spend ${formatBalanceValue(Math.abs(difference), balanceInfo)} more`;
+        }
+        
+        // Add context about semester if Denison student
+        if (userData.isDenisonStudent && semesterInfo && semesterInfo.currentSemester) {
+            const semesterEnd = semesterInfo.currentSemester === 'fall' 
+                ? semesterInfo.semesters.fall.end 
+                : semesterInfo.semesters.spring.end;
+            
+            if (endDate && endDate < semesterEnd) {
+                whatIfDate.style.color = '#d32f2f';
+                whatIfDate.innerHTML = endDateText + '<br><small>(Before semester ends!)</small>';
+            } else {
+                whatIfDate.style.color = 'var(--brand-primary)';
+            }
+        }
     }
     
     spendingChart.update();
