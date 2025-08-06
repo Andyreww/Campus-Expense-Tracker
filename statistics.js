@@ -234,12 +234,29 @@ function initializeBalanceDropdown() {
             
             // Update selected balance and refresh components
             if (newBalanceType !== selectedBalanceType) {
+                // Check if what-if was active before switching
+                const whatIfToggle = document.getElementById('what-if-toggle');
+                const wasWhatIfActive = whatIfToggle && whatIfToggle.classList.contains('active');
+                
                 selectedBalanceType = newBalanceType;
                 if (purchaseData && userDataCache) {
                     // Re-render components that depend on the selected balance
                     renderChart(userDataCache, purchaseData);
                     renderInsights(purchaseData);
                     renderHistory(purchaseData);
+                    
+                    // Re-initialize What-If with new balance type
+                    initializeWhatIfScenario(userDataCache, purchaseData);
+                    
+                    // If what-if was active, re-enable it automatically
+                    if (wasWhatIfActive) {
+                        const newWhatIfToggle = document.getElementById('what-if-toggle');
+                        if (newWhatIfToggle && newWhatIfToggle.textContent === 'Enable') {
+                            setTimeout(() => {
+                                newWhatIfToggle.click(); // Activate what-if with new balance
+                            }, 100);
+                        }
+                    }
                 }
             }
         }
@@ -1944,31 +1961,34 @@ function showHeatmapTooltip(event, date, spending) {
     
     tooltip.classList.remove('hidden');
     
-    // Position tooltip - check if near bottom of viewport
+    // Get the chart card boundaries to keep tooltip within
+    const chartCard = event.target.closest('.stats-card');
+    const cardRect = chartCard ? chartCard.getBoundingClientRect() : null;
     const rect = event.target.getBoundingClientRect();
     const tooltipHeight = tooltip.offsetHeight;
-    const viewportHeight = window.innerHeight;
+    const tooltipWidth = tooltip.offsetWidth;
     
     // Calculate position
     let top = rect.top - tooltipHeight - 8; // Default: above the cell
-    let left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2);
+    let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
     
-    // If tooltip would go above viewport, position below instead
-    if (top < 10) {
+    // If tooltip would go above card bounds, position below instead
+    if (cardRect && top < cardRect.top) {
         top = rect.bottom + 8;
     }
     
-    // If near bottom of viewport, position above
-    if (rect.bottom + tooltipHeight + 20 > viewportHeight) {
+    // If near bottom of card, position above
+    if (cardRect && rect.bottom + tooltipHeight + 20 > cardRect.bottom) {
         top = rect.top - tooltipHeight - 8;
     }
     
-    // Keep tooltip within horizontal bounds
-    const tooltipWidth = tooltip.offsetWidth;
-    if (left < 10) {
-        left = 10;
-    } else if (left + tooltipWidth > window.innerWidth - 10) {
-        left = window.innerWidth - tooltipWidth - 10;
+    // Keep tooltip within horizontal card bounds
+    if (cardRect) {
+        if (left < cardRect.left + 10) {
+            left = cardRect.left + 10;
+        } else if (left + tooltipWidth > cardRect.right - 10) {
+            left = cardRect.right - tooltipWidth - 10;
+        }
     }
     
     tooltip.style.left = left + 'px';
@@ -2003,6 +2023,9 @@ function initializeWhatIfScenario(userData, purchases) {
         return;
     }
     
+    // Get current balance
+    const currentBalance = userData.balances?.[selectedBalanceType] || 0;
+    
     // Calculate current average daily spending
     const totalSpent = filteredPurchases.reduce((sum, p) => sum + p.total, 0);
     const dayCount = [...new Set(filteredPurchases.map(p => 
@@ -2010,20 +2033,39 @@ function initializeWhatIfScenario(userData, purchases) {
     ))].length;
     const avgDaily = totalSpent / dayCount;
     
-    // Set slider range and initial value
-    const minSpending = 5;
-    const maxSpending = Math.min(100, Math.round(avgDaily * 2.5));
+    // Set slider range based on balance and spending patterns
+    // For low balances (like freshmen), use a more appropriate range
+    let minSpending, maxSpending, defaultValue;
+    
+    if (currentBalance < 100) {
+        // Low balance - more granular control
+        minSpending = 1;
+        maxSpending = Math.min(50, currentBalance / 2);
+        defaultValue = Math.min(avgDaily, currentBalance / 10);
+    } else if (currentBalance < 500) {
+        // Medium balance
+        minSpending = 5;
+        maxSpending = Math.min(75, avgDaily * 2);
+        defaultValue = avgDaily;
+    } else {
+        // High balance
+        minSpending = 10;
+        maxSpending = Math.min(100, avgDaily * 2.5);
+        defaultValue = avgDaily;
+    }
+    
     spendingSlider.min = minSpending;
     spendingSlider.max = maxSpending;
-    spendingSlider.value = Math.round(avgDaily);
+    spendingSlider.value = Math.round(defaultValue);
+    spendingSlider.step = currentBalance < 100 ? 0.5 : 1; // Smaller steps for low balances
     
     const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
-    spendingValue.textContent = formatBalanceValue(avgDaily, balanceInfo);
+    spendingValue.textContent = formatBalanceValue(defaultValue, balanceInfo);
     
     // Update what-if title to be clearer
     const whatIfTitle = document.querySelector('.what-if-title');
     if (whatIfTitle) {
-        whatIfTitle.innerHTML = `💡 What If I Spend <span style="color: var(--brand-primary)">${formatBalanceValue(avgDaily, balanceInfo)}</span> Daily?`;
+        whatIfTitle.innerHTML = `💡 What If I Spend <span style="color: var(--brand-primary)">${formatBalanceValue(defaultValue, balanceInfo)}</span> Daily?`;
     }
     
     // Toggle button handler - remove old listeners first
@@ -2041,10 +2083,16 @@ function initializeWhatIfScenario(userData, purchases) {
             // Show initial projection immediately
             updateWhatIfProjection(userData, purchases);
             
-            // Add helper text
+            // Add helper text with context based on balance
             const helperText = document.createElement('div');
             helperText.className = 'what-if-helper';
-            helperText.innerHTML = '👆 Drag the slider to see how different spending habits affect your balance';
+            
+            if (currentBalance < 100) {
+                helperText.innerHTML = '👆 With a smaller balance, even small changes make a big difference!';
+            } else {
+                helperText.innerHTML = '👆 Drag the slider to see how different spending habits affect your balance';
+            }
+            
             if (!whatIfPanel.querySelector('.what-if-helper')) {
                 whatIfPanel.insertBefore(helperText, whatIfPanel.firstChild);
             }
@@ -2138,9 +2186,19 @@ function updateWhatIfProjection(userData, purchases) {
         semesterInfo = getDenisonSemesterInfo(now);
     }
     
-    // Project forward with new daily rate - STOP when balance hits 0
-    const maxProjectionDays = 180;
-    for (let dayCounter = 1; dayCounter <= maxProjectionDays && projectedBalance > 0; dayCounter++) {
+    // Calculate optimal projection window
+    // For low balances, use shorter projection window
+    const estimatedDaysUntilEmpty = Math.ceil(lastActualBalance / targetDaily);
+    const maxProjectionDays = Math.min(
+        180, // Absolute max
+        Math.max(
+            30, // Minimum 30 days
+            estimatedDaysUntilEmpty * 1.5 // Show 50% more than estimated
+        )
+    );
+    
+    // Project forward with new daily rate
+    for (let dayCounter = 1; dayCounter <= maxProjectionDays; dayCounter++) {
         projectedDate = new Date(lastActualDate);
         projectedDate.setDate(lastActualDate.getDate() + dayCounter);
         
@@ -2154,22 +2212,37 @@ function updateWhatIfProjection(userData, purchases) {
             }
         }
         
-        // Only spend if there's money left
-        if (dailySpend > 0 && projectedBalance > 0) {
+        // Only add points every few days if balance is flat to avoid visual flatline
+        const shouldAddPoint = dayCounter <= 7 || // Always show first week
+                               dayCounter % 3 === 0 || // Then every 3 days
+                               projectedBalance <= targetDaily * 3 || // Show detail near $0
+                               projectedBalance <= 0; // Always show $0
+        
+        // Calculate new balance
+        if (projectedBalance > 0) {
             projectedBalance = Math.max(0, projectedBalance - dailySpend);
             
-            if (projectedBalance > 0) {
+            if (dailySpend > 0 && projectedBalance > 0) {
                 daysUntilEmpty++;
             }
         }
         
-        labels.push(projectedDate.toISOString().split('T')[0]);
-        projectionData.push(projectedBalance);
+        if (shouldAddPoint || projectedBalance <= 0) {
+            labels.push(projectedDate.toISOString().split('T')[0]);
+            projectionData.push(projectedBalance);
+        }
         
         // Stop projecting once we hit $0
         if (projectedBalance <= 0 && !endDate) {
             endDate = projectedDate;
-            break; // Stop the loop - don't continue projecting
+            // Add a few more days to show the $0 clearly
+            for (let extra = 1; extra <= 3; extra++) {
+                const extraDate = new Date(projectedDate);
+                extraDate.setDate(projectedDate.getDate() + extra);
+                labels.push(extraDate.toISOString().split('T')[0]);
+                projectionData.push(0);
+            }
+            break;
         }
     }
     
@@ -2180,13 +2253,14 @@ function updateWhatIfProjection(userData, purchases) {
     spendingChart.data.datasets[1].label = 'What-If Scenario';
     spendingChart.data.datasets[1].borderColor = '#9C27B0';
     spendingChart.data.datasets[1].backgroundColor = 'rgba(156, 39, 176, 0.1)';
-    spendingChart.data.datasets[1].borderDash = [8, 4]; // More distinct dashing
+    spendingChart.data.datasets[1].borderDash = [8, 4];
+    spendingChart.data.datasets[1].tension = 0.3; // Smoother curve
     
     // Update chart title
     const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
     const endDateText = endDate ? 
         endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) : 
-        'Beyond 6 months';
+        'Beyond projection';
     
     spendingChart.options.plugins.title.text = `💭 If you spend ${formatBalanceValue(targetDaily, balanceInfo)}/day, funds last until ${endDateText}`;
     
@@ -2198,8 +2272,10 @@ function updateWhatIfProjection(userData, purchases) {
         whatIfDate.textContent = endDateText;
         
         // Calculate difference from current spending
-        const currentAvg = filteredPurchases.reduce((sum, p) => sum + p.total, 0) / 
-            [...new Set(filteredPurchases.map(p => p.purchaseDate.toISOString().split('T')[0]))].length;
+        const currentAvg = filteredPurchases.length > 0 ? 
+            filteredPurchases.reduce((sum, p) => sum + p.total, 0) / 
+            [...new Set(filteredPurchases.map(p => p.purchaseDate.toISOString().split('T')[0]))].length : 
+            0;
         const difference = currentAvg - targetDaily;
         
         if (Math.abs(difference) < 0.50) {

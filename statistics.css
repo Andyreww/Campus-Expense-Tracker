@@ -627,13 +627,15 @@ body {
 
 .heatmap-tooltip {
     position: fixed;
-    background: var(--paper-white);
+    background: var(--paper-white, #fdfaf2);
+    background-color: #fdfaf2; /* Solid fallback */
     border: 2px solid var(--wood-dark);
     border-radius: 8px;
     padding: 0.5rem 0.75rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 10000; /* Very high z-index to ensure it's on top */
     pointer-events: none;
+    opacity: 1; /* Ensure full opacity */
 }
 
 .heatmap-tooltip.hidden {
