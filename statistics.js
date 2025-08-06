@@ -2186,19 +2186,43 @@ function updateWhatIfProjection(userData, purchases) {
         semesterInfo = getDenisonSemesterInfo(now);
     }
     
-    // Calculate optimal projection window
-    // For low balances, use shorter projection window
+    // Calculate how many days we need to project
+    // Always project until money runs out, but cap visualization at reasonable amount
     const estimatedDaysUntilEmpty = Math.ceil(lastActualBalance / targetDaily);
-    const maxProjectionDays = Math.min(
-        180, // Absolute max
-        Math.max(
-            30, // Minimum 30 days
-            estimatedDaysUntilEmpty * 1.5 // Show 50% more than estimated
-        )
-    );
+    const maxVisualizationDays = Math.min(365, Math.max(30, estimatedDaysUntilEmpty * 1.2));
     
-    // Project forward with new daily rate
-    for (let dayCounter = 1; dayCounter <= maxProjectionDays; dayCounter++) {
+    // First, calculate the actual end date (when money runs out)
+    let tempBalance = lastActualBalance;
+    let tempDate = new Date(lastActualDate);
+    let actualDaysUntilEmpty = 0;
+    
+    // Calculate up to 5 years in the future if needed
+    for (let day = 1; day <= 1825 && tempBalance > 0; day++) {
+        tempDate = new Date(lastActualDate);
+        tempDate.setDate(lastActualDate.getDate() + day);
+        
+        let dailySpend = targetDaily;
+        if (semesterInfo) {
+            const dateInfo = getDenisonSemesterInfo(tempDate);
+            if (dateInfo.currentPeriod === 'break' || dateInfo.currentPeriod === 'winter-break' || 
+                dateInfo.currentPeriod === 'summer' || dateInfo.currentPeriod === 'off-campus') {
+                dailySpend = 0;
+            }
+        }
+        
+        if (dailySpend > 0 && tempBalance > 0) {
+            tempBalance -= dailySpend;
+            if (tempBalance > 0) {
+                actualDaysUntilEmpty++;
+            } else {
+                endDate = new Date(tempDate);
+                break;
+            }
+        }
+    }
+    
+    // Now create the visualization data (limited to reasonable range)
+    for (let dayCounter = 1; dayCounter <= maxVisualizationDays; dayCounter++) {
         projectedDate = new Date(lastActualDate);
         projectedDate.setDate(lastActualDate.getDate() + dayCounter);
         
@@ -2212,11 +2236,11 @@ function updateWhatIfProjection(userData, purchases) {
             }
         }
         
-        // Only add points every few days if balance is flat to avoid visual flatline
-        const shouldAddPoint = dayCounter <= 7 || // Always show first week
-                               dayCounter % 3 === 0 || // Then every 3 days
-                               projectedBalance <= targetDaily * 3 || // Show detail near $0
-                               projectedBalance <= 0; // Always show $0
+        // Only add points periodically to avoid cluttered graph
+        const shouldAddPoint = dayCounter <= 14 || // Show detail for first 2 weeks
+                               dayCounter % 7 === 0 || // Then weekly
+                               projectedBalance <= targetDaily * 7 || // Show detail near end
+                               projectedBalance <= 0;
         
         // Calculate new balance
         if (projectedBalance > 0) {
@@ -2232,9 +2256,8 @@ function updateWhatIfProjection(userData, purchases) {
             projectionData.push(projectedBalance);
         }
         
-        // Stop projecting once we hit $0
-        if (projectedBalance <= 0 && !endDate) {
-            endDate = projectedDate;
+        // Stop visualizing once we hit $0
+        if (projectedBalance <= 0) {
             // Add a few more days to show the $0 clearly
             for (let extra = 1; extra <= 3; extra++) {
                 const extraDate = new Date(projectedDate);
@@ -2254,15 +2277,37 @@ function updateWhatIfProjection(userData, purchases) {
     spendingChart.data.datasets[1].borderColor = '#9C27B0';
     spendingChart.data.datasets[1].backgroundColor = 'rgba(156, 39, 176, 0.1)';
     spendingChart.data.datasets[1].borderDash = [8, 4];
-    spendingChart.data.datasets[1].tension = 0.3; // Smoother curve
+    spendingChart.data.datasets[1].tension = 0.3;
     
-    // Update chart title
+    // Format the end date text
     const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
-    const endDateText = endDate ? 
-        endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) : 
-        'Beyond projection';
+    let endDateText;
+    let titleText;
     
-    spendingChart.options.plugins.title.text = `💭 If you spend ${formatBalanceValue(targetDaily, balanceInfo)}/day, funds last until ${endDateText}`;
+    if (!endDate) {
+        // Money lasts more than 5 years
+        endDateText = '5+ years';
+        titleText = `💭 At ${formatBalanceValue(targetDaily, balanceInfo)}/day, your funds last over 5 years!`;
+    } else {
+        const monthsUntilEmpty = Math.floor(actualDaysUntilEmpty / 30);
+        const yearsUntilEmpty = Math.floor(actualDaysUntilEmpty / 365);
+        
+        if (yearsUntilEmpty >= 2) {
+            endDateText = `~${yearsUntilEmpty} years`;
+            titleText = `💭 At ${formatBalanceValue(targetDaily, balanceInfo)}/day, funds last about ${yearsUntilEmpty} years`;
+        } else if (monthsUntilEmpty >= 12) {
+            endDateText = `~1 year`;
+            titleText = `💭 At ${formatBalanceValue(targetDaily, balanceInfo)}/day, funds last about a year`;
+        } else if (monthsUntilEmpty >= 6) {
+            endDateText = endDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            titleText = `💭 At ${formatBalanceValue(targetDaily, balanceInfo)}/day, funds last until ${endDateText}`;
+        } else {
+            endDateText = endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+            titleText = `💭 At ${formatBalanceValue(targetDaily, balanceInfo)}/day, funds last until ${endDateText}`;
+        }
+    }
+    
+    spendingChart.options.plugins.title.text = titleText;
     
     // Update what-if results
     const whatIfDate = document.getElementById('what-if-date');
@@ -2287,16 +2332,23 @@ function updateWhatIfProjection(userData, purchases) {
         }
         
         // Add context about semester if Denison student
-        if (userData.isDenisonStudent && semesterInfo && semesterInfo.currentSemester) {
+        if (userData.isDenisonStudent && semesterInfo && semesterInfo.currentSemester && endDate) {
             const semesterEnd = semesterInfo.currentSemester === 'fall' 
                 ? semesterInfo.semesters.fall.end 
                 : semesterInfo.semesters.spring.end;
             
-            if (endDate && endDate < semesterEnd) {
+            if (endDate < semesterEnd) {
                 whatIfDate.style.color = '#d32f2f';
-                whatIfDate.innerHTML = endDateText + '<br><small>(Before semester ends!)</small>';
+                const daysBeforeSemEnd = Math.floor((semesterEnd - endDate) / (1000 * 60 * 60 * 24));
+                whatIfDate.innerHTML = endDateText + `<br><small>(${daysBeforeSemEnd} days before semester ends!)</small>`;
             } else {
                 whatIfDate.style.color = 'var(--brand-primary)';
+                whatIfDate.innerHTML = endDateText;
+                
+                // Add positive reinforcement for lasting through semester
+                if (monthsUntilEmpty >= 4) {
+                    whatIfDate.innerHTML += '<br><small>(Easily lasts the semester!)</small>';
+                }
             }
         }
     }
