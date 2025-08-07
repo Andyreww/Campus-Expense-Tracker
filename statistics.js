@@ -1569,7 +1569,7 @@ function renderChart(userData, purchases) {
     // Generate smart title text based on semester context
     let titleText;
     const zeroValueDisplay = formatBalanceValue(0, balanceInfo);
-    const confidenceEmoji = { 'low': '🔮', 'medium': '📊', 'medium-high': '�', 'high': '🎯' }[projection.confidence];
+    const confidenceEmoji = { 'low': '🔮', 'medium': '📊', 'medium-high': '📈', 'high': '🎯' }[projection.confidence];
     
     if (userData.isDenisonStudent && projection.semesterInfo) {
         const semInfo = projection.semesterInfo;
@@ -1945,14 +1945,15 @@ function generateMonthLabels(startDate, endDate) {
 
 function showHeatmapTooltip(event, date, spending) {
     const tooltip = document.getElementById('heatmap-tooltip');
-    const heatmapContainer = document.getElementById('spending-heatmap'); // The container for our relative positioning
-    if (!tooltip || !heatmapContainer) return;
+    const cell = event.target;
+    // The user mentioned "Spending forecast area", which is the card. Let's use that as the boundary.
+    const container = cell.closest('.stats-card'); 
+    if (!tooltip || !container) return;
 
-    // FIX: Ensure the container is positioned relatively so the absolute tooltip stays inside.
-    heatmapContainer.style.position = 'relative'; 
+    // This should ideally be in CSS, but setting it here ensures it works.
+    container.style.position = 'relative'; 
 
     const dateObj = new Date(date);
-    // FIX: Add UTC time zone to avoid off-by-one day errors with date formatting.
     const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
     const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
 
@@ -1965,26 +1966,43 @@ function showHeatmapTooltip(event, date, spending) {
     `;
 
     tooltip.classList.remove('hidden');
-    // FIX: Use absolute positioning relative to the heatmapContainer
     tooltip.style.position = 'absolute'; 
 
-    const cell = event.target;
-    
-    // FIX: Calculate position relative to the container's top-left corner using offsetTop/Left
-    const tooltipTop = cell.offsetTop + (cell.offsetHeight / 2) - (tooltip.offsetHeight / 2);
-    let tooltipLeft = cell.offsetLeft + cell.offsetWidth + 10; // Default position to the right
+    // Get positions relative to the viewport
+    const cellRect = cell.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    // Get tooltip dimensions AFTER setting innerHTML to ensure it's calculated correctly
+    const tooltipRect = tooltip.getBoundingClientRect(); 
 
-    // FIX: Check if it goes outside the container on the right
-    if (tooltipLeft + tooltip.offsetWidth > heatmapContainer.offsetWidth) {
+    // Calculate desired top position relative to the container
+    // Center it vertically with the cell
+    let top = (cellRect.top - containerRect.top) + (cellRect.height / 2) - (tooltipRect.height / 2);
+
+    // Default position to the right of the cell
+    let left = (cellRect.right - containerRect.left) + 10; 
+
+    // Check if it overflows the container on the right
+    if (left + tooltipRect.width > container.offsetWidth) {
         // If so, place it to the left of the cell
-        tooltipLeft = cell.offsetLeft - tooltip.offsetWidth - 10;
+        left = (cellRect.left - containerRect.left) - tooltipRect.width - 10;
+    }
+    
+    // As a fallback, if it still overflows left (e.g., narrow screen), position it above.
+    if (left < 0) {
+        left = (cellRect.left - containerRect.left) + (cellRect.width / 2) - (tooltipRect.width / 2); // Center horizontally
+        top = (cellRect.top - containerRect.top) - tooltipRect.height - 10; // Position above
     }
 
-    // FIX: Pin to top/bottom if it overflows
-    const finalTop = Math.max(0, Math.min(tooltipTop, heatmapContainer.offsetHeight - tooltip.offsetHeight));
-
-    tooltip.style.top = `${finalTop}px`;
-    tooltip.style.left = `${tooltipLeft}px`;
+    // Constrain the tooltip to stay within the container's vertical bounds
+    if (top < 0) {
+        top = 5; // Add a small padding from the top
+    }
+    if (top + tooltipRect.height > container.offsetHeight) {
+        top = container.offsetHeight - tooltipRect.height - 5; // Add a small padding from the bottom
+    }
+    
+    tooltip.style.top = `${top}px`;
+    tooltip.style.left = `${left}px`;
 }
 
 
