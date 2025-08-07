@@ -802,7 +802,7 @@ function calculateInsightData(purchases, balanceInfo) {
         const percentChange = ((thisWeekSpending - lastWeekSpending) / lastWeekSpending) * 100;
         if (Math.abs(percentChange) > 10) {
             const trend = percentChange > 0 ? 'up' : 'down';
-            const emoji = percentChange > 30 ? '🚨' : percentChange > 0 ? '📈' : '📉';
+            const emoji = percentChange > 30 ? '🚨' : percentChange > 0 ? '📈' : '�';
             const trendText = percentChange > 0 ? 'increased' : 'decreased';
             insights.push(generateInsight('trend', {
                 icon: emoji,
@@ -1370,13 +1370,13 @@ function calculateSmartProjection(purchases, currentBalance, userData) {
         
         // Set spending multipliers based on semester patterns
         spendingMultipliers = {
-            'pre-break': 1.3,      // Students spend more before breaks
-            'post-break': 1.15,    // Slightly elevated after returning
-            'finals': 1.4,         // Coffee and late-night food spike
+            'pre-break': 1.3,       // Students spend more before breaks
+            'post-break': 1.15,     // Slightly elevated after returning
+            'finals': 1.4,          // Coffee and late-night food spike
             'early-semester': 1.2, // First 2 weeks higher spending
-            'mid-semester': 1.0,   // Normal baseline
-            'late-semester': 0.9,  // Students start conserving
-            'break': 0,            // No spending during breaks
+            'mid-semester': 1.0,    // Normal baseline
+            'late-semester': 0.9,   // Students start conserving
+            'break': 0,             // No spending during breaks
         };
         
         // If we have semester info and are in an active period
@@ -1793,9 +1793,6 @@ function renderHeatmap(purchases) {
     const heatmapContainer = document.getElementById('spending-heatmap');
     if (!heatmapContainer) return;
     
-    // Make container position relative for absolute tooltip positioning
-    heatmapContainer.style.position = 'relative';
-    
     // Get selected period
     const activePeriodBtn = document.querySelector('.period-btn.active');
     const days = parseInt(activePeriodBtn?.dataset.days || 30);
@@ -1825,12 +1822,8 @@ function renderHeatmap(purchases) {
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() - days + 1);
     
-    // Clear container but preserve tooltip if it exists
-    const existingTooltip = heatmapContainer.querySelector('.heatmap-tooltip');
+    // Clear container
     heatmapContainer.innerHTML = '';
-    if (existingTooltip) {
-        heatmapContainer.appendChild(existingTooltip);
-    }
     
     // Add day labels
     const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -1968,42 +1961,32 @@ function showHeatmapTooltip(event, date, spending) {
     
     tooltip.classList.remove('hidden');
     
-    // Get the heatmap container for relative positioning
-    const heatmapContainer = document.getElementById('spending-heatmap');
-    if (!heatmapContainer) return;
+    // Simple positioning - just place it next to the cell
+    const cell = event.target;
+    const cellRect = cell.getBoundingClientRect();
     
-    const containerRect = heatmapContainer.getBoundingClientRect();
-    const cellRect = event.target.getBoundingClientRect();
-    
-    // Calculate position relative to the heatmap container
-    const relativeTop = cellRect.top - containerRect.top;
-    const relativeLeft = cellRect.left - containerRect.left;
-    
-    // Position tooltip above the cell by default
-    let tooltipTop = relativeTop - tooltip.offsetHeight - 8;
-    let tooltipLeft = relativeLeft + (cellRect.width / 2) - (tooltip.offsetWidth / 2);
-    
-    // Check if tooltip would go above container, position below instead
-    if (tooltipTop < 0) {
-        tooltipTop = relativeTop + cellRect.height + 8;
+    // Position to the right of the cell on desktop, above on mobile
+    if (window.innerWidth > 768) {
+        // Desktop - position to the right
+        tooltip.style.position = 'fixed';
+        tooltip.style.left = (cellRect.right + 10) + 'px';
+        tooltip.style.top = (cellRect.top + cellRect.height / 2 - tooltip.offsetHeight / 2) + 'px';
+        
+        // If tooltip goes off screen right, position to the left instead
+        if (cellRect.right + tooltip.offsetWidth + 10 > window.innerWidth) {
+            tooltip.style.left = (cellRect.left - tooltip.offsetWidth - 10) + 'px';
+        }
+    } else {
+        // Mobile - position above
+        tooltip.style.position = 'fixed';
+        tooltip.style.left = (cellRect.left + cellRect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+        tooltip.style.top = (cellRect.top - tooltip.offsetHeight - 8) + 'px';
+        
+        // If tooltip goes off screen top, position below
+        if (cellRect.top - tooltip.offsetHeight - 8 < 0) {
+            tooltip.style.top = (cellRect.bottom + 8) + 'px';
+        }
     }
-    
-    // Check if tooltip would go below container, position above
-    if (tooltipTop + tooltip.offsetHeight > containerRect.height) {
-        tooltipTop = relativeTop - tooltip.offsetHeight - 8;
-    }
-    
-    // Keep tooltip within horizontal bounds of container
-    if (tooltipLeft < 0) {
-        tooltipLeft = 0;
-    } else if (tooltipLeft + tooltip.offsetWidth > containerRect.width) {
-        tooltipLeft = containerRect.width - tooltip.offsetWidth;
-    }
-    
-    // Apply absolute positioning relative to the heatmap container
-    tooltip.style.position = 'absolute';
-    tooltip.style.left = tooltipLeft + 'px';
-    tooltip.style.top = tooltipTop + 'px';
 }
 
 function hideHeatmapTooltip() {
@@ -2249,9 +2232,9 @@ function updateWhatIfProjection(userData, purchases) {
         
         // Only add points periodically to avoid cluttered graph
         const shouldAddPoint = dayCounter <= 14 || // Show detail for first 2 weeks
-                               dayCounter % 7 === 0 || // Then weekly
-                               projectedBalance <= targetDaily * 7 || // Show detail near end
-                               projectedBalance <= 0;
+                                  dayCounter % 7 === 0 || // Then weekly
+                                  projectedBalance <= targetDaily * 7 || // Show detail near end
+                                  projectedBalance <= 0;
         
         // Calculate new balance
         if (projectedBalance > 0) {
