@@ -1793,6 +1793,9 @@ function renderHeatmap(purchases) {
     const heatmapContainer = document.getElementById('spending-heatmap');
     if (!heatmapContainer) return;
     
+    // Make container position relative for absolute tooltip positioning
+    heatmapContainer.style.position = 'relative';
+    
     // Get selected period
     const activePeriodBtn = document.querySelector('.period-btn.active');
     const days = parseInt(activePeriodBtn?.dataset.days || 30);
@@ -1822,8 +1825,12 @@ function renderHeatmap(purchases) {
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() - days + 1);
     
-    // Clear container
+    // Clear container but preserve tooltip if it exists
+    const existingTooltip = heatmapContainer.querySelector('.heatmap-tooltip');
     heatmapContainer.innerHTML = '';
+    if (existingTooltip) {
+        heatmapContainer.appendChild(existingTooltip);
+    }
     
     // Add day labels
     const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -1961,38 +1968,42 @@ function showHeatmapTooltip(event, date, spending) {
     
     tooltip.classList.remove('hidden');
     
-    // Get the chart card boundaries to keep tooltip within
-    const chartCard = event.target.closest('.stats-card');
-    const cardRect = chartCard ? chartCard.getBoundingClientRect() : null;
-    const rect = event.target.getBoundingClientRect();
-    const tooltipHeight = tooltip.offsetHeight;
-    const tooltipWidth = tooltip.offsetWidth;
+    // Get the heatmap container for relative positioning
+    const heatmapContainer = document.getElementById('spending-heatmap');
+    if (!heatmapContainer) return;
     
-    // Calculate position
-    let top = rect.top - tooltipHeight - 8; // Default: above the cell
-    let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+    const containerRect = heatmapContainer.getBoundingClientRect();
+    const cellRect = event.target.getBoundingClientRect();
     
-    // If tooltip would go above card bounds, position below instead
-    if (cardRect && top < cardRect.top) {
-        top = rect.bottom + 8;
+    // Calculate position relative to the heatmap container
+    const relativeTop = cellRect.top - containerRect.top;
+    const relativeLeft = cellRect.left - containerRect.left;
+    
+    // Position tooltip above the cell by default
+    let tooltipTop = relativeTop - tooltip.offsetHeight - 8;
+    let tooltipLeft = relativeLeft + (cellRect.width / 2) - (tooltip.offsetWidth / 2);
+    
+    // Check if tooltip would go above container, position below instead
+    if (tooltipTop < 0) {
+        tooltipTop = relativeTop + cellRect.height + 8;
     }
     
-    // If near bottom of card, position above
-    if (cardRect && rect.bottom + tooltipHeight + 20 > cardRect.bottom) {
-        top = rect.top - tooltipHeight - 8;
+    // Check if tooltip would go below container, position above
+    if (tooltipTop + tooltip.offsetHeight > containerRect.height) {
+        tooltipTop = relativeTop - tooltip.offsetHeight - 8;
     }
     
-    // Keep tooltip within horizontal card bounds
-    if (cardRect) {
-        if (left < cardRect.left + 10) {
-            left = cardRect.left + 10;
-        } else if (left + tooltipWidth > cardRect.right - 10) {
-            left = cardRect.right - tooltipWidth - 10;
-        }
+    // Keep tooltip within horizontal bounds of container
+    if (tooltipLeft < 0) {
+        tooltipLeft = 0;
+    } else if (tooltipLeft + tooltip.offsetWidth > containerRect.width) {
+        tooltipLeft = containerRect.width - tooltip.offsetWidth;
     }
     
-    tooltip.style.left = left + 'px';
-    tooltip.style.top = top + 'px';
+    // Apply absolute positioning relative to the heatmap container
+    tooltip.style.position = 'absolute';
+    tooltip.style.left = tooltipLeft + 'px';
+    tooltip.style.top = tooltipTop + 'px';
 }
 
 function hideHeatmapTooltip() {
