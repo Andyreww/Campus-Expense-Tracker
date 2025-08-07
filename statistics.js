@@ -802,7 +802,7 @@ function calculateInsightData(purchases, balanceInfo) {
         const percentChange = ((thisWeekSpending - lastWeekSpending) / lastWeekSpending) * 100;
         if (Math.abs(percentChange) > 10) {
             const trend = percentChange > 0 ? 'up' : 'down';
-            const emoji = percentChange > 30 ? '🚨' : percentChange > 0 ? '📈' : '�';
+            const emoji = percentChange > 30 ? '🚨' : percentChange > 0 ? '📈' : '📉';
             const trendText = percentChange > 0 ? 'increased' : 'decreased';
             insights.push(generateInsight('trend', {
                 icon: emoji,
@@ -1569,7 +1569,7 @@ function renderChart(userData, purchases) {
     // Generate smart title text based on semester context
     let titleText;
     const zeroValueDisplay = formatBalanceValue(0, balanceInfo);
-    const confidenceEmoji = { 'low': '🔮', 'medium': '📊', 'medium-high': '📈', 'high': '🎯' }[projection.confidence];
+    const confidenceEmoji = { 'low': '🔮', 'medium': '📊', 'medium-high': '�', 'high': '🎯' }[projection.confidence];
     
     if (userData.isDenisonStudent && projection.semesterInfo) {
         const semInfo = projection.semesterInfo;
@@ -1945,49 +1945,48 @@ function generateMonthLabels(startDate, endDate) {
 
 function showHeatmapTooltip(event, date, spending) {
     const tooltip = document.getElementById('heatmap-tooltip');
-    if (!tooltip) return;
-    
+    const heatmapContainer = document.getElementById('spending-heatmap'); // The container for our relative positioning
+    if (!tooltip || !heatmapContainer) return;
+
+    // FIX: Ensure the container is positioned relatively so the absolute tooltip stays inside.
+    heatmapContainer.style.position = 'relative'; 
+
     const dateObj = new Date(date);
-    const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
-    
+    // FIX: Add UTC time zone to avoid off-by-one day errors with date formatting.
+    const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+
     const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
     const spendingDisplay = formatBalanceValue(spending, balanceInfo);
-    
+
     tooltip.innerHTML = `
         <div class="tooltip-date">${dayName}, ${formattedDate}</div>
         <div class="tooltip-amount">${spending > 0 ? spendingDisplay : 'No spending'}</div>
     `;
-    
+
     tooltip.classList.remove('hidden');
-    
-    // Simple positioning - just place it next to the cell
+    // FIX: Use absolute positioning relative to the heatmapContainer
+    tooltip.style.position = 'absolute'; 
+
     const cell = event.target;
-    const cellRect = cell.getBoundingClientRect();
     
-    // Position to the right of the cell on desktop, above on mobile
-    if (window.innerWidth > 768) {
-        // Desktop - position to the right
-        tooltip.style.position = 'fixed';
-        tooltip.style.left = (cellRect.right + 10) + 'px';
-        tooltip.style.top = (cellRect.top + cellRect.height / 2 - tooltip.offsetHeight / 2) + 'px';
-        
-        // If tooltip goes off screen right, position to the left instead
-        if (cellRect.right + tooltip.offsetWidth + 10 > window.innerWidth) {
-            tooltip.style.left = (cellRect.left - tooltip.offsetWidth - 10) + 'px';
-        }
-    } else {
-        // Mobile - position above
-        tooltip.style.position = 'fixed';
-        tooltip.style.left = (cellRect.left + cellRect.width / 2 - tooltip.offsetWidth / 2) + 'px';
-        tooltip.style.top = (cellRect.top - tooltip.offsetHeight - 8) + 'px';
-        
-        // If tooltip goes off screen top, position below
-        if (cellRect.top - tooltip.offsetHeight - 8 < 0) {
-            tooltip.style.top = (cellRect.bottom + 8) + 'px';
-        }
+    // FIX: Calculate position relative to the container's top-left corner using offsetTop/Left
+    const tooltipTop = cell.offsetTop + (cell.offsetHeight / 2) - (tooltip.offsetHeight / 2);
+    let tooltipLeft = cell.offsetLeft + cell.offsetWidth + 10; // Default position to the right
+
+    // FIX: Check if it goes outside the container on the right
+    if (tooltipLeft + tooltip.offsetWidth > heatmapContainer.offsetWidth) {
+        // If so, place it to the left of the cell
+        tooltipLeft = cell.offsetLeft - tooltip.offsetWidth - 10;
     }
+
+    // FIX: Pin to top/bottom if it overflows
+    const finalTop = Math.max(0, Math.min(tooltipTop, heatmapContainer.offsetHeight - tooltip.offsetHeight));
+
+    tooltip.style.top = `${finalTop}px`;
+    tooltip.style.left = `${tooltipLeft}px`;
 }
+
 
 function hideHeatmapTooltip() {
     const tooltip = document.getElementById('heatmap-tooltip');
