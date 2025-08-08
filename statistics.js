@@ -765,7 +765,7 @@ function calculateInsightData(purchases, balanceInfo) {
             if (projectedDaysUntilEmpty < activeRemainingDays && semesterInfo.daysUntilSemesterEnd > 14) {
                 const daysShort = Math.floor(activeRemainingDays - projectedDaysUntilEmpty);
                 insights.push(generateInsight('semester_warning', {
-                    icon: '🚨',
+                    icon: '�',
                     text: `At this rate, you'll run out ${daysShort} days before semester ends!`
                 }, 10));
             }
@@ -799,16 +799,53 @@ function calculateInsightData(purchases, balanceInfo) {
     
     // 1. Spending Trend Insight (High Priority)
     if (lastWeekPurchases.length > 0 && thisWeekPurchases.length > 0) {
-        const percentChange = ((thisWeekSpending - lastWeekSpending) / lastWeekSpending) * 100;
-        if (Math.abs(percentChange) > 10) {
-            const trend = percentChange > 0 ? 'up' : 'down';
-            const emoji = percentChange > 30 ? '🚨' : percentChange > 0 ? '📈' : '📉';
-            const trendText = percentChange > 0 ? 'increased' : 'decreased';
-            insights.push(generateInsight('trend', {
-                icon: emoji,
-                text: `Spending ${trendText} ${Math.abs(percentChange).toFixed(0)}% vs last week.`
-            }, percentChange > 30 ? 9 : 7));
+        const weekDifference = thisWeekSpending - lastWeekSpending;
+        const percentChange = (weekDifference / lastWeekSpending) * 100;
+        
+        // Use more natural language instead of confusing percentages
+        let trendMessage;
+        let emoji;
+        let priority;
+        
+        if (Math.abs(weekDifference) < 5) {
+            // Very small change
+            trendMessage = `Steady spending week-to-week.`;
+            emoji = '➡️';
+            priority = 4;
+        } else if (weekDifference > 0) {
+            // Spending increased
+            const increase = formatBalanceValue(weekDifference, balanceInfo);
+            if (percentChange > 100) {
+                trendMessage = `You doubled your spending! (${increase} more than last week)`;
+                emoji = '🚨';
+                priority = 9;
+            } else if (percentChange > 50) {
+                trendMessage = `Spending up by ${increase} this week.`;
+                emoji = '📈';
+                priority = 8;
+            } else {
+                trendMessage = `Spent ${increase} more than last week.`;
+                emoji = '📊';
+                priority = 6;
+            }
+        } else {
+            // Spending decreased
+            const savings = formatBalanceValue(Math.abs(weekDifference), balanceInfo);
+            if (percentChange < -50) {
+                trendMessage = `Great job! You cut spending in half (saved ${savings})`;
+                emoji = '🎉';
+                priority = 7;
+            } else {
+                trendMessage = `Nice! Saved ${savings} vs last week.`;
+                emoji = '📉';
+                priority = 6;
+            }
         }
+        
+        insights.push(generateInsight('trend', {
+            icon: emoji,
+            text: trendMessage
+        }, priority));
     }
     
     // 2. Budget Pace Insight (Critical Priority if overspending) - Non-Denison version
@@ -839,7 +876,7 @@ function calculateInsightData(purchases, balanceInfo) {
     const categories = Object.entries(categorySpending);
     if (categories.length >= 2) {
         const topCategory = categories.reduce((max, curr) => curr[1] > max[1] ? curr : max);
-        const percentage = ((topCategory[1] / totalSpent) * 100).toFixed(0);
+        const categoryAmount = formatBalanceValue(topCategory[1], balanceInfo);
         const categoryEmoji = {
             'Coffee': '☕',
             'Food': '🍔',
@@ -848,9 +885,20 @@ function calculateInsightData(purchases, balanceInfo) {
             'Other': '📦'
         }[topCategory[0]] || '🛍️';
         
+        // More natural language for category spending
+        let message;
+        const percentage = (topCategory[1] / totalSpent) * 100;
+        if (percentage > 70) {
+            message = `${topCategory[0]} addiction? You've spent ${categoryAmount} there!`;
+        } else if (percentage > 50) {
+            message = `Most of your money (${categoryAmount}) goes to ${topCategory[0]}.`;
+        } else {
+            message = `${topCategory[0]} is your top category at ${categoryAmount}.`;
+        }
+        
         insights.push(generateInsight('category', {
             icon: categoryEmoji,
-            text: `${topCategory[0]} is ${percentage}% of your spending.`
+            text: message
         }, 6));
     }
     
@@ -965,16 +1013,30 @@ function calculateInsightData(purchases, balanceInfo) {
     if (weekdayPurchases.length > 3 && weekendPurchases.length > 3) {
         const avgWeekday = weekdayPurchases.reduce((sum, p) => sum + p.total, 0) / weekdayPurchases.length;
         const avgWeekend = weekendPurchases.reduce((sum, p) => sum + p.total, 0) / weekendPurchases.length;
+        const difference = avgWeekend - avgWeekday;
         
-        if (avgWeekend > avgWeekday * 1.5) {
+        if (Math.abs(difference) > 2) {
+            let message;
+            let emoji;
+            
+            if (difference > 0) {
+                const extra = formatBalanceValue(difference, balanceInfo);
+                if (avgWeekend > avgWeekday * 2) {
+                    message = `Weekends hit different - spending doubles! (${extra} more per purchase)`;
+                    emoji = '🎉';
+                } else {
+                    message = `Weekend vibes cost ${extra} more per purchase.`;
+                    emoji = '🎊';
+                }
+            } else {
+                const savings = formatBalanceValue(Math.abs(difference), balanceInfo);
+                message = `Weekday warrior - saving ${savings} per purchase vs weekends.`;
+                emoji = '💼';
+            }
+            
             insights.push(generateInsight('weekend', {
-                icon: '🎉',
-                text: `Weekends hit different - you spend ${((avgWeekend / avgWeekday - 1) * 100).toFixed(0)}% more!`
-            }, 6));
-        } else if (avgWeekday > avgWeekend * 1.3) {
-            insights.push(generateInsight('weekday', {
-                icon: '💼',
-                text: `Weekday warrior - spending more during the grind.`
+                icon: emoji,
+                text: message
             }, 5));
         }
     }
@@ -1370,13 +1432,13 @@ function calculateSmartProjection(purchases, currentBalance, userData) {
         
         // Set spending multipliers based on semester patterns
         spendingMultipliers = {
-            'pre-break': 1.3,       // Students spend more before breaks
-            'post-break': 1.15,     // Slightly elevated after returning
-            'finals': 1.4,          // Coffee and late-night food spike
+            'pre-break': 1.3,      // Students spend more before breaks
+            'post-break': 1.15,    // Slightly elevated after returning
+            'finals': 1.4,         // Coffee and late-night food spike
             'early-semester': 1.2, // First 2 weeks higher spending
-            'mid-semester': 1.0,    // Normal baseline
-            'late-semester': 0.9,   // Students start conserving
-            'break': 0,             // No spending during breaks
+            'mid-semester': 1.0,   // Normal baseline
+            'late-semester': 0.9,  // Students start conserving
+            'break': 0,            // No spending during breaks
         };
         
         // If we have semester info and are in an active period
@@ -1945,66 +2007,49 @@ function generateMonthLabels(startDate, endDate) {
 
 function showHeatmapTooltip(event, date, spending) {
     const tooltip = document.getElementById('heatmap-tooltip');
-    const cell = event.target;
-    // The user mentioned "Spending forecast area", which is the card. Let's use that as the boundary.
-    const container = cell.closest('.stats-card'); 
-    if (!tooltip || !container) return;
-
-    // This should ideally be in CSS, but setting it here ensures it works.
-    container.style.position = 'relative'; 
-
+    if (!tooltip) return;
+    
     const dateObj = new Date(date);
-    const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-    const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
-
+    const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+    
     const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
     const spendingDisplay = formatBalanceValue(spending, balanceInfo);
-
+    
     tooltip.innerHTML = `
         <div class="tooltip-date">${dayName}, ${formattedDate}</div>
         <div class="tooltip-amount">${spending > 0 ? spendingDisplay : 'No spending'}</div>
     `;
-
+    
     tooltip.classList.remove('hidden');
-    tooltip.style.position = 'absolute'; 
-
-    // Get positions relative to the viewport
+    
+    // Simple positioning - just place it next to the cell
+    const cell = event.target;
     const cellRect = cell.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
-    // Get tooltip dimensions AFTER setting innerHTML to ensure it's calculated correctly
-    const tooltipRect = tooltip.getBoundingClientRect(); 
-
-    // Calculate desired top position relative to the container
-    // Center it vertically with the cell
-    let top = (cellRect.top - containerRect.top) + (cellRect.height / 2) - (tooltipRect.height / 2);
-
-    // Default position to the right of the cell
-    let left = (cellRect.right - containerRect.left) + 10; 
-
-    // Check if it overflows the container on the right
-    if (left + tooltipRect.width > container.offsetWidth) {
-        // If so, place it to the left of the cell
-        left = (cellRect.left - containerRect.left) - tooltipRect.width - 10;
-    }
     
-    // As a fallback, if it still overflows left (e.g., narrow screen), position it above.
-    if (left < 0) {
-        left = (cellRect.left - containerRect.left) + (cellRect.width / 2) - (tooltipRect.width / 2); // Center horizontally
-        top = (cellRect.top - containerRect.top) - tooltipRect.height - 10; // Position above
+    // Position to the right of the cell on desktop, above on mobile
+    if (window.innerWidth > 768) {
+        // Desktop - position to the right
+        tooltip.style.position = 'fixed';
+        tooltip.style.left = (cellRect.right + 10) + 'px';
+        tooltip.style.top = (cellRect.top + cellRect.height / 2 - tooltip.offsetHeight / 2) + 'px';
+        
+        // If tooltip goes off screen right, position to the left instead
+        if (cellRect.right + tooltip.offsetWidth + 10 > window.innerWidth) {
+            tooltip.style.left = (cellRect.left - tooltip.offsetWidth - 10) + 'px';
+        }
+    } else {
+        // Mobile - position above
+        tooltip.style.position = 'fixed';
+        tooltip.style.left = (cellRect.left + cellRect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+        tooltip.style.top = (cellRect.top - tooltip.offsetHeight - 8) + 'px';
+        
+        // If tooltip goes off screen top, position below
+        if (cellRect.top - tooltip.offsetHeight - 8 < 0) {
+            tooltip.style.top = (cellRect.bottom + 8) + 'px';
+        }
     }
-
-    // Constrain the tooltip to stay within the container's vertical bounds
-    if (top < 0) {
-        top = 5; // Add a small padding from the top
-    }
-    if (top + tooltipRect.height > container.offsetHeight) {
-        top = container.offsetHeight - tooltipRect.height - 5; // Add a small padding from the bottom
-    }
-    
-    tooltip.style.top = `${top}px`;
-    tooltip.style.left = `${left}px`;
 }
-
 
 function hideHeatmapTooltip() {
     const tooltip = document.getElementById('heatmap-tooltip');
@@ -2197,11 +2242,6 @@ function updateWhatIfProjection(userData, purchases) {
         semesterInfo = getDenisonSemesterInfo(now);
     }
     
-    // Calculate how many days we need to project
-    // Always project until money runs out, but cap visualization at reasonable amount
-    const estimatedDaysUntilEmpty = Math.ceil(lastActualBalance / targetDaily);
-    const maxVisualizationDays = Math.min(365, Math.max(30, estimatedDaysUntilEmpty * 1.2));
-    
     // First, calculate the actual end date (when money runs out)
     let tempBalance = lastActualBalance;
     let tempDate = new Date(lastActualDate);
@@ -2227,13 +2267,19 @@ function updateWhatIfProjection(userData, purchases) {
                 actualDaysUntilEmpty++;
             } else {
                 endDate = new Date(tempDate);
+                actualDaysUntilEmpty = day;
                 break;
             }
         }
     }
     
-    // Now create the visualization data (limited to reasonable range)
-    for (let dayCounter = 1; dayCounter <= maxVisualizationDays; dayCounter++) {
+    // Now create visualization that ALWAYS shows until money runs out
+    // For mobile, we need to be smart about data points
+    const isMobile = window.innerWidth <= 768;
+    const daysToProject = endDate ? actualDaysUntilEmpty + 5 : Math.min(365, actualDaysUntilEmpty);
+    
+    projectedBalance = lastActualBalance;
+    for (let dayCounter = 1; dayCounter <= daysToProject; dayCounter++) {
         projectedDate = new Date(lastActualDate);
         projectedDate.setDate(lastActualDate.getDate() + dayCounter);
         
@@ -2247,33 +2293,45 @@ function updateWhatIfProjection(userData, purchases) {
             }
         }
         
-        // Only add points periodically to avoid cluttered graph
-        const shouldAddPoint = dayCounter <= 14 || // Show detail for first 2 weeks
-                                  dayCounter % 7 === 0 || // Then weekly
-                                  projectedBalance <= targetDaily * 7 || // Show detail near end
-                                  projectedBalance <= 0;
+        // Determine if we should add this point to the graph
+        let shouldAddPoint = false;
         
-        // Calculate new balance
-        if (projectedBalance > 0) {
-            projectedBalance = Math.max(0, projectedBalance - dailySpend);
-            
-            if (dailySpend > 0 && projectedBalance > 0) {
-                daysUntilEmpty++;
-            }
+        if (isMobile) {
+            // On mobile, be more selective with points to avoid clutter
+            shouldAddPoint = dayCounter === 1 || // First day
+                              dayCounter === daysToProject || // Last day
+                              (dayCounter <= 14 && dayCounter % 2 === 0) || // Every 2 days for first 2 weeks
+                              (dayCounter > 14 && dayCounter <= 30 && dayCounter % 5 === 0) || // Every 5 days for first month
+                              (dayCounter > 30 && dayCounter % 14 === 0) || // Every 2 weeks after
+                              projectedBalance <= targetDaily * 2 || // Near the end
+                              projectedBalance <= 0; // At zero
+        } else {
+            // Desktop can handle more points
+            shouldAddPoint = dayCounter === 1 || // First day
+                              dayCounter === daysToProject || // Last day
+                              dayCounter <= 7 || // Show first week in detail
+                              (dayCounter <= 30 && dayCounter % 3 === 0) || // Every 3 days for first month
+                              (dayCounter > 30 && dayCounter % 7 === 0) || // Weekly after that
+                              projectedBalance <= targetDaily * 5 || // Show detail near end
+                              projectedBalance <= 0; // At zero
         }
         
-        if (shouldAddPoint || projectedBalance <= 0) {
+        // Calculate new balance
+        if (projectedBalance > 0 && dailySpend > 0) {
+            projectedBalance = Math.max(0, projectedBalance - dailySpend);
+            daysUntilEmpty = dayCounter;
+        }
+        
+        if (shouldAddPoint) {
             labels.push(projectedDate.toISOString().split('T')[0]);
             projectionData.push(projectedBalance);
         }
         
-        // Stop visualizing once we hit $0
+        // Stop when we hit zero
         if (projectedBalance <= 0) {
-            // Add a few more days to show the $0 clearly
-            for (let extra = 1; extra <= 3; extra++) {
-                const extraDate = new Date(projectedDate);
-                extraDate.setDate(projectedDate.getDate() + extra);
-                labels.push(extraDate.toISOString().split('T')[0]);
+            // Make sure we have the zero point
+            if (!shouldAddPoint) {
+                labels.push(projectedDate.toISOString().split('T')[0]);
                 projectionData.push(0);
             }
             break;
@@ -2318,7 +2376,6 @@ function updateWhatIfProjection(userData, purchases) {
         }
     }
     
-    spendingChart.options.plugins.title.text = titleText;
     
     // Update what-if results
     const whatIfDate = document.getElementById('what-if-date');
@@ -2390,14 +2447,31 @@ function generatePeerComparisonInsight(purchases, balanceInfo) {
     const peerAvg = peerAverages[classYear]?.[selectedBalanceType] || 15;
     
     if (avgDaily > 0) {
-        const percentDiff = ((avgDaily - peerAvg) / peerAvg) * 100;
-        const comparison = percentDiff > 0 ? 'more' : 'less';
-        const emoji = Math.abs(percentDiff) < 10 ? '👥' : percentDiff > 0 ? '📊' : '💰';
+        const difference = avgDaily - peerAvg;
+        const absDiff = Math.abs(difference);
         
-        return generateInsight('peer_comparison', {
-            icon: emoji,
-            text: `You spend ${Math.abs(percentDiff).toFixed(0)}% ${comparison} than avg ${classYear}.`
-        }, 7);
+        if (absDiff < 2) {
+            // Very close to average
+            return generateInsight('peer_comparison', {
+                icon: '👥',
+                text: `You're right on track with other ${classYear}s.`
+            }, 5);
+        } else if (difference > 0) {
+            // Spending more
+            const extra = formatBalanceValue(absDiff, balanceInfo);
+            const emoji = absDiff > 10 ? '📊' : '👥';
+            return generateInsight('peer_comparison', {
+                icon: emoji,
+                text: `You spend ${extra}/day more than the average ${classYear}.`
+            }, 7);
+        } else {
+            // Spending less
+            const savings = formatBalanceValue(absDiff, balanceInfo);
+            return generateInsight('peer_comparison', {
+                icon: '💰',
+                text: `Nice! You save ${savings}/day vs the average ${classYear}.`
+            }, 6);
+        }
     }
     
     return null;
