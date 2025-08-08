@@ -748,7 +748,7 @@ function calculateInsightData(purchases, balanceInfo) {
             // Finals week warning
             if (semesterInfo.isFinalsWeek) {
                 insights.push(generateInsight('finals_alert', {
-                    icon: '📚',
+                    icon: '�',
                     text: `Finals week! Expect 40% higher spending on coffee & late food.`
                 }, 10));
             }
@@ -2021,21 +2021,27 @@ function showHeatmapTooltip(event, date, spending) {
         <div class="tooltip-amount">${spending > 0 ? spendingDisplay : 'No spending'}</div>
     `;
     
-    tooltip.classList.remove('hidden');
-    
+    // --- NEW POSITIONING LOGIC ---
+    // 1. Make it visible but off-screen to measure without flicker
+    tooltip.style.position = 'fixed'; // Ensure it's fixed for measurement
+    tooltip.style.top = '-9999px';
+    tooltip.style.left = '-9999px';
+    tooltip.classList.remove('hidden'); // This should be display: block or similar
+
+    // 2. Get its actual dimensions now that it's rendered
+    const tooltipRect = tooltip.getBoundingClientRect();
     const cell = event.target;
     const cellRect = cell.getBoundingClientRect();
-    const tooltipRect = tooltip.getBoundingClientRect(); // Get tooltip dimensions
     
-    // Default position: Above the cell
+    // 3. Calculate the desired position (centered above the cell)
     let top = cellRect.top - tooltipRect.height - 8; // 8px margin
     let left = cellRect.left + (cellRect.width / 2) - (tooltipRect.width / 2);
 
+    // 4. Adjust if it goes off-screen
     // If not enough space above, position below
     if (top < 0) {
         top = cellRect.bottom + 8;
     }
-
     // Prevent going off-screen horizontally
     if (left < 0) {
         left = 8; // 8px margin from left edge
@@ -2043,9 +2049,9 @@ function showHeatmapTooltip(event, date, spending) {
         left = window.innerWidth - tooltipRect.width - 8; // 8px margin from right edge
     }
 
-    tooltip.style.position = 'fixed';
-    tooltip.style.left = `${left}px`;
+    // 5. Apply the final position
     tooltip.style.top = `${top}px`;
+    tooltip.style.left = `${left}px`;
 }
 
 function hideHeatmapTooltip() {
@@ -2465,7 +2471,7 @@ function generatePeerComparisonInsight(purchases, balanceInfo) {
             // Spending less
             const savings = formatBalanceValue(absDiff, balanceInfo);
             return generateInsight('peer_comparison', {
-                icon: '�',
+                icon: '💰',
                 text: `Nice! You save ${savings}/day vs the average ${classYear}.`
             }, 6);
         }
