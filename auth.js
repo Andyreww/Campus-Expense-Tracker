@@ -70,6 +70,25 @@ export const logout = async () => {
     }
 };
 
+// --- WELCOME EMAIL FUNCTION ---
+// This function calls our Netlify serverless function to send a welcome email.
+async function sendWelcomeEmail(newUserEmail) {
+  try {
+    const response = await fetch('/.netlify/functions/send-welcome-email', {
+      method: 'POST',
+      body: JSON.stringify({ email: newUserEmail }),
+    });
+
+    if (!response.ok) {
+      console.error('Error from email server:', await response.text());
+    } else {
+      console.log('Welcome email triggered successfully!');
+    }
+  } catch (error) {
+    console.error('Failed to send welcome email:', error);
+  }
+}
+
 
 // --- AUTH STATE GUARD & ROUTER ---
 // This runs whenever the user's login state changes and handles all page routing.
@@ -102,6 +121,10 @@ firebaseReady.then(({ auth, db }) => {
                         console.log("Redirecting existing user from auth page to dashboard.");
                         window.location.replace('/dashboard.html');
                     } else {
+                        // THIS IS THE SPOT! A new user was just created.
+                        console.log("New user detected. Sending welcome email...");
+                        sendWelcomeEmail(user.email); // <<< OUR NEW LINE
+
                         console.log("Redirecting new user from auth page to questionnaire.");
                         window.location.replace('/questionnaire.html');
                     }
