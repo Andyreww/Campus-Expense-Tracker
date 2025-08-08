@@ -765,7 +765,7 @@ function calculateInsightData(purchases, balanceInfo) {
             if (projectedDaysUntilEmpty < activeRemainingDays && semesterInfo.daysUntilSemesterEnd > 14) {
                 const daysShort = Math.floor(activeRemainingDays - projectedDaysUntilEmpty);
                 insights.push(generateInsight('semester_warning', {
-                    icon: '�',
+                    icon: '🚨',
                     text: `At this rate, you'll run out ${daysShort} days before semester ends!`
                 }, 10));
             }
@@ -2023,32 +2023,29 @@ function showHeatmapTooltip(event, date, spending) {
     
     tooltip.classList.remove('hidden');
     
-    // Simple positioning - just place it next to the cell
     const cell = event.target;
     const cellRect = cell.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect(); // Get tooltip dimensions
     
-    // Position to the right of the cell on desktop, above on mobile
-    if (window.innerWidth > 768) {
-        // Desktop - position to the right
-        tooltip.style.position = 'fixed';
-        tooltip.style.left = (cellRect.right + 10) + 'px';
-        tooltip.style.top = (cellRect.top + cellRect.height / 2 - tooltip.offsetHeight / 2) + 'px';
-        
-        // If tooltip goes off screen right, position to the left instead
-        if (cellRect.right + tooltip.offsetWidth + 10 > window.innerWidth) {
-            tooltip.style.left = (cellRect.left - tooltip.offsetWidth - 10) + 'px';
-        }
-    } else {
-        // Mobile - position above
-        tooltip.style.position = 'fixed';
-        tooltip.style.left = (cellRect.left + cellRect.width / 2 - tooltip.offsetWidth / 2) + 'px';
-        tooltip.style.top = (cellRect.top - tooltip.offsetHeight - 8) + 'px';
-        
-        // If tooltip goes off screen top, position below
-        if (cellRect.top - tooltip.offsetHeight - 8 < 0) {
-            tooltip.style.top = (cellRect.bottom + 8) + 'px';
-        }
+    // Default position: Above the cell
+    let top = cellRect.top - tooltipRect.height - 8; // 8px margin
+    let left = cellRect.left + (cellRect.width / 2) - (tooltipRect.width / 2);
+
+    // If not enough space above, position below
+    if (top < 0) {
+        top = cellRect.bottom + 8;
     }
+
+    // Prevent going off-screen horizontally
+    if (left < 0) {
+        left = 8; // 8px margin from left edge
+    } else if (left + tooltipRect.width > window.innerWidth) {
+        left = window.innerWidth - tooltipRect.width - 8; // 8px margin from right edge
+    }
+
+    tooltip.style.position = 'fixed';
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
 }
 
 function hideHeatmapTooltip() {
@@ -2468,7 +2465,7 @@ function generatePeerComparisonInsight(purchases, balanceInfo) {
             // Spending less
             const savings = formatBalanceValue(absDiff, balanceInfo);
             return generateInsight('peer_comparison', {
-                icon: '💰',
+                icon: '�',
                 text: `Nice! You save ${savings}/day vs the average ${classYear}.`
             }, 6);
         }
