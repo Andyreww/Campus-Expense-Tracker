@@ -2,28 +2,30 @@
 import { Resend } from 'resend';
 
 // Initialize Resend with your API key
-// Netlify will automatically grab this from your environment variables
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // This is the main function Netlify will run
 exports.handler = async (event) => {
-  // We only want to handle POST requests from our frontend
+  // We only want to handle POST requests
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
+  // Get the user's email from the request
+  const { email } = JSON.parse(event.body);
+
+  // Make sure we actually got an email
+  if (!email) {
+    return { statusCode: 400, body: 'Email is required.' };
+  }
+
+  // --- NEW, MORE DETAILED TRY...CATCH BLOCK ---
   try {
-    // Get the user's email that we sent from the frontend
-    const { email } = JSON.parse(event.body);
-
-    // Make sure we actually got an email
-    if (!email) {
-      return { statusCode: 400, body: 'Email is required.' };
-    }
-
-    // This is where the magic happens. Tell Resend to send the email.
-    await resend.emails.send({
-      from: 'Nooksii <welcome@nooksii.com>', // IMPORTANT: See note below
+    console.log(`Attempting to send email to: ${email}`);
+    
+    // We try to send the email and store the response
+    const { data, error } = await resend.emails.send({
+      from: 'Nooksii <welcome@nooksii.com>',
       to: email,
       subject: 'Welcome to Your Cozy Nook! 🦉',
       html: `
@@ -40,17 +42,19 @@ exports.handler = async (event) => {
       `,
     });
 
-    // Send a success message back to our frontend
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'Welcome email sent!' }),
-    };
+    // If Resend gives us an error, we log it in detail
+    if (error) {
+      console.error('Error from Resend:', error);
+      return { statusCode: 400, body: JSON.stringify(error) };
+    }
+
+    // If it works, we log the success data
+    console.log('Email sent successfully! Resend ID:', data.id);
+    return { statusCode: 200, body: JSON.stringify(data) };
+
   } catch (error) {
-    // If anything goes wrong, log the error and send back an error message
-    console.error(error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Failed to send email.' }),
-    };
+    // This will catch any other general errors
+    console.error('A general error occurred:', error);
+    return { statusCode: 500, body: JSON.stringify({ message: 'Something went wrong.' }) };
   }
 };
