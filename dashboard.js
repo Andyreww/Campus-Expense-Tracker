@@ -827,10 +827,10 @@ async function saveLazyLogData(db, logDate) {
             updatePayload.resetAmounts = updatedResetAmounts;
         }
 
-        // FIXED: Only reduce streak by half instead of resetting to 0
+        // Lazy log doesn't break your streak - you're still engaging with the app!
+        // We just keep the streak going since you're catching up
         if (lazyLogForm.dataset.isLazyLog === 'true') {
-            const currentStreak = userData.currentStreak || 0;
-            updatePayload.currentStreak = Math.max(1, Math.floor(currentStreak / 2));
+            // Don't modify the streak at all - they're being responsible by updating
         }
 
         batch.update(userDocRef, updatePayload);
@@ -1522,7 +1522,10 @@ async function logFromWidget(db, widgetData, buttonEl) {
             const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
             await setDoc(wallOfFameDocRef, { 
                 currentStreak,
-                longestStreak: Math.max(longestStreak, currentStreak)
+                longestStreak: Math.max(longestStreak, currentStreak),
+                displayName: currentUser.displayName || "Anonymous",
+                photoURL: currentUser.photoURL || "",
+                bio: userData.bio || ""
             }, { merge: true });
         }
 
@@ -1592,9 +1595,20 @@ async function fetchAndRenderLeaderboard(db) {
             
             const bioHtml = user.bio ? `<div class="leaderboard-bio">"${user.bio}"</div>` : '';
             
-            // Show both current and longest streak
-            const longestStreakBadge = user.longestStreak > user.currentStreak ? 
-                `<span style="font-size: 0.8em; opacity: 0.7; margin-left: 4px;">(Best: ${user.longestStreak})</span>` : '';
+            // Create trophy badge for longest streak if it's higher than current
+            const longestStreak = user.longestStreak || 0;
+            const currentStreak = user.currentStreak || 0;
+            const showTrophy = longestStreak > currentStreak;
+            
+            const streakDisplay = showTrophy ? 
+                `<div class="streak-container">
+                    <span class="leaderboard-streak">🔥 ${currentStreak}</span>
+                    <div class="best-streak-badge" title="Personal Best">
+                        <span class="trophy-icon">🏆</span>
+                        <span class="trophy-number">${longestStreak}</span>
+                    </div>
+                </div>` :
+                `<span class="leaderboard-streak">🔥 ${currentStreak}</span>`;
 
             item.innerHTML = `
                 <span class="leaderboard-rank">#${index + 1}</span>
@@ -1603,7 +1617,7 @@ async function fetchAndRenderLeaderboard(db) {
                     <span class="leaderboard-name">${user.displayName}</span>
                     ${bioHtml}
                 </div>
-                <span class="leaderboard-streak">🔥 ${user.currentStreak || 0}${longestStreakBadge}</span>
+                ${streakDisplay}
             `;
             leaderboardList.appendChild(item);
         });
@@ -1629,7 +1643,8 @@ async function handlePublicToggle(e, db) {
             if (userDoc.exists()) {
                 const { displayName, photoURL, currentStreak, longestStreak, bio } = userDoc.data();
                 await setDoc(wallOfFameDocRef, { 
-                    displayName, photoURL, 
+                    displayName, 
+                    photoURL, 
                     currentStreak: currentStreak || 0,
                     longestStreak: longestStreak || 0,
                     bio: bio || ""
@@ -1782,6 +1797,89 @@ style.textContent = `
     }
     .leaflet-popup-content-wrapper {
         border-radius: 8px !important;
+    }
+    
+    /* Streak container for leaderboard */
+    .streak-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-shrink: 0;
+    }
+    
+    /* Best streak badge - newspaper style */
+    .best-streak-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+        padding: 0.2rem 0.5rem;
+        border-radius: 20px;
+        border: 2px solid var(--text-primary);
+        box-shadow: 
+            inset 0 1px 2px rgba(255,255,255,0.5),
+            0 2px 4px rgba(0,0,0,0.2);
+        font-family: 'Special Elite', monospace;
+        font-weight: 700;
+        position: relative;
+        transform: rotate(-2deg);
+        transition: transform 0.2s ease;
+    }
+    
+    .best-streak-badge:hover {
+        transform: rotate(-1deg) scale(1.05);
+    }
+    
+    .best-streak-badge::before {
+        content: '';
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        width: 8px;
+        height: 8px;
+        background: radial-gradient(circle, #FFD700 0%, transparent 70%);
+        border-radius: 50%;
+        animation: sparkle 2s ease-in-out infinite;
+    }
+    
+    @keyframes sparkle {
+        0%, 100% { opacity: 0; }
+        50% { opacity: 1; }
+    }
+    
+    .trophy-icon {
+        font-size: 0.9rem;
+        filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3));
+    }
+    
+    .trophy-number {
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        font-weight: 900;
+        text-shadow: 1px 1px 0 rgba(255,255,255,0.3);
+    }
+    
+    /* Mobile adjustments for trophy badge */
+    @media (max-width: 640px) {
+        .streak-container {
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.25rem;
+        }
+        
+        .best-streak-badge {
+            font-size: 0.75rem;
+            padding: 0.15rem 0.4rem;
+            transform: rotate(-1deg);
+        }
+        
+        .trophy-icon {
+            font-size: 0.8rem;
+        }
+        
+        .trophy-number {
+            font-size: 0.75rem;
+        }
     }
     
     .profanity-warning-note {
