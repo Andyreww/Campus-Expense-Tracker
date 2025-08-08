@@ -35,7 +35,7 @@ exports.handler = async (event) => {
             <p style="font-size: 16px; color: #555;">Hey there,</p>
             <p style="font-size: 16px; color: #555;">Thanks for signing up! We're stoked to have you. Your Nooksii dashboard is all set up and ready for you to start tracking your campus expenses.</p>
             <p style="font-size: 16px; color: #555;">Get ready to take control of your budget and have a stress-free semester.</p>
-            <a href="https://nooksii.com" style="display: inline-block; padding: 12px 24px; margin-top: 20px; background-color: #5cb85c; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Go to Your Nook</a>
+            <a href="https://nooksii.com/dashboard" style="display: inline-block; padding: 12px 24px; margin-top: 20px; background-color: #5cb85c; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Go to Your Nook</a>
             <p style="font-size: 14px; color: #aaa; margin-top: 30px;">- The Nooksii Team</p>
           </div>
         </div>
