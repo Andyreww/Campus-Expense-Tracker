@@ -827,8 +827,10 @@ async function saveLazyLogData(db, logDate) {
             updatePayload.resetAmounts = updatedResetAmounts;
         }
 
+        // FIXED: Only reduce streak by half instead of resetting to 0
         if (lazyLogForm.dataset.isLazyLog === 'true') {
-             updatePayload.currentStreak = 0;
+            const currentStreak = userData.currentStreak || 0;
+            updatePayload.currentStreak = Math.max(1, Math.floor(currentStreak / 2));
         }
 
         batch.update(userDocRef, updatePayload);
@@ -1036,8 +1038,14 @@ async function saveProfile(storage, db) {
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists() && userDocSnap.data().showOnWallOfFame) {
             const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
-            const { displayName, photoURL, currentStreak } = userDocSnap.data();
-            await setDoc(wallOfFameDocRef, { displayName, photoURL, currentStreak: currentStreak || 0, bio: newBio }, { merge: true });
+            const { displayName, photoURL, currentStreak, longestStreak } = userDocSnap.data();
+            await setDoc(wallOfFameDocRef, { 
+                displayName, 
+                photoURL, 
+                currentStreak: currentStreak || 0,
+                longestStreak: longestStreak || 0,
+                bio: newBio 
+            }, { merge: true });
         }
         closeModal();
     } catch (error) {
@@ -1295,6 +1303,7 @@ async function logCustomPurchase(db) {
                 displayName: currentUser.displayName || "Anonymous",
                 photoURL: currentUser.photoURL || "",
                 currentStreak: currentStreak,
+                longestStreak: longestStreak,
                 bio: userData.bio || ""
             }, { merge: true });
         }
@@ -1511,7 +1520,10 @@ async function logFromWidget(db, widgetData, buttonEl) {
 
         if (userData.showOnWallOfFame) {
             const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
-            await setDoc(wallOfFameDocRef, { currentStreak }, { merge: true });
+            await setDoc(wallOfFameDocRef, { 
+                currentStreak,
+                longestStreak: Math.max(longestStreak, currentStreak)
+            }, { merge: true });
         }
 
         const updatedBalances = { ...balances, [balanceType]: newBalance };
@@ -1579,6 +1591,10 @@ async function fetchAndRenderLeaderboard(db) {
             const avatarSrc = user.photoURL || `data:image/svg+xml;base64,${btoa(svgAvatar)}`;
             
             const bioHtml = user.bio ? `<div class="leaderboard-bio">"${user.bio}"</div>` : '';
+            
+            // Show both current and longest streak
+            const longestStreakBadge = user.longestStreak > user.currentStreak ? 
+                `<span style="font-size: 0.8em; opacity: 0.7; margin-left: 4px;">(Best: ${user.longestStreak})</span>` : '';
 
             item.innerHTML = `
                 <span class="leaderboard-rank">#${index + 1}</span>
@@ -1587,7 +1603,7 @@ async function fetchAndRenderLeaderboard(db) {
                     <span class="leaderboard-name">${user.displayName}</span>
                     ${bioHtml}
                 </div>
-                <span class="leaderboard-streak">🔥 ${user.currentStreak || 0}</span>
+                <span class="leaderboard-streak">🔥 ${user.currentStreak || 0}${longestStreakBadge}</span>
             `;
             leaderboardList.appendChild(item);
         });
@@ -1611,10 +1627,11 @@ async function handlePublicToggle(e, db) {
         if (isChecked) {
             const userDoc = await getDoc(userDocRef);
             if (userDoc.exists()) {
-                const { displayName, photoURL, currentStreak, bio } = userDoc.data();
+                const { displayName, photoURL, currentStreak, longestStreak, bio } = userDoc.data();
                 await setDoc(wallOfFameDocRef, { 
                     displayName, photoURL, 
                     currentStreak: currentStreak || 0,
+                    longestStreak: longestStreak || 0,
                     bio: bio || ""
                 });
             }
