@@ -21,6 +21,16 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { getStorage } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
+// --- LAUNCH DATE CONSTANT ---
+// TESTING MODE: Set this to true to simulate post-launch behavior
+const TESTING_MODE = false; // Change to true to test dashboard access
+const LAUNCH_DATE = new Date("Aug 20, 2025 00:00:00");
+
+// Add this to see what's happening
+if (TESTING_MODE) {
+    console.log("⚠️ TESTING MODE ACTIVE - Simulating post-launch behavior");
+}
+
 // --- CENTRAL FIREBASE INITIALIZATION ---
 // This promise ensures Firebase is initialized only ONCE and makes services available to other scripts.
 export const firebaseReady = new Promise(async (resolve) => {
@@ -46,8 +56,7 @@ export const firebaseReady = new Promise(async (resolve) => {
         console.log("Firebase services initialized successfully with multi-tab persistence.");
         resolve({ auth, db, storage });
 
-    } catch (error)
-        {
+    } catch (error) {
         console.error("FATAL: Firebase initialization failed.", error);
         document.body.innerHTML = 'Could not connect to application services. Please try again later.';
         resolve({ auth: null, db: null, storage: null });
@@ -70,25 +79,60 @@ export const logout = async () => {
     }
 };
 
-// --- WELCOME EMAIL FUNCTION ---
-// This function calls our Netlify serverless function to send a welcome email.
-async function sendWelcomeEmail(newUserEmail) {
-  try {
-    const response = await fetch('/.netlify/functions/send-welcome-email', {
-      method: 'POST',
-      body: JSON.stringify({ email: newUserEmail }),
-    });
+// --- EMAIL FUNCTIONS ---
+// Send pre-launch email for users who sign up before launch
+async function sendPreLaunchEmail(newUserEmail) {
+    try {
+        console.log(`Attempting to send pre-launch email to ${newUserEmail}`);
+        const response = await fetch('/.netlify/functions/send-prelaunch-email', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email: newUserEmail }),
+        });
 
-    if (!response.ok) {
-      console.error('Error from email server:', await response.text());
-    } else {
-      console.log('Welcome email triggered successfully!');
+        if (!response.ok) {
+            console.error('Error from email server (pre-launch):', await response.text());
+        } else {
+            console.log('Pre-launch email triggered successfully!');
+        }
+    } catch (error) {
+        console.error('Failed to send pre-launch email - is the function deployed?', error);
     }
-  } catch (error) {
-    console.error('Failed to send welcome email:', error);
-  }
 }
 
+// Send welcome email for users who sign up after launch
+async function sendWelcomeEmail(newUserEmail) {
+    try {
+        console.log(`Attempting to send welcome email to ${newUserEmail}`);
+        const response = await fetch('/.netlify/functions/send-welcome-email', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email: newUserEmail }),
+        });
+
+        if (!response.ok) {
+            console.error('Error from email server (welcome):', await response.text());
+        } else {
+            console.log('Welcome email triggered successfully!');
+        }
+    } catch (error) {
+        console.error('Failed to send welcome email - is the function deployed?', error);
+    }
+}
+
+// --- CHECK IF BEFORE LAUNCH DATE ---
+function isBeforeLaunch() {
+    // In testing mode, return false to simulate post-launch
+    if (TESTING_MODE) {
+        return false;
+    }
+    const now = new Date();
+    return now < LAUNCH_DATE;
+}
 
 // --- AUTH STATE GUARD & ROUTER ---
 // This runs whenever the user's login state changes and handles all page routing.
@@ -98,48 +142,95 @@ firebaseReady.then(({ auth, db }) => {
     onAuthStateChanged(auth, async (user) => {
         const path = window.location.pathname;
 
-        // --- NEW, MORE ROBUST PATH CHECKING ---
+        // --- PATH CHECKING ---
         const publicPaths = ['/', '/index.html', '/roadmap.html', '/roadmap'];
         const authPaths = ['/login.html', '/signup.html'];
         const questionnairePath = '/questionnaire.html';
+        const gatePath = '/gate.html';
 
         const onPublicPage = publicPaths.includes(path);
         const onAuthPage = authPaths.includes(path);
         const onQuestionnairePage = path.endsWith(questionnairePath);
-        const onProtectedPage = !onPublicPage && !onAuthPage && !onQuestionnairePage;
-
+        const onGatePage = path.endsWith(gatePath);
+        const onProtectedPage = !onPublicPage && !onAuthPage && !onQuestionnairePage && !onGatePage;
 
         if (user) {
             // --- USER IS LOGGED IN ---
             console.log(`Auth Guard: User logged in (${user.uid}). Path: ${path}`);
-            // If a logged-in user is on an auth page, redirect them to their dashboard or questionnaire.
+            
+            // Check if we're before launch date
+            const beforeLaunch = isBeforeLaunch();
+            console.log(`Launch status: ${beforeLaunch ? 'BEFORE launch (gate mode)' : 'AFTER launch (dashboard mode)'}`);
+            
+            // If a logged-in user is on an auth page, redirect them appropriately
             if (onAuthPage) {
                 try {
                     const userDocRef = doc(db, "users", user.uid);
                     const userDocSnap = await getDoc(userDocRef);
+                    
                     if (userDocSnap.exists()) {
-                        console.log("Redirecting existing user from auth page to dashboard.");
-                        window.location.replace('/dashboard.html');
+                        // Existing user
+                        if (beforeLaunch) {
+                            console.log("Before launch date. Redirecting existing user to gate.");
+                            window.location.replace('/gate.html');
+                        } else {
+                            console.log("After launch date. Redirecting existing user to dashboard.");
+                            window.location.replace('/dashboard.html');
+                        }
                     } else {
-                        // THIS IS THE SPOT! A new user was just created.
-                        console.log("New user detected. Sending welcome email...");
-                        sendWelcomeEmail(user.email); // <<< OUR NEW LINE
-
+                        // New user just created
+                        console.log("New user detected.");
+                        
+                        // Send appropriate email based on launch status
+                        if (beforeLaunch) {
+                            console.log("Before launch. Sending pre-launch email...");
+                            sendPreLaunchEmail(user.email);
+                        } else {
+                            console.log("After launch. Sending welcome email...");
+                            sendWelcomeEmail(user.email);
+                        }
+                        
                         console.log("Redirecting new user from auth page to questionnaire.");
                         window.location.replace('/questionnaire.html');
                     }
                 } catch (dbError) {
-                    console.error("Error checking user document, redirecting to dashboard as fallback:", dbError);
-                    window.location.replace('/dashboard.html');
+                    console.error("Error checking user document, redirecting based on launch date:", dbError);
+                    if (beforeLaunch) {
+                        window.location.replace('/gate.html');
+                    } else {
+                        window.location.replace('/dashboard.html');
+                    }
                 }
             }
+            
+            // If user completed questionnaire, redirect to gate or dashboard based on launch date
+            if (onQuestionnairePage) {
+                // This would be handled by the questionnaire completion logic
+                // but we should check if they navigate directly here
+            }
+            
+            // If user tries to access protected pages before launch, send to gate
+            if (onProtectedPage && beforeLaunch) {
+                console.log("User trying to access protected page before launch. Redirecting to gate.");
+                window.location.replace('/gate.html');
+            }
+            
+            // If we're after launch and user is on gate page, redirect to dashboard
+            if (onGatePage && !beforeLaunch) {
+                console.log("After launch date. Redirecting from gate to dashboard.");
+                window.location.replace('/dashboard.html');
+            }
+            
+            // Allow users to freely navigate between gate, public pages, and questionnaire
+            // No redirect needed if they're already on these pages
+            
         } else {
             // --- USER IS LOGGED OUT ---
             console.log(`Auth Guard: User is logged out. Path: ${path}`);
             
-            // If a logged-out user tries to access a PROTECTED page, redirect them.
-            if (onProtectedPage) {
-                console.log(`User on protected page "${path}" while logged out. Redirecting to login page.`);
+            // If a logged-out user tries to access protected pages or gate, redirect to login
+            if (onProtectedPage || onGatePage) {
+                console.log(`User on protected/gate page "${path}" while logged out. Redirecting to login page.`);
                 window.location.replace('/login.html');
             }
         }
