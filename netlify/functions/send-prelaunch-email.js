@@ -5,7 +5,7 @@ import { Resend } from 'resend';
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Your verified sender email
-const SENDER_EMAIL = 'Nooksii <welcome@yourdomain.com>';
+const SENDER_EMAIL = 'Nooksii <welcome@nooksii.com>';
 
 export const handler = async (event) => {
   // Only allow POST requests

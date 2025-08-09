@@ -10,7 +10,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 // You also need to verify a domain with Resend to send from it.
 // Replace 'welcome@yourdomain.com' with your verified sender email.
-const SENDER_EMAIL = 'Nooksii <welcome@yourdomain.com>';
+const SENDER_EMAIL = 'Nooksii <welcome@nooksii.com>';
 
 export const handler = async (event) => {
   // Only allow POST requests
