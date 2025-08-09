@@ -748,7 +748,7 @@ function calculateInsightData(purchases, balanceInfo) {
             // Finals week warning
             if (semesterInfo.isFinalsWeek) {
                 insights.push(generateInsight('finals_alert', {
-                    icon: '�',
+                    icon: '🤯',
                     text: `Finals week! Expect 40% higher spending on coffee & late food.`
                 }, 10));
             }
@@ -2005,11 +2005,29 @@ function generateMonthLabels(startDate, endDate) {
     return labels;
 }
 
+/**
+ * Shows and positions the heatmap tooltip correctly.
+ *
+ * FIX: This function is completely replaced to solve the positioning issue.
+ * - Uses `position: absolute` instead of `position: fixed` to avoid issues with transformed parent elements.
+ * - Calculates position relative to the tooltip's `offsetParent` (the container card) instead of the viewport.
+ * - This ensures the tooltip is always positioned correctly over the hovered cell on all devices.
+ * - Also prevents the "flying" animation by disabling transitions during positioning.
+ */
 function showHeatmapTooltip(event, date, spending) {
     const tooltip = document.getElementById('heatmap-tooltip');
     if (!tooltip) return;
+
+    // FIX: Parse the date string correctly to avoid timezone issues.
+    // The 'date' is in 'YYYY-MM-DD' format. Creating a new Date() from this
+    // string interprets it as UTC, which can cause it to be a day off in
+    // local timezones. Parsing it manually avoids this.
+    const parts = date.split('-');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed in JS Date
+    const day = parseInt(parts[2], 10);
+    const dateObj = new Date(year, month, day);
     
-    const dateObj = new Date(date);
     const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
     
@@ -2021,38 +2039,51 @@ function showHeatmapTooltip(event, date, spending) {
         <div class="tooltip-amount">${spending > 0 ? spendingDisplay : 'No spending'}</div>
     `;
     
-    // --- NEW POSITIONING LOGIC ---
-    // 1. Make it visible but off-screen to measure without flicker
-    tooltip.style.position = 'fixed'; // Ensure it's fixed for measurement
-    tooltip.style.top = '-9999px';
-    tooltip.style.left = '-9999px';
-    tooltip.classList.remove('hidden'); // This should be display: block or similar
+    // Make the tooltip measurable without causing a "flying" animation
+    tooltip.style.transition = 'none';
+    tooltip.style.visibility = 'hidden';
+    tooltip.classList.remove('hidden'); // Ensure it's not display: none
 
-    // 2. Get its actual dimensions now that it's rendered
-    const tooltipRect = tooltip.getBoundingClientRect();
-    const cell = event.target;
-    const cellRect = cell.getBoundingClientRect();
-    
-    // 3. Calculate the desired position (centered above the cell)
-    let top = cellRect.top - tooltipRect.height - 8; // 8px margin
-    let left = cellRect.left + (cellRect.width / 2) - (tooltipRect.width / 2);
+    // Use requestAnimationFrame to ensure the browser has rendered the tooltip
+    // before we try to measure its dimensions. This prevents the initial
+    // positioning bug where getBoundingClientRect() might return incorrect values.
+    requestAnimationFrame(() => {
+        const cell = event.target;
+        // The offsetParent is the nearest ancestor with a position other than 'static' (e.g., the card).
+        const offsetParent = tooltip.offsetParent || document.body;
 
-    // 4. Adjust if it goes off-screen
-    // If not enough space above, position below
-    if (top < 0) {
-        top = cellRect.bottom + 8;
-    }
-    // Prevent going off-screen horizontally
-    if (left < 0) {
-        left = 8; // 8px margin from left edge
-    } else if (left + tooltipRect.width > window.innerWidth) {
-        left = window.innerWidth - tooltipRect.width - 8; // 8px margin from right edge
-    }
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+        const parentRect = offsetParent.getBoundingClientRect();
 
-    // 5. Apply the final position
-    tooltip.style.top = `${top}px`;
-    tooltip.style.left = `${left}px`;
+        // Calculate position relative to the offsetParent.
+        let top = (cellRect.top - parentRect.top) - tooltipRect.height - 8; // 8px margin above
+        let left = (cellRect.left - parentRect.left) + (cellRect.width / 2) - (tooltipRect.width / 2);
+
+        // Boundary checks to keep the tooltip within its container
+        if (top < 0) {
+            top = (cellRect.bottom - parentRect.top) + 8; // Place below if no space above
+        }
+        if (left < 0) {
+            left = 5; // Small margin from the edge
+        }
+        if (left + tooltipRect.width > parentRect.width) {
+            left = parentRect.width - tooltipRect.width - 5;
+        }
+
+        // Use absolute positioning relative to the offsetParent.
+        tooltip.style.position = 'absolute';
+        tooltip.style.top = `${top}px`;
+        tooltip.style.left = `${left}px`;
+
+        // Now make it visible and re-enable transitions
+        tooltip.style.visibility = 'visible';
+        setTimeout(() => {
+            tooltip.style.transition = '';
+        }, 50); // Small delay to ensure smooth transition re-enabling
+    });
 }
+
 
 function hideHeatmapTooltip() {
     const tooltip = document.getElementById('heatmap-tooltip');
