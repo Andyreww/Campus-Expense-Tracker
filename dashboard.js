@@ -912,23 +912,43 @@ function handleTabClick(e, db) {
     switchTab(targetSectionId, db);
 }
 
+/**
+ * Handles switching between dashboard sections.
+ * FIX: This function now updates the URL hash to keep the UI state
+ * in sync with the browser's history. This solves issues with
+ * refreshing the page and incorrect component visibility.
+ */
 function switchTab(sectionId, db) {
     const targetTab = document.querySelector(`.tab-item[data-section="${sectionId}"]`);
     const targetSection = document.getElementById(sectionId);
 
     if (targetTab && targetSection) {
-        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        // Update URL to reflect the current tab, which fixes refresh issues.
+        if (sectionId === 'home-section') {
+            // Use pushState to remove the hash without reloading the page.
+            history.pushState("", document.title, window.location.pathname + window.location.search);
+        } else {
+            // For other tabs, set the hash.
+            window.location.hash = sectionId;
+        }
+
+        // Update active classes for tabs and sections
+        document.querySelectorAll('.tab-item[data-section]').forEach(t => t.classList.remove('active'));
         mainSections.forEach(s => s.classList.remove('active'));
 
         targetTab.classList.add('active');
         targetSection.classList.add('active');
 
-        if (sectionId === 'home-section' && quickLogWidgetsContainer.querySelector('.quick-log-widget-btn')) {
+        // Show/hide the quick log widgets based on the active section
+        const widgetsExist = quickLogWidgetsContainer && quickLogWidgetsContainer.querySelector('.quick-log-widget-btn');
+        if (sectionId === 'home-section' && widgetsExist) {
             quickLogWidgetsContainer.style.display = 'block';
+            updateShelfWidth(); // Recalculate shelf width when switching to home
         } else {
             quickLogWidgetsContainer.style.display = 'none';
         }
 
+        // Show/hide the public leaderboard toggle
         if (sectionId === 'leaderboard-section') {
             publicLeaderboardContainer.classList.remove('hidden');
             if (db) fetchAndRenderLeaderboard(db);
@@ -937,6 +957,7 @@ function switchTab(sectionId, db) {
         }
     }
 }
+
 
 function handleInitialTab() {
     const hash = window.location.hash;
@@ -1330,6 +1351,38 @@ async function logCustomPurchase(db) {
     }
 }
 
+/**
+ * FIX: This function is now a standalone helper function to be called
+ * both on initial render and when switching tabs.
+ */
+function updateShelfWidth() {
+    const buttonWrapper = quickLogWidgetsContainer.querySelector('.quick-log-buttons');
+    if (!buttonWrapper) return;
+
+    // Use a timeout to ensure the browser has rendered the elements and their widths
+    setTimeout(() => {
+        const buttons = buttonWrapper.querySelectorAll('.quick-log-widget-btn');
+        if (buttons.length === 0) {
+            quickLogWidgetsContainer.style.setProperty('--shelf-width', '0px');
+            return;
+        }
+        
+        let totalWidth = 0;
+        const computedStyle = window.getComputedStyle(buttonWrapper);
+        const gap = parseFloat(computedStyle.getPropertyValue('gap')) || 16;
+
+        buttons.forEach((btn, index) => {
+            totalWidth += btn.offsetWidth;
+            if (index < buttons.length - 1) {
+                totalWidth += gap; 
+            }
+        });
+        
+        const shelfWidth = Math.min(totalWidth + 30, quickLogWidgetsContainer.offsetWidth * 0.95);
+        quickLogWidgetsContainer.style.setProperty('--shelf-width', `${shelfWidth}px`);
+    }, 50); // A small delay helps ensure accurate measurement
+}
+
 async function renderQuickLogWidgets(db) {
     if (!currentUser || !quickLogWidgetsContainer) return;
 
@@ -1352,7 +1405,7 @@ async function renderQuickLogWidgets(db) {
 
     if (querySnapshot.empty) {
         quickLogWidgetsContainer.style.display = 'none';
-        quickLogWidgetsContainer.style.setProperty('--shelf-width', '0px'); // Reset shelf width
+        quickLogWidgetsContainer.style.setProperty('--shelf-width', '0px');
         return;
     }
 
@@ -1428,30 +1481,6 @@ async function renderQuickLogWidgets(db) {
         button.appendChild(deleteBtn);
         buttonWrapper.appendChild(button);
     });
-
-    function updateShelfWidth() {
-        setTimeout(() => {
-            const buttons = buttonWrapper.querySelectorAll('.quick-log-widget-btn');
-            if (buttons.length === 0) {
-                quickLogWidgetsContainer.style.setProperty('--shelf-width', '0px');
-                return;
-            }
-            
-            let totalWidth = 0;
-            const computedStyle = window.getComputedStyle(buttonWrapper);
-            const gap = parseFloat(computedStyle.getPropertyValue('gap')) || 16;
-
-            buttons.forEach((btn, index) => {
-                totalWidth += btn.offsetWidth;
-                if (index < buttons.length - 1) {
-                    totalWidth += gap; 
-                }
-            });
-            
-            const shelfWidth = Math.min(totalWidth + 30, quickLogWidgetsContainer.offsetWidth * 0.95);
-            quickLogWidgetsContainer.style.setProperty('--shelf-width', `${shelfWidth}px`);
-        }, 50);
-    }
 
     updateShelfWidth();
 }
