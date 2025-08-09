@@ -184,7 +184,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 .mobile-menu-toggle:hover { color: var(--text-primary); }
 .mobile-menu-toggle svg { width: 1.5rem; height: 1.5rem; stroke: currentColor; display: block; }
-.nav-link { color: var(--text-secondary); font-weight: 700; transition: color 0.3s ease; }
+.nav-link { 
+    font-family: 'Fredoka One', cursive;
+    color: var(--text-secondary); 
+    font-weight: 400; 
+    transition: color 0.3s ease; 
+}
 .nav-link:hover { color: var(--brand-primary); }
 .desktop-cta-button {
     background-color: var(--brand-primary); color: white; padding: 0.6rem 1.2rem;
