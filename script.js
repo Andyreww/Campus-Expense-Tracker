@@ -227,7 +227,7 @@ function updateScrolledMenu(user) {
             e.stopPropagation();
             scrolledMenuPanel?.classList.toggle('is-open');
             scrolledMenuTrigger.classList.toggle('is-open');
-        }, { once: true });
+        });
     }
 }
 
