@@ -303,12 +303,12 @@ async function setupWallOfFame() {
 // Lazy load animations and videos
 function setupLazyAnimations() {
     // Fade-in animations
-    const fadeObserver = new IntersectionObserver((entries) => {
+    const fadeObserver = new IntersectionObserver((entries, observer) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 entry.target.style.opacity = '1';
                 entry.target.style.transform = 'translateY(0)';
-                fadeObserver.unobserve(entry.target);
+                observer.unobserve(entry.target);
             }
         });
     }, { threshold: 0.1, rootMargin: '50px' });
@@ -362,7 +362,7 @@ function setupVideoHandlers() {
         });
     } else {
         // Desktop: Intersection Observer for autoplay
-        const videoObserver = new IntersectionObserver((entries) => {
+        const videoObserver = new IntersectionObserver((entries, observer) => {
             entries.forEach(entry => {
                 const video = entry.target.querySelector('.step-video');
                 if (!video) return;
@@ -383,27 +383,26 @@ function setupVideoHandlers() {
 const elements = initCritical();
 
 // Defer everything else
-if ('requestIdleCallback' in window) {
-    // High priority - auth and basic features
-    requestIdleCallback(() => {
-        setupAuthWhenReady(elements);
-    }, { timeout: 2000 });
-    
-    // Medium priority - Wall of Fame
-    requestIdleCallback(() => {
-        setupWallOfFame();
-    }, { timeout: 3000 });
-    
-    // Low priority - animations
-    requestIdleCallback(() => {
-        setupLazyAnimations();
-    }, { timeout: 5000 });
-} else {
-    // Fallback for browsers without requestIdleCallback
-    setTimeout(() => setupAuthWhenReady(elements), 100);
-    setTimeout(() => setupWallOfFame(), 500);
-    setTimeout(() => setupLazyAnimations(), 1000);
-}
+window.addEventListener('load', () => {
+    // These can run after the page is fully loaded
+    setupAuthWhenReady(elements);
+    setupLazyAnimations();
+
+    // Use Intersection Observer to load Wall of Fame only when it's visible
+    const wallOfFameSection = document.getElementById('wall-of-fame');
+    if (wallOfFameSection) {
+        const observer = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    setupWallOfFame();
+                    observer.unobserve(entry.target); // Stop observing once it's loaded
+                }
+            });
+        }, { rootMargin: '100px' }); // Load it when it's 100px away from the viewport
+        observer.observe(wallOfFameSection);
+    }
+});
+
 
 // Three.js only loads if explicitly needed (not on page load)
 window.loadThreeJS = async () => {
