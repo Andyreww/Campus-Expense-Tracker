@@ -422,21 +422,24 @@ document.addEventListener('DOMContentLoaded', () => {
             holder.appendChild(btn);
             (card || wallOfFameList).appendChild(holder);
         } else {
-            // Desktop: lazy-load when section becomes visible
+            // Desktop: lazy-load when section becomes visible, but register IO after window load
             wallOfFameList.innerHTML = '';
-            if ('IntersectionObserver' in window) {
-                const io = new IntersectionObserver((entries, ob) => {
-                    const e = entries[0];
-                    if (e.isIntersecting) {
-                        ob.disconnect();
-                        setupWallOfFame();
-                    }
-                }, { rootMargin: '100px' });
-                io.observe(wallOfFameSection);
-            } else {
-                // Fallback: load after a short delay post-load
-                window.addEventListener('load', () => setTimeout(setupWallOfFame, 1200), { once: true });
-            }
+            const registerIO = () => {
+                if ('IntersectionObserver' in window) {
+                    const io = new IntersectionObserver((entries, ob) => {
+                        const e = entries[0];
+                        if (e.isIntersecting) {
+                            ob.disconnect();
+                            setupWallOfFame();
+                        }
+                    }, { rootMargin: '100px' });
+                    io.observe(wallOfFameSection);
+                } else {
+                    setTimeout(setupWallOfFame, 1200);
+                }
+            };
+            if (document.readyState === 'complete') registerIO();
+            else window.addEventListener('load', registerIO, { once: true });
         }
     }
 });
