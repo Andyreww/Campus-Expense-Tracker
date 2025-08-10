@@ -407,7 +407,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Use Intersection Observer to load Wall of Fame only when it's visible
     const wallOfFameSection = document.getElementById('wall-of-fame');
-    if (wallOfFameSection) {
+    const saveData = navigator.connection && navigator.connection.saveData;
+    const lowCore = navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4;
+    if (wallOfFameSection && !saveData && !lowCore) {
         const observer = new IntersectionObserver((entries, observer) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
