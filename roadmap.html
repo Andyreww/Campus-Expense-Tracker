@@ -242,10 +242,14 @@
             runTransaction, arrayUnion, serverTimestamp, onSnapshot,
             arrayRemove
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    // Import modular auth listener
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         document.addEventListener('DOMContentLoaded', async () => {
-            // Wait for Firebase to be ready
-            const { auth, db } = await firebaseReady;
+            // Wait for Firebase to be ready and resolve actual instances
+            const services = await firebaseReady;
+            const auth = await services.auth;
+            const db = await services.db;
             const pollListContainer = document.getElementById('poll-list');
             let currentUser = null; 
             let userVotes = {};
@@ -419,7 +423,7 @@
 
 
             // 2. Set up the auth listener
-            auth.onAuthStateChanged((user) => {
+            onAuthStateChanged(auth, (user) => {
                 currentUser = user;
                 toggleVoteButtonsVisibility(!!user); // Show/hide buttons
                 

@@ -1,7 +1,7 @@
 // Ultra-optimized auth.js - Maximum lazy loading
 
 // Constants
-const TESTING_MODE = false;
+const TESTING_MODE = true;
 const LAUNCH_DATE = new Date("Aug 20, 2025 00:00:00");
 
 // Cache for loaded modules
@@ -13,17 +13,42 @@ const moduleCache = {
     config: null
 };
 
+// Track if we're already checking auth to prevent loops
+let authCheckInProgress = false;
+
 // Get config with caching
 async function getFirebaseConfig() {
     if (moduleCache.config) return moduleCache.config;
     
     try {
-        const response = await fetch('/.netlify/functions/getFirebaseConfig');
-        if (!response.ok) throw new Error('Config fetch failed');
-        moduleCache.config = await response.json();
-        return moduleCache.config;
+        // Fetch with a timeout to avoid hanging
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 4000);
+        const response = await fetch('/.netlify/functions/getFirebaseConfig', { signal: controller.signal });
+        clearTimeout(t);
+        if (response.ok) {
+            moduleCache.config = await response.json();
+            return moduleCache.config;
+        }
+        throw new Error('Config fetch failed');
     } catch (error) {
         console.error("Config error:", error);
+        // Fallbacks for local/dev without Netlify running
+        try {
+            if (window.__FIREBASE_CONFIG) {
+                moduleCache.config = window.__FIREBASE_CONFIG;
+                console.log('[AUTH] Using window.__FIREBASE_CONFIG fallback');
+                return moduleCache.config;
+            }
+        } catch {}
+        try {
+            const raw = localStorage.getItem('FIREBASE_CONFIG');
+            if (raw) {
+                moduleCache.config = JSON.parse(raw);
+                console.log('[AUTH] Using localStorage FIREBASE_CONFIG fallback');
+                return moduleCache.config;
+            }
+        } catch {}
         return null;
     }
 }
@@ -58,10 +83,12 @@ async function getAuth() {
         const { getAuth: initAuth, setPersistence, browserLocalPersistence } = authModule;
         
         moduleCache.auth = initAuth(app);
-        
-        // Set persistence in background
-        setPersistence(moduleCache.auth, browserLocalPersistence).catch(console.error);
-        
+        // Ensure persistence is set before any sign-in to avoid session loss on redirect
+        try {
+            await setPersistence(moduleCache.auth, browserLocalPersistence);
+        } catch (e) {
+            console.warn('[AUTH] Failed to set persistence (continuing):', e);
+        }
         return moduleCache.auth;
     } catch (error) {
         console.error("Auth load error:", error);
@@ -123,6 +150,12 @@ export const logout = async () => {
     const { signOut } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
     try {
         await signOut(auth);
+        // Clear any local flags that might affect routing
+        try { sessionStorage.clear(); localStorage.removeItem('firebase:previous_websocket_failure'); } catch {}
+        // Post-logout navigation: go to login page explicitly
+        if (!window.location.pathname.includes('/login')) {
+            window.location.replace('/login.html');
+        }
     } catch (error) {
         console.error("Sign out error:", error);
     }
@@ -152,58 +185,159 @@ function isBeforeLaunch() {
     return TESTING_MODE ? false : new Date() < LAUNCH_DATE;
 }
 
+function safeNavigate(target) {
+    try {
+        const current = (window.location.pathname || '').toLowerCase();
+        const normalized = (target || '').toLowerCase();
+        if (current.endsWith(normalized)) return; // already there
+        window.location.replace(target);
+    } catch (e) {
+        console.warn('[AUTH] Navigation failed, trying assign:', e);
+        try { window.location.assign(target); } catch {}
+    }
+}
+
 // Auth state guard - only loads when on protected pages
 async function setupAuthGuard() {
-    const path = window.location.pathname;
+    // Prevent multiple simultaneous auth checks
+    if (authCheckInProgress) return;
+    authCheckInProgress = true;
+    
+    const rawPath = window.location.pathname;
+    const path = (rawPath.replace(/\/+$/, '') || '/').toLowerCase();
+    console.log('Setting up auth guard for path:', path);
+
+    // Determine page type using exact matching
+    const isPublicPage = path === '/' || ['/index.html', '/roadmap.html', '/roadmap'].includes(path);
+    const isAuthPage = ['/login.html', '/signup.html', '/login', '/signup'].includes(path);
+    const isProtectedPage = ['/dashboard.html', '/dashboard', '/questionnaire.html', '/questionnaire', '/gate.html', '/gate'].includes(path);
     
     // Don't load auth for public pages
-    const publicPaths = ['/', '/index.html', '/roadmap.html', '/roadmap'];
-    if (publicPaths.includes(path)) return;
+    if (isPublicPage) {
+        authCheckInProgress = false;
+        return;
+    }
     
-    // Only load auth for protected pages
-    const authPaths = ['/login.html', '/signup.html'];
-    const isAuthPage = authPaths.includes(path);
-    const isProtectedPage = !publicPaths.includes(path) && !isAuthPage;
+    // Only proceed if we need auth
+    if (!isAuthPage && !isProtectedPage) {
+        authCheckInProgress = false;
+        return;
+    }
     
-    if (!isAuthPage && !isProtectedPage) return;
-    
-    // Now load auth
-    const auth = await getAuth();
-    if (!auth) return;
-    
-    const { onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
-    
-    onAuthStateChanged(auth, async (user) => {
-        if (user && isAuthPage) {
-            // Check if new user
-            const db = await getFirestore();
-            if (db) {
-                const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
-                const userDocRef = doc(db, "users", user.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                
-                if (userDocSnap.exists()) {
-                    // Existing user
-                    const beforeLaunch = isBeforeLaunch();
-                    window.location.replace(beforeLaunch ? '/gate.html' : '/dashboard.html');
-                } else {
-                    // New user
-                    if (isBeforeLaunch()) {
-                        sendEmail('/.netlify/functions/send-prelaunch-email', user.email);
-                    } else {
-                        sendEmail('/.netlify/functions/send-welcome-email', user.email);
-                    }
-                    window.location.replace('/questionnaire.html');
-                }
-            }
-        } else if (!user && isProtectedPage) {
-            window.location.replace('/login.html');
+    try {
+        const auth = await getAuth();
+        if (!auth) {
+            authCheckInProgress = false;
+            return;
         }
-    });
+        const { onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
+        const isGatePage = path.includes('/gate');
+        const isDashboardPage = path.includes('/dashboard');
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            try {
+                const beforeLaunch = isBeforeLaunch();
+
+                if (user) {
+                    console.log('[AUTH] User authenticated:', user.email);
+
+                    if (isAuthPage) {
+                        // Ensure config is available before redirecting away from login
+                        const cfg = await getFirebaseConfig();
+                        if (!cfg) {
+                            console.warn('[AUTH] No Firebase config yet; deferring redirect to avoid loop');
+                            if (!TESTING_MODE && isBeforeLaunch()) {
+                                // Keep user on gate if gating applies
+                                safeNavigate('/gate.html');
+                            }
+                            return;
+                        }
+                        // Signed in from login/signup page
+                        if (TESTING_MODE) {
+                            // Developer override: allow dashboard access pre-launch
+                            console.log('[AUTH] TESTING_MODE active -> redirecting to /dashboard.html');
+                            safeNavigate('/dashboard.html');
+                            return;
+                        }
+
+                        // Determine new vs existing user
+                        const db = await getFirestore();
+                        if (db) {
+                            const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                            const userDocRef = doc(db, 'users', user.uid);
+                            const userDocSnap = await getDoc(userDocRef);
+
+                            if (userDocSnap.exists()) {
+                                // Existing user: gate before launch, dashboard after
+                                const target = beforeLaunch ? '/gate.html' : '/dashboard.html';
+                                console.log('[AUTH] Existing user -> redirecting to', target);
+                                safeNavigate(target);
+                            } else {
+                                // New user: send appropriate email and go to questionnaire
+                                try {
+                                    if (beforeLaunch) {
+                                        sendEmail('/.netlify/functions/send-prelaunch-email', user.email);
+                                    } else {
+                                        sendEmail('/.netlify/functions/send-welcome-email', user.email);
+                                    }
+                                } catch (e) {
+                                    console.warn('[AUTH] Email send failed (non-blocking):', e);
+                                }
+                                console.log('[AUTH] New user -> redirecting to /questionnaire.html');
+                                safeNavigate('/questionnaire.html');
+                            }
+                        } else {
+                            // Fallback if Firestore not available
+                            const target = (TESTING_MODE || !beforeLaunch) ? '/dashboard.html' : '/gate.html';
+                            console.log('[AUTH] Firestore unavailable -> redirecting to', target);
+                            safeNavigate(target);
+                        }
+                        return;
+                    }
+
+                    // User is on a protected page and authenticated
+                    if (!TESTING_MODE && beforeLaunch && isDashboardPage) {
+                        // Prevent dashboard access before launch
+                        console.log('[AUTH] Pre-launch and not testing -> redirecting to /gate.html');
+                        safeNavigate('/gate.html');
+                        return;
+                    }
+                    if (TESTING_MODE && beforeLaunch && isGatePage) {
+                        // Developer override: skip gate, go to dashboard
+                        console.log('[AUTH] TESTING_MODE pre-launch on gate -> redirecting to /dashboard.html');
+                        safeNavigate('/dashboard.html');
+                        return;
+                    }
+                    if (!beforeLaunch && isGatePage) {
+                        // After launch, gate should funnel to dashboard
+                        console.log('[AUTH] Post-launch -> redirecting from gate to /dashboard.html');
+                        safeNavigate('/dashboard.html');
+                        return;
+                    }
+                    console.log('[AUTH] Authenticated on protected page, no redirect');
+                } else {
+                    // Not signed in
+                    console.log('[AUTH] No authenticated user');
+                    if (isProtectedPage) {
+                        console.log('[AUTH] Protected page -> redirecting to /login.html');
+                        safeNavigate('/login.html');
+                        return;
+                    }
+                    // On auth/public pages without auth: no redirect
+                }
+            } finally {
+                authCheckInProgress = false;
+                // Keep listener active on auth pages to catch sign-in; otherwise unsubscribe
+                if (!isAuthPage) unsubscribe();
+            }
+        });
+    } catch (error) {
+        console.error('[AUTH] Auth guard error:', error);
+        authCheckInProgress = false;
+    }
 }
 
 // Login page setup - only runs on login page
-if (window.location.pathname.includes('/login.html')) {
+if (window.location.pathname.includes('/login')) {
     // Defer login setup until DOM is ready
     const setupLogin = async () => {
         // Wait for form to exist
@@ -227,6 +361,14 @@ if (window.location.pathname.includes('/login.html')) {
         if (!Object.values(elements).every(el => el)) {
             requestAnimationFrame(setupLogin);
             return;
+        }
+
+        // Add autocomplete attributes for better UX
+        if (elements.email) {
+            elements.email.setAttribute('autocomplete', 'username');
+        }
+        if (elements.password) {
+            elements.password.setAttribute('autocomplete', 'current-password');
         }
         
         // Load auth and methods only when form is submitted
@@ -267,12 +409,33 @@ if (window.location.pathname.includes('/login.html')) {
                         break;
                 }
                 
+                // Auth successful - auth state change will handle redirect
+                console.log('Auth successful, waiting for redirect...');
+                
+                // Manually trigger auth guard to ensure redirect happens
+                authCheckInProgress = false; // Reset flag first
+                await setupAuthGuard();
+                
+                // Give the auth state listener time to trigger
+                // Don't reset button since we're about to redirect
+                setTimeout(() => {
+                    // If still on login page after 2 seconds, something went wrong
+                    if (window.location.pathname.includes('/login')) {
+                        console.log('[AUTH] Redirect didn\'t happen within 2s, applying safe fallback');
+                        const beforeLaunch = isBeforeLaunch();
+                        const target = (TESTING_MODE || !beforeLaunch) ? '/dashboard.html' : '/gate.html';
+                        safeNavigate(target);
+                    }
+                }, 2000);
+                
             } catch (error) {
                 // Show error
                 const errorMessages = {
                     'auth/invalid-credential': 'Incorrect email or password',
                     'auth/email-already-in-use': 'Account already exists',
-                    'auth/popup-closed-by-user': 'Sign-in cancelled'
+                    'auth/popup-closed-by-user': 'Sign-in cancelled',
+                    'auth/weak-password': 'Password should be at least 6 characters',
+                    'auth/invalid-email': 'Invalid email address'
                 };
                 
                 const message = Object.entries(errorMessages).find(([key]) => 
@@ -280,7 +443,8 @@ if (window.location.pathname.includes('/login.html')) {
                 
                 elements.error.textContent = message;
                 elements.error.classList.remove('hidden');
-            } finally {
+                
+                // Reset button
                 button.innerHTML = originalText;
                 button.disabled = false;
             }
@@ -309,17 +473,28 @@ if (window.location.pathname.includes('/login.html')) {
     }
 }
 
-// Only setup auth guard if on protected pages
+// Setup auth guard with better timing
 if ('requestIdleCallback' in window) {
     requestIdleCallback(() => {
-        const path = window.location.pathname;
-        const needsAuth = !['/','index.html','/roadmap.html','/roadmap'].includes(path);
-        if (needsAuth) setupAuthGuard();
+        setupAuthGuard();
     });
 } else {
     setTimeout(() => {
-        const path = window.location.pathname;
-        const needsAuth = !['/','index.html','/roadmap.html','/roadmap'].includes(path);
-        if (needsAuth) setupAuthGuard();
+        setupAuthGuard();
     }, 100);
 }
+
+// Add a session check function that can be called from dashboard
+export const checkAuthSession = async () => {
+    const auth = await getAuth();
+    if (!auth) return null;
+    
+    const authModule = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
+    
+    return new Promise((resolve) => {
+        const unsubscribe = authModule.onAuthStateChanged(auth, (user) => {
+            unsubscribe();
+            resolve(user);
+        });
+    });
+};

@@ -33,14 +33,30 @@ let userBalanceTypes = [];
 async function main() {
     assignDOMElements();
     try {
+        // Await the firebaseReady wrapper first, then resolve its getters
         const services = await firebaseReady;
-        if (!services.auth || !services.db || !services.storage) {
+        const [auth, db, storage] = await Promise.all([
+            services.auth,
+            services.db,
+            services.storage,
+        ]);
+
+        if (!auth || !db || !storage) {
             throw new Error('Firebase services could not be initialized.');
         }
-        firebaseServices = services;
-        
-        currentUser = firebaseServices.auth.currentUser;
+        firebaseServices = { auth, db, storage };
+
+        // Resolve current user reliably
+        currentUser = auth.currentUser;
         if (!currentUser) {
+            const { onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
+            await new Promise((resolve) => {
+                const unsub = onAuthStateChanged(auth, (u) => { unsub(); resolve(u); });
+            }).then((u) => { currentUser = u || null; });
+        }
+
+        if (!currentUser) {
+            // No session -> go to login
             window.location.replace('/login.html');
             return;
         }
@@ -48,9 +64,9 @@ async function main() {
         checkProfile();
 
     } catch (error) {
-        console.error("Fatal Error on Dashboard:", error);
+        console.error('Fatal Error on Dashboard:', error);
         if (loadingIndicator) {
-            loadingIndicator.innerHTML = "Failed to load dashboard. Please try again later.";
+            loadingIndicator.innerHTML = 'Failed to load dashboard. Please try again later.';
         }
     }
 }
@@ -620,40 +636,82 @@ async function deleteSubcollection(db, collectionPath) {
 
 // --- LAZY LOG & EOD ---
 async function checkAndPerformBalanceResets(userData) {
-    const { balanceTypes, balances, resetAmounts = {}, lastResetDates = {} } = userData;
-    const today = new Date();
-    const todayDayName = today.toLocaleDateString('en-US', { weekday: 'long' });
-    
+    const { balanceTypes, balances, lastResetDates = {}, isDenisonStudent, classYear } = userData;
+    // Get current time in EST (America/New_York)
+    const now = new Date();
+    const estNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const todayDayName = estNow.toLocaleDateString('en-US', { weekday: 'long' });
+    const estHour = estNow.getHours();
+    const estMinute = estNow.getMinutes();
+
+    // Debug logs
+    console.log(`[DEBUG] Current day: ${todayDayName}, isDenisonStudent: ${isDenisonStudent}, classYear: ${classYear}`);
+    console.log(`[DEBUG] balanceTypes:`, balanceTypes);
+    console.log(`[DEBUG] lastResetDates:`, lastResetDates);
+
+    // Denison class year defaults
+    const DENISON_DEFAULTS = {
+        Freshman:  { credits: 50, dining: 375, swipes: 15, bonus: 4 },
+        Sophomore: { credits: 100, dining: 835, swipes: 8, bonus: 7 },
+        Junior:    { credits: 100, dining: 835, swipes: 8, bonus: 7 },
+        Senior:    { credits: 1000, dining: 2200, swipes: 0, bonus: 0 }
+    };
+
     let hasResets = false;
     const updatedBalances = { ...balances };
     const updatedLastResetDates = { ...lastResetDates };
-    
-    // Check each balance type for resets
-    balanceTypes.forEach(balanceType => {
-        if (balanceType.resetsWeekly && balanceType.resetDay === todayDayName) {
-            const lastResetDate = lastResetDates[balanceType.id];
-            const shouldReset = !lastResetDate || !isSameDay(new Date(lastResetDate), today);
-            
-            if (shouldReset && resetAmounts[balanceType.id] !== undefined) {
-                // Perform the reset
-                updatedBalances[balanceType.id] = resetAmounts[balanceType.id];
-                updatedLastResetDates[balanceType.id] = today.toISOString();
+
+    // Sunday-only reset for Denison students: set to class defaults if not reset today OR values differ
+    const isSundayEST = todayDayName === 'Sunday';
+    if (isDenisonStudent && DENISON_DEFAULTS[classYear] && isSundayEST) {
+        console.log(`[DEBUG] Processing Denison Sunday reset for ${classYear}`);
+
+        // Swipes (reset only once per Sunday)
+        const swipesBalanceType = balanceTypes.find(bt => bt.id === 'swipes');
+        if (swipesBalanceType) {
+            const desired = DENISON_DEFAULTS[classYear]['swipes'];
+            const current = typeof updatedBalances['swipes'] === 'number' ? updatedBalances['swipes'] : 0;
+            const lastResetDate = lastResetDates['swipes'];
+            const notResetToday = !lastResetDate || !isSameDay(new Date(lastResetDate), estNow);
+            console.log(`[DEBUG] Swipes check -> current: ${current}, desired: ${desired}, notResetToday: ${notResetToday}`);
+            if (notResetToday) {
+                updatedBalances['swipes'] = desired;
+                updatedLastResetDates['swipes'] = estNow.toISOString();
                 hasResets = true;
-                console.log(`Reset ${balanceType.label} to ${resetAmounts[balanceType.id]}`);
+                console.log(`[RESET] Swipes set to ${desired} for ${classYear} (weekly reset)`);
             }
         }
-    });
-    
+
+        // Bonus (reset only once per Sunday)
+        const bonusBalanceType = balanceTypes.find(bt => bt.id === 'bonus');
+        if (bonusBalanceType) {
+            const desired = DENISON_DEFAULTS[classYear]['bonus'];
+            const current = typeof updatedBalances['bonus'] === 'number' ? updatedBalances['bonus'] : 0;
+            const lastResetDate = lastResetDates['bonus'];
+            const notResetToday = !lastResetDate || !isSameDay(new Date(lastResetDate), estNow);
+            console.log(`[DEBUG] Bonus check -> current: ${current}, desired: ${desired}, notResetToday: ${notResetToday}`);
+            if (notResetToday) {
+                updatedBalances['bonus'] = desired;
+                updatedLastResetDates['bonus'] = estNow.toISOString();
+                hasResets = true;
+                console.log(`[RESET] Bonus set to ${desired} for ${classYear} (weekly reset)`);
+            }
+        }
+    }
+
     // Update database if there were resets
     if (hasResets) {
+        console.log(`[DEBUG] Updating database with resets:`, updatedBalances);
         const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
         await updateDoc(userDocRef, {
             balances: updatedBalances,
             lastResetDates: updatedLastResetDates
         });
-        
+
         // Show notification
         showSuccessMessage('✓ Weekly balances have been reset!');
+    } else {
+        console.log(`[DEBUG] No resets needed`);
     }
 }
 

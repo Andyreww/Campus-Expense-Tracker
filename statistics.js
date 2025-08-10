@@ -27,14 +27,30 @@ let unlockedForecasts = {}; // State to track unlocked forecasts per balance typ
 async function main() {
     assignDOMElements();
     try {
+        // Await the firebaseReady wrapper first, then resolve its getters
         const services = await firebaseReady;
-        if (!services.auth || !services.db || !services.storage) {
+        const [auth, db, storage] = await Promise.all([
+            services.auth,
+            services.db,
+            services.storage,
+        ]);
+
+        if (!auth || !db || !storage) {
             throw new Error('Firebase services could not be initialized.');
         }
-        firebaseServices = services;
-        
-        currentUser = firebaseServices.auth.currentUser;
+        firebaseServices = { auth, db, storage };
+
+        // Resolve current user reliably
+        currentUser = auth.currentUser;
         if (!currentUser) {
+            const { onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
+            await new Promise((resolve) => {
+                const unsub = onAuthStateChanged(auth, (u) => { unsub(); resolve(u); });
+            }).then((u) => { currentUser = u || null; });
+        }
+
+        if (!currentUser) {
+            // No session -> go to login
             window.location.replace('/login.html');
             return;
         }
@@ -42,9 +58,9 @@ async function main() {
         checkProfile();
 
     } catch (error) {
-        console.error("Fatal Error on Statistics:", error);
+        console.error('Fatal Error on Statistics:', error);
         if (loadingIndicator) {
-            loadingIndicator.innerHTML = "Failed to load statistics. Please try again later.";
+            loadingIndicator.innerHTML = 'Failed to load statistics. Please try again later.';
         }
     }
 }
