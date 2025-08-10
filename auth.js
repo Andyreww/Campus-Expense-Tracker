@@ -1,335 +1,332 @@
-// auth.js - The Single Source of Truth for Firebase
+// Optimized auth.js - Lazy loading and performance improvements
 
-// --- IMPORTS ---
+// --- LAZY LOAD IMPORTS ---
+// Only load core Firebase initially
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { 
-    getAuth, 
-    onAuthStateChanged, 
-    signOut as firebaseSignOut,
-    setPersistence,
-    browserLocalPersistence,
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword,
-    GoogleAuthProvider,
-    signInWithPopup
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { 
-    initializeFirestore, 
-    doc, 
-    getDoc, 
-    CACHE_SIZE_UNLIMITED 
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { getStorage } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
-// --- LAUNCH DATE CONSTANT ---
-// TESTING MODE: Set this to true to simulate post-launch behavior
-const TESTING_MODE = false; // Change to true to test dashboard access
+// Lazy load auth modules
+let authModule = null;
+const getAuthModule = async () => {
+    if (!authModule) {
+        authModule = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
+    }
+    return authModule;
+};
+
+// Lazy load Firestore
+let firestoreModule = null;
+const getFirestoreModule = async () => {
+    if (!firestoreModule) {
+        firestoreModule = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+    }
+    return firestoreModule;
+};
+
+// Lazy load Storage (only when needed)
+let storageModule = null;
+const getStorageModule = async () => {
+    if (!storageModule) {
+        storageModule = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js");
+    }
+    return storageModule;
+};
+
+// --- CONSTANTS ---
+const TESTING_MODE = false;
 const LAUNCH_DATE = new Date("Aug 20, 2025 00:00:00");
 
-// Add this to see what's happening
-if (TESTING_MODE) {
-    console.log("⚠️ TESTING MODE ACTIVE - Simulating post-launch behavior");
-}
+// Cache Firebase config
+let cachedConfig = null;
+const getFirebaseConfig = async () => {
+    if (cachedConfig) return cachedConfig;
+    
+    try {
+        const response = await fetch('/.netlify/functions/getFirebaseConfig');
+        if (!response.ok) throw new Error('Config fetch failed');
+        cachedConfig = await response.json();
+        return cachedConfig;
+    } catch (error) {
+        console.error("Failed to fetch Firebase config:", error);
+        throw error;
+    }
+};
 
-// --- CENTRAL FIREBASE INITIALIZATION ---
-// This promise ensures Firebase is initialized only ONCE and makes services available to other scripts.
+// --- OPTIMIZED FIREBASE INITIALIZATION ---
 export const firebaseReady = new Promise(async (resolve) => {
     try {
-        // Fetch the config from your Netlify function.
-        const response = await fetch('/.netlify/functions/getFirebaseConfig');
-        if (!response.ok) throw new Error('Could not load Firebase configuration.');
-        const firebaseConfig = await response.json();
-        
+        // Get config first
+        const firebaseConfig = await getFirebaseConfig();
         const app = initializeApp(firebaseConfig);
+        
+        // Load auth module in parallel with Firestore
+        const [authMod, firestoreMod] = await Promise.all([
+            getAuthModule(),
+            getFirestoreModule()
+        ]);
+        
+        const { getAuth, setPersistence, browserLocalPersistence } = authMod;
+        const { initializeFirestore, CACHE_SIZE_UNLIMITED } = firestoreMod;
+        
         const auth = getAuth(app);
-        const storage = getStorage(app);
-
-        // Initialize Firestore with multi-tab synchronization enabled.
         const db = initializeFirestore(app, {
             cacheSizeBytes: CACHE_SIZE_UNLIMITED,
             synchronizeTabs: true
         });
         
-        // Set auth persistence to LOCAL to keep users logged in.
-        await setPersistence(auth, browserLocalPersistence);
-
-        console.log("Firebase services initialized successfully with multi-tab persistence.");
-        resolve({ auth, db, storage });
-
+        // Set persistence in background
+        setPersistence(auth, browserLocalPersistence).catch(console.error);
+        
+        // Storage will be loaded only when needed
+        const storage = null; // Lazy load when required
+        
+        console.log("Firebase core services ready");
+        resolve({ auth, db, storage, app });
+        
     } catch (error) {
-        console.error("FATAL: Firebase initialization failed.", error);
-        document.body.innerHTML = 'Could not connect to application services. Please try again later.';
-        resolve({ auth: null, db: null, storage: null });
+        console.error("Firebase init failed:", error);
+        // Graceful degradation
+        resolve({ auth: null, db: null, storage: null, app: null });
     }
 });
 
-// --- LOGOUT FUNCTION ---
+// --- OPTIMIZED LOGOUT ---
 export const logout = async () => {
-    console.log("Logout function called.");
     const { auth } = await firebaseReady;
-    if (!auth) {
-        console.error("Auth service not ready, cannot log out.");
-        return;
-    }
+    if (!auth) return;
+    
+    const { signOut } = await getAuthModule();
     try {
-        await firebaseSignOut(auth);
-        console.log("Firebase sign out successful. Auth listener will handle redirect.");
+        await signOut(auth);
     } catch (error) {
-        console.error("Error during sign out:", error);
+        console.error("Sign out error:", error);
     }
 };
 
-// --- EMAIL FUNCTIONS ---
-// Send pre-launch email for users who sign up before launch
-async function sendPreLaunchEmail(newUserEmail) {
-    try {
-        console.log(`Attempting to send pre-launch email to ${newUserEmail}`);
-        const response = await fetch('/.netlify/functions/send-prelaunch-email', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email: newUserEmail }),
-        });
+// --- OPTIMIZED EMAIL FUNCTIONS ---
+// Debounce email sending to prevent duplicates
+const emailQueue = new Set();
 
+async function sendEmail(endpoint, email) {
+    const key = `${endpoint}-${email}`;
+    if (emailQueue.has(key)) return;
+    
+    emailQueue.add(key);
+    
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        
         if (!response.ok) {
-            console.error('Error from email server (pre-launch):', await response.text());
-        } else {
-            console.log('Pre-launch email triggered successfully!');
+            console.error(`Email error (${endpoint}):`, await response.text());
         }
     } catch (error) {
-        console.error('Failed to send pre-launch email - is the function deployed?', error);
+        console.error(`Failed to send email (${endpoint}):`, error);
+    } finally {
+        // Remove from queue after 5 seconds
+        setTimeout(() => emailQueue.delete(key), 5000);
     }
 }
 
-// Send welcome email for users who sign up after launch
-async function sendWelcomeEmail(newUserEmail) {
-    try {
-        console.log(`Attempting to send welcome email to ${newUserEmail}`);
-        const response = await fetch('/.netlify/functions/send-welcome-email', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email: newUserEmail }),
-        });
+const sendPreLaunchEmail = (email) => sendEmail('/.netlify/functions/send-prelaunch-email', email);
+const sendWelcomeEmail = (email) => sendEmail('/.netlify/functions/send-welcome-email', email);
 
-        if (!response.ok) {
-            console.error('Error from email server (welcome):', await response.text());
-        } else {
-            console.log('Welcome email triggered successfully!');
-        }
-    } catch (error) {
-        console.error('Failed to send welcome email - is the function deployed?', error);
-    }
-}
-
-// --- CHECK IF BEFORE LAUNCH DATE ---
+// --- HELPER FUNCTIONS ---
 function isBeforeLaunch() {
-    // In testing mode, return false to simulate post-launch
-    if (TESTING_MODE) {
-        return false;
-    }
-    const now = new Date();
-    return now < LAUNCH_DATE;
+    return TESTING_MODE ? false : new Date() < LAUNCH_DATE;
 }
 
-// --- AUTH STATE GUARD & ROUTER ---
-// This runs whenever the user's login state changes and handles all page routing.
-firebaseReady.then(({ auth, db }) => {
+// --- OPTIMIZED AUTH STATE GUARD ---
+// Defer non-critical auth checks
+firebaseReady.then(async ({ auth, db }) => {
     if (!auth || !db) return;
-
+    
+    const { onAuthStateChanged } = await getAuthModule();
+    const { doc, getDoc } = await getFirestoreModule();
+    
+    // Cache current path
+    const path = window.location.pathname;
+    const publicPaths = ['/', '/index.html', '/roadmap.html', '/roadmap'];
+    const authPaths = ['/login.html', '/signup.html'];
+    const questionnairePath = '/questionnaire.html';
+    const gatePath = '/gate.html';
+    
+    const isPublicPage = publicPaths.includes(path);
+    const isAuthPage = authPaths.includes(path);
+    const isQuestionnairePage = path.endsWith(questionnairePath);
+    const isGatePage = path.endsWith(gatePath);
+    const isProtectedPage = !isPublicPage && !isAuthPage && !isQuestionnairePage && !isGatePage;
+    
     onAuthStateChanged(auth, async (user) => {
-        const path = window.location.pathname;
-
-        // --- PATH CHECKING ---
-        const publicPaths = ['/', '/index.html', '/roadmap.html', '/roadmap'];
-        const authPaths = ['/login.html', '/signup.html'];
-        const questionnairePath = '/questionnaire.html';
-        const gatePath = '/gate.html';
-
-        const onPublicPage = publicPaths.includes(path);
-        const onAuthPage = authPaths.includes(path);
-        const onQuestionnairePage = path.endsWith(questionnairePath);
-        const onGatePage = path.endsWith(gatePath);
-        const onProtectedPage = !onPublicPage && !onAuthPage && !onQuestionnairePage && !onGatePage;
-
+        // Use requestIdleCallback for non-critical redirects
+        const handleRedirect = (url) => {
+            if ('requestIdleCallback' in window) {
+                requestIdleCallback(() => window.location.replace(url));
+            } else {
+                setTimeout(() => window.location.replace(url), 0);
+            }
+        };
+        
         if (user) {
-            // --- USER IS LOGGED IN ---
-            console.log(`Auth Guard: User logged in (${user.uid}). Path: ${path}`);
-            
-            // Check if we're before launch date
+            // User is logged in
             const beforeLaunch = isBeforeLaunch();
-            console.log(`Launch status: ${beforeLaunch ? 'BEFORE launch (gate mode)' : 'AFTER launch (dashboard mode)'}`);
             
-            // If a logged-in user is on an auth page, redirect them appropriately
-            if (onAuthPage) {
+            if (isAuthPage) {
+                // Check if new or existing user
                 try {
                     const userDocRef = doc(db, "users", user.uid);
                     const userDocSnap = await getDoc(userDocRef);
                     
                     if (userDocSnap.exists()) {
                         // Existing user
-                        if (beforeLaunch) {
-                            console.log("Before launch date. Redirecting existing user to gate.");
-                            window.location.replace('/gate.html');
-                        } else {
-                            console.log("After launch date. Redirecting existing user to dashboard.");
-                            window.location.replace('/dashboard.html');
-                        }
+                        handleRedirect(beforeLaunch ? '/gate.html' : '/dashboard.html');
                     } else {
-                        // New user just created
-                        console.log("New user detected.");
-                        
-                        // Send appropriate email based on launch status
+                        // New user - send email asynchronously
                         if (beforeLaunch) {
-                            console.log("Before launch. Sending pre-launch email...");
                             sendPreLaunchEmail(user.email);
                         } else {
-                            console.log("After launch. Sending welcome email...");
                             sendWelcomeEmail(user.email);
                         }
-                        
-                        console.log("Redirecting new user from auth page to questionnaire.");
-                        window.location.replace('/questionnaire.html');
+                        handleRedirect('/questionnaire.html');
                     }
-                } catch (dbError) {
-                    console.error("Error checking user document, redirecting based on launch date:", dbError);
-                    if (beforeLaunch) {
-                        window.location.replace('/gate.html');
-                    } else {
-                        window.location.replace('/dashboard.html');
-                    }
+                } catch (error) {
+                    console.error("User check failed:", error);
+                    handleRedirect(beforeLaunch ? '/gate.html' : '/dashboard.html');
                 }
             }
             
-            // If user completed questionnaire, redirect to gate or dashboard based on launch date
-            if (onQuestionnairePage) {
-                // This would be handled by the questionnaire completion logic
-                // but we should check if they navigate directly here
+            // Handle protected pages before launch
+            if (isProtectedPage && beforeLaunch) {
+                handleRedirect('/gate.html');
             }
             
-            // If user tries to access protected pages before launch, send to gate
-            if (onProtectedPage && beforeLaunch) {
-                console.log("User trying to access protected page before launch. Redirecting to gate.");
-                window.location.replace('/gate.html');
+            // After launch, redirect from gate to dashboard
+            if (isGatePage && !beforeLaunch) {
+                handleRedirect('/dashboard.html');
             }
-            
-            // If we're after launch and user is on gate page, redirect to dashboard
-            if (onGatePage && !beforeLaunch) {
-                console.log("After launch date. Redirecting from gate to dashboard.");
-                window.location.replace('/dashboard.html');
-            }
-            
-            // Allow users to freely navigate between gate, public pages, and questionnaire
-            // No redirect needed if they're already on these pages
             
         } else {
-            // --- USER IS LOGGED OUT ---
-            console.log(`Auth Guard: User is logged out. Path: ${path}`);
-            
-            // If a logged-out user tries to access protected pages or gate, redirect to login
-            if (onProtectedPage || onGatePage) {
-                console.log(`User on protected/gate page "${path}" while logged out. Redirecting to login page.`);
-                window.location.replace('/login.html');
+            // User is logged out
+            if (isProtectedPage || isGatePage) {
+                handleRedirect('/login.html');
             }
         }
     });
 });
 
-// --- LOGIN PAGE SPECIFIC LOGIC ---
-// This part of the script only runs on the login page to make the form work.
+// --- OPTIMIZED LOGIN PAGE LOGIC ---
 if (window.location.pathname.includes('/login.html')) {
     
-    const setupLoginEventListeners = (auth) => {
-        const authForm = document.getElementById('auth-form');
-        if (!authForm) return; // Don't run if the form isn't on the page
+    const setupLoginPage = async () => {
+        const { auth } = await firebaseReady;
+        if (!auth) return;
         
-        // Get all the form elements
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
-        const createAccountButton = document.getElementById('create-account-button');
-        const signInButton = document.getElementById('sign-in-button');
-        const googleSignInButton = document.getElementById('google-signin-button');
-        const authError = document.getElementById('auth-error');
-
-        // Store original button text to restore after loading
-        const originalButtonContent = {
+        // Get auth methods
+        const {
+            createUserWithEmailAndPassword,
+            signInWithEmailAndPassword,
+            GoogleAuthProvider,
+            signInWithPopup
+        } = await getAuthModule();
+        
+        // Wait for DOM
+        const waitForElement = (id) => {
+            return new Promise(resolve => {
+                const check = () => {
+                    const el = document.getElementById(id);
+                    if (el) resolve(el);
+                    else requestAnimationFrame(check);
+                };
+                check();
+            });
+        };
+        
+        // Get form elements
+        const authForm = await waitForElement('auth-form');
+        const emailInput = await waitForElement('email');
+        const passwordInput = await waitForElement('password');
+        const createAccountButton = await waitForElement('create-account-button');
+        const signInButton = await waitForElement('sign-in-button');
+        const googleSignInButton = await waitForElement('google-signin-button');
+        const authError = await waitForElement('auth-error');
+        
+        // Cache button text
+        const buttonText = {
             signIn: signInButton.innerHTML,
-            createAccount: createAccountButton.innerHTML,
+            create: createAccountButton.innerHTML,
             google: googleSignInButton.innerHTML
         };
-
-        // Function to show a user-friendly error message
-        const showAuthError = (message) => {
-            let friendlyMessage = "An unexpected error occurred.";
-            if (message.includes('auth/invalid-credential') || message.includes('auth/wrong-password') || message.includes('auth/user-not-found')) {
-                friendlyMessage = "Incorrect email or password. Please try again.";
-            } else if (message.includes('auth/email-already-in-use')) {
-                friendlyMessage = "An account with this email already exists.";
-            } else if (message.includes('auth/popup-closed-by-user')) {
-                friendlyMessage = "Sign-in window closed. Please try again.";
-            } else if (message.includes('offline') || message.includes('network-request-failed')) {
-                friendlyMessage = "Network error. Please check your connection.";
-            }
-            authError.textContent = friendlyMessage;
+        
+        // Error messages map
+        const errorMessages = {
+            'auth/invalid-credential': 'Incorrect email or password',
+            'auth/wrong-password': 'Incorrect email or password',
+            'auth/user-not-found': 'Incorrect email or password',
+            'auth/email-already-in-use': 'Account already exists',
+            'auth/popup-closed-by-user': 'Sign-in cancelled',
+            'auth/network-request-failed': 'Network error - check connection'
+        };
+        
+        const showError = (error) => {
+            const msg = Object.entries(errorMessages).find(([key]) => 
+                error.message.includes(key))?.[1] || 'An error occurred';
+            authError.textContent = msg;
             authError.classList.remove('hidden');
         };
-
-        // Function to handle button loading states
-        const setLoadingState = (isLoading, activeBtn = null) => {
-            const allButtons = [signInButton, createAccountButton, googleSignInButton];
-            allButtons.forEach(btn => {
-                if (btn) {
-                    btn.disabled = isLoading;
-                    if (isLoading && btn === activeBtn) {
-                        btn.innerHTML = `<div class="spinner"></div> Verifying...`;
-                    } else if (!isLoading) {
-                        if (btn === signInButton) btn.innerHTML = originalButtonContent.signIn;
-                        if (btn === createAccountButton) btn.innerHTML = originalButtonContent.createAccount;
-                        if (btn === googleSignInButton) btn.innerHTML = originalButtonContent.google;
-                    }
+        
+        const setLoading = (loading, activeBtn) => {
+            [signInButton, createAccountButton, googleSignInButton].forEach(btn => {
+                btn.disabled = loading;
+                if (!loading) {
+                    if (btn === signInButton) btn.innerHTML = buttonText.signIn;
+                    if (btn === createAccountButton) btn.innerHTML = buttonText.create;
+                    if (btn === googleSignInButton) btn.innerHTML = buttonText.google;
+                } else if (btn === activeBtn) {
+                    btn.innerHTML = '<div class="spinner"></div> Verifying...';
                 }
             });
         };
         
-        // Wrapper to handle auth actions, including loading and error states
-        const handleAuthAction = (authPromise, button) => {
-            if(authError) authError.classList.add('hidden');
-            setLoadingState(true, button);
-            authPromise.catch(error => {
-                console.error("Auth Action Error:", error.code, error.message);
-                showAuthError(error.message);
-            }).finally(() => {
-                setLoadingState(false);
-            });
+        const handleAuth = async (promise, button) => {
+            authError.classList.add('hidden');
+            setLoading(true, button);
+            try {
+                await promise;
+            } catch (error) {
+                showError(error);
+            } finally {
+                setLoading(false);
+            }
         };
-
-        // Attach event listeners
+        
+        // Event listeners with delegation
         authForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            handleAuthAction(signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value), signInButton);
+            handleAuth(
+                signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value),
+                signInButton
+            );
         });
+        
         createAccountButton.addEventListener('click', () => {
-            handleAuthAction(createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value), createAccountButton);
+            handleAuth(
+                createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value),
+                createAccountButton
+            );
         });
+        
         googleSignInButton.addEventListener('click', () => {
-            const googleProvider = new GoogleAuthProvider();
-            handleAuthAction(signInWithPopup(auth, googleProvider), googleSignInButton);
+            const provider = new GoogleAuthProvider();
+            handleAuth(signInWithPopup(auth, provider), googleSignInButton);
         });
     };
-
-    // Wait for Firebase to be ready before setting up listeners
-    firebaseReady.then(({ auth }) => {
-        if (!auth) {
-            console.error("Firebase not available for login page.");
-            return;
-        }
-        // Make sure the DOM is loaded before trying to find elements
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => setupLoginEventListeners(auth));
-        } else {
-            setupLoginEventListeners(auth);
-        }
-    });
+    
+    // Start setup when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupLoginPage);
+    } else {
+        setupLoginPage();
+    }
 }
