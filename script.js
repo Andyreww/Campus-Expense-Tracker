@@ -382,9 +382,9 @@ function setupVideoHandlers() {
 // Initialize only critical stuff immediately
 const elements = initCritical();
 
-// Defer everything else
-window.addEventListener('load', () => {
-    // These can run after the page is fully loaded
+// Defer everything else using DOMContentLoaded for a faster start
+document.addEventListener('DOMContentLoaded', () => {
+    // These can run as soon as the DOM is ready, without waiting for images/videos
     setupAuthWhenReady(elements);
     setupLazyAnimations();
 
@@ -395,7 +395,8 @@ window.addEventListener('load', () => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     setupWallOfFame();
-                    observer.unobserve(entry.target); // Stop observing once it's loaded
+                    // We're done with this observer, so disconnect it
+                    observer.disconnect();
                 }
             });
         }, { rootMargin: '100px' }); // Load it when it's 100px away from the viewport
