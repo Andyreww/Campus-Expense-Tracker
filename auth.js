@@ -1,100 +1,126 @@
-// Optimized auth.js - Lazy loading and performance improvements
+// Ultra-optimized auth.js - Maximum lazy loading
 
-// --- LAZY LOAD IMPORTS ---
-// Only load core Firebase initially
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-
-// Lazy load auth modules
-let authModule = null;
-const getAuthModule = async () => {
-    if (!authModule) {
-        authModule = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
-    }
-    return authModule;
-};
-
-// Lazy load Firestore
-let firestoreModule = null;
-const getFirestoreModule = async () => {
-    if (!firestoreModule) {
-        firestoreModule = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
-    }
-    return firestoreModule;
-};
-
-// Lazy load Storage (only when needed)
-let storageModule = null;
-const getStorageModule = async () => {
-    if (!storageModule) {
-        storageModule = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js");
-    }
-    return storageModule;
-};
-
-// --- CONSTANTS ---
+// Constants
 const TESTING_MODE = false;
 const LAUNCH_DATE = new Date("Aug 20, 2025 00:00:00");
 
-// Cache Firebase config
-let cachedConfig = null;
-const getFirebaseConfig = async () => {
-    if (cachedConfig) return cachedConfig;
+// Cache for loaded modules
+const moduleCache = {
+    app: null,
+    auth: null,
+    firestore: null,
+    storage: null,
+    config: null
+};
+
+// Get config with caching
+async function getFirebaseConfig() {
+    if (moduleCache.config) return moduleCache.config;
     
     try {
         const response = await fetch('/.netlify/functions/getFirebaseConfig');
         if (!response.ok) throw new Error('Config fetch failed');
-        cachedConfig = await response.json();
-        return cachedConfig;
+        moduleCache.config = await response.json();
+        return moduleCache.config;
     } catch (error) {
-        console.error("Failed to fetch Firebase config:", error);
-        throw error;
+        console.error("Config error:", error);
+        return null;
     }
-};
+}
 
-// --- OPTIMIZED FIREBASE INITIALIZATION ---
-export const firebaseReady = new Promise(async (resolve) => {
+// Initialize Firebase only when first accessed
+async function initFirebaseCore() {
+    if (moduleCache.app) return moduleCache.app;
+    
     try {
-        // Get config first
-        const firebaseConfig = await getFirebaseConfig();
-        const app = initializeApp(firebaseConfig);
+        // Dynamic import only when needed
+        const { initializeApp } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js");
+        const config = await getFirebaseConfig();
+        if (!config) throw new Error('No config');
         
-        // Load auth module in parallel with Firestore
-        const [authMod, firestoreMod] = await Promise.all([
-            getAuthModule(),
-            getFirestoreModule()
-        ]);
+        moduleCache.app = initializeApp(config);
+        return moduleCache.app;
+    } catch (error) {
+        console.error("Firebase init error:", error);
+        return null;
+    }
+}
+
+// Lazy load auth
+async function getAuth() {
+    if (moduleCache.auth) return moduleCache.auth;
+    
+    try {
+        const app = await initFirebaseCore();
+        if (!app) return null;
         
-        const { getAuth, setPersistence, browserLocalPersistence } = authMod;
-        const { initializeFirestore, CACHE_SIZE_UNLIMITED } = firestoreMod;
+        const authModule = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
+        const { getAuth: initAuth, setPersistence, browserLocalPersistence } = authModule;
         
-        const auth = getAuth(app);
-        const db = initializeFirestore(app, {
+        moduleCache.auth = initAuth(app);
+        
+        // Set persistence in background
+        setPersistence(moduleCache.auth, browserLocalPersistence).catch(console.error);
+        
+        return moduleCache.auth;
+    } catch (error) {
+        console.error("Auth load error:", error);
+        return null;
+    }
+}
+
+// Lazy load Firestore
+async function getFirestore() {
+    if (moduleCache.firestore) return moduleCache.firestore;
+    
+    try {
+        const app = await initFirebaseCore();
+        if (!app) return null;
+        
+        const { initializeFirestore, CACHE_SIZE_UNLIMITED } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+        
+        moduleCache.firestore = initializeFirestore(app, {
             cacheSizeBytes: CACHE_SIZE_UNLIMITED,
             synchronizeTabs: true
         });
         
-        // Set persistence in background
-        setPersistence(auth, browserLocalPersistence).catch(console.error);
-        
-        // Storage will be loaded only when needed
-        const storage = null; // Lazy load when required
-        
-        console.log("Firebase core services ready");
-        resolve({ auth, db, storage, app });
-        
+        return moduleCache.firestore;
     } catch (error) {
-        console.error("Firebase init failed:", error);
-        // Graceful degradation
-        resolve({ auth: null, db: null, storage: null, app: null });
+        console.error("Firestore load error:", error);
+        return null;
     }
+}
+
+// Lazy load Storage (only when explicitly needed)
+async function getStorage() {
+    if (moduleCache.storage) return moduleCache.storage;
+    
+    try {
+        const app = await initFirebaseCore();
+        if (!app) return null;
+        
+        const { getStorage: initStorage } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js");
+        moduleCache.storage = initStorage(app);
+        return moduleCache.storage;
+    } catch (error) {
+        console.error("Storage load error:", error);
+        return null;
+    }
+}
+
+// Export promise that resolves when Firebase CAN be loaded (not when it IS loaded)
+export const firebaseReady = Promise.resolve({
+    get auth() { return getAuth(); },
+    get db() { return getFirestore(); },
+    get storage() { return getStorage(); }
 });
 
-// --- OPTIMIZED LOGOUT ---
+// Logout function - loads auth only when needed
 export const logout = async () => {
-    const { auth } = await firebaseReady;
+    const auth = await getAuth();
     if (!auth) return;
     
-    const { signOut } = await getAuthModule();
+    const { signOut } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
     try {
         await signOut(auth);
     } catch (error) {
@@ -102,231 +128,198 @@ export const logout = async () => {
     }
 };
 
-// --- OPTIMIZED EMAIL FUNCTIONS ---
-// Debounce email sending to prevent duplicates
-const emailQueue = new Set();
+// Email functions with deduplication
+const emailQueue = new Map();
+const EMAIL_COOLDOWN = 5000;
 
 async function sendEmail(endpoint, email) {
-    const key = `${endpoint}-${email}`;
-    if (emailQueue.has(key)) return;
+    const now = Date.now();
+    const lastSent = emailQueue.get(email);
     
-    emailQueue.add(key);
+    if (lastSent && now - lastSent < EMAIL_COOLDOWN) return;
     
-    try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        });
-        
-        if (!response.ok) {
-            console.error(`Email error (${endpoint}):`, await response.text());
-        }
-    } catch (error) {
-        console.error(`Failed to send email (${endpoint}):`, error);
-    } finally {
-        // Remove from queue after 5 seconds
-        setTimeout(() => emailQueue.delete(key), 5000);
-    }
+    emailQueue.set(email, now);
+    
+    fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+    }).catch(console.error);
 }
 
-const sendPreLaunchEmail = (email) => sendEmail('/.netlify/functions/send-prelaunch-email', email);
-const sendWelcomeEmail = (email) => sendEmail('/.netlify/functions/send-welcome-email', email);
-
-// --- HELPER FUNCTIONS ---
+// Helper functions
 function isBeforeLaunch() {
     return TESTING_MODE ? false : new Date() < LAUNCH_DATE;
 }
 
-// --- OPTIMIZED AUTH STATE GUARD ---
-// Defer non-critical auth checks
-firebaseReady.then(async ({ auth, db }) => {
-    if (!auth || !db) return;
-    
-    const { onAuthStateChanged } = await getAuthModule();
-    const { doc, getDoc } = await getFirestoreModule();
-    
-    // Cache current path
+// Auth state guard - only loads when on protected pages
+async function setupAuthGuard() {
     const path = window.location.pathname;
-    const publicPaths = ['/', '/index.html', '/roadmap.html', '/roadmap'];
-    const authPaths = ['/login.html', '/signup.html'];
-    const questionnairePath = '/questionnaire.html';
-    const gatePath = '/gate.html';
     
-    const isPublicPage = publicPaths.includes(path);
+    // Don't load auth for public pages
+    const publicPaths = ['/', '/index.html', '/roadmap.html', '/roadmap'];
+    if (publicPaths.includes(path)) return;
+    
+    // Only load auth for protected pages
+    const authPaths = ['/login.html', '/signup.html'];
     const isAuthPage = authPaths.includes(path);
-    const isQuestionnairePage = path.endsWith(questionnairePath);
-    const isGatePage = path.endsWith(gatePath);
-    const isProtectedPage = !isPublicPage && !isAuthPage && !isQuestionnairePage && !isGatePage;
+    const isProtectedPage = !publicPaths.includes(path) && !isAuthPage;
+    
+    if (!isAuthPage && !isProtectedPage) return;
+    
+    // Now load auth
+    const auth = await getAuth();
+    if (!auth) return;
+    
+    const { onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
     
     onAuthStateChanged(auth, async (user) => {
-        // Use requestIdleCallback for non-critical redirects
-        const handleRedirect = (url) => {
-            if ('requestIdleCallback' in window) {
-                requestIdleCallback(() => window.location.replace(url));
-            } else {
-                setTimeout(() => window.location.replace(url), 0);
-            }
-        };
-        
-        if (user) {
-            // User is logged in
-            const beforeLaunch = isBeforeLaunch();
-            
-            if (isAuthPage) {
-                // Check if new or existing user
-                try {
-                    const userDocRef = doc(db, "users", user.uid);
-                    const userDocSnap = await getDoc(userDocRef);
-                    
-                    if (userDocSnap.exists()) {
-                        // Existing user
-                        handleRedirect(beforeLaunch ? '/gate.html' : '/dashboard.html');
+        if (user && isAuthPage) {
+            // Check if new user
+            const db = await getFirestore();
+            if (db) {
+                const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                const userDocRef = doc(db, "users", user.uid);
+                const userDocSnap = await getDoc(userDocRef);
+                
+                if (userDocSnap.exists()) {
+                    // Existing user
+                    const beforeLaunch = isBeforeLaunch();
+                    window.location.replace(beforeLaunch ? '/gate.html' : '/dashboard.html');
+                } else {
+                    // New user
+                    if (isBeforeLaunch()) {
+                        sendEmail('/.netlify/functions/send-prelaunch-email', user.email);
                     } else {
-                        // New user - send email asynchronously
-                        if (beforeLaunch) {
-                            sendPreLaunchEmail(user.email);
-                        } else {
-                            sendWelcomeEmail(user.email);
-                        }
-                        handleRedirect('/questionnaire.html');
+                        sendEmail('/.netlify/functions/send-welcome-email', user.email);
                     }
-                } catch (error) {
-                    console.error("User check failed:", error);
-                    handleRedirect(beforeLaunch ? '/gate.html' : '/dashboard.html');
+                    window.location.replace('/questionnaire.html');
                 }
             }
-            
-            // Handle protected pages before launch
-            if (isProtectedPage && beforeLaunch) {
-                handleRedirect('/gate.html');
-            }
-            
-            // After launch, redirect from gate to dashboard
-            if (isGatePage && !beforeLaunch) {
-                handleRedirect('/dashboard.html');
-            }
-            
-        } else {
-            // User is logged out
-            if (isProtectedPage || isGatePage) {
-                handleRedirect('/login.html');
-            }
+        } else if (!user && isProtectedPage) {
+            window.location.replace('/login.html');
         }
     });
-});
+}
 
-// --- OPTIMIZED LOGIN PAGE LOGIC ---
+// Login page setup - only runs on login page
 if (window.location.pathname.includes('/login.html')) {
-    
-    const setupLoginPage = async () => {
-        const { auth } = await firebaseReady;
-        if (!auth) return;
-        
-        // Get auth methods
-        const {
-            createUserWithEmailAndPassword,
-            signInWithEmailAndPassword,
-            GoogleAuthProvider,
-            signInWithPopup
-        } = await getAuthModule();
-        
-        // Wait for DOM
-        const waitForElement = (id) => {
-            return new Promise(resolve => {
-                const check = () => {
-                    const el = document.getElementById(id);
-                    if (el) resolve(el);
-                    else requestAnimationFrame(check);
-                };
-                check();
-            });
-        };
+    // Defer login setup until DOM is ready
+    const setupLogin = async () => {
+        // Wait for form to exist
+        const form = document.getElementById('auth-form');
+        if (!form) {
+            requestAnimationFrame(setupLogin);
+            return;
+        }
         
         // Get form elements
-        const authForm = await waitForElement('auth-form');
-        const emailInput = await waitForElement('email');
-        const passwordInput = await waitForElement('password');
-        const createAccountButton = await waitForElement('create-account-button');
-        const signInButton = await waitForElement('sign-in-button');
-        const googleSignInButton = await waitForElement('google-signin-button');
-        const authError = await waitForElement('auth-error');
-        
-        // Cache button text
-        const buttonText = {
-            signIn: signInButton.innerHTML,
-            create: createAccountButton.innerHTML,
-            google: googleSignInButton.innerHTML
+        const elements = {
+            email: document.getElementById('email'),
+            password: document.getElementById('password'),
+            createBtn: document.getElementById('create-account-button'),
+            signInBtn: document.getElementById('sign-in-button'),
+            googleBtn: document.getElementById('google-signin-button'),
+            error: document.getElementById('auth-error')
         };
         
-        // Error messages map
-        const errorMessages = {
-            'auth/invalid-credential': 'Incorrect email or password',
-            'auth/wrong-password': 'Incorrect email or password',
-            'auth/user-not-found': 'Incorrect email or password',
-            'auth/email-already-in-use': 'Account already exists',
-            'auth/popup-closed-by-user': 'Sign-in cancelled',
-            'auth/network-request-failed': 'Network error - check connection'
-        };
+        // Check all elements exist
+        if (!Object.values(elements).every(el => el)) {
+            requestAnimationFrame(setupLogin);
+            return;
+        }
         
-        const showError = (error) => {
-            const msg = Object.entries(errorMessages).find(([key]) => 
-                error.message.includes(key))?.[1] || 'An error occurred';
-            authError.textContent = msg;
-            authError.classList.remove('hidden');
-        };
-        
-        const setLoading = (loading, activeBtn) => {
-            [signInButton, createAccountButton, googleSignInButton].forEach(btn => {
-                btn.disabled = loading;
-                if (!loading) {
-                    if (btn === signInButton) btn.innerHTML = buttonText.signIn;
-                    if (btn === createAccountButton) btn.innerHTML = buttonText.create;
-                    if (btn === googleSignInButton) btn.innerHTML = buttonText.google;
-                } else if (btn === activeBtn) {
-                    btn.innerHTML = '<div class="spinner"></div> Verifying...';
-                }
-            });
-        };
-        
-        const handleAuth = async (promise, button) => {
-            authError.classList.add('hidden');
-            setLoading(true, button);
+        // Load auth and methods only when form is submitted
+        const handleAuthAction = async (actionType, button) => {
+            elements.error.classList.add('hidden');
+            
+            // Show loading state
+            const originalText = button.innerHTML;
+            button.innerHTML = '<div class="spinner"></div> Loading...';
+            button.disabled = true;
+            
             try {
-                await promise;
+                // Load Firebase auth now
+                const auth = await getAuth();
+                if (!auth) throw new Error('Auth not available');
+                
+                const authModule = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
+                
+                let result;
+                switch(actionType) {
+                    case 'signin':
+                        result = await authModule.signInWithEmailAndPassword(
+                            auth, 
+                            elements.email.value, 
+                            elements.password.value
+                        );
+                        break;
+                    case 'create':
+                        result = await authModule.createUserWithEmailAndPassword(
+                            auth, 
+                            elements.email.value, 
+                            elements.password.value
+                        );
+                        break;
+                    case 'google':
+                        const provider = new authModule.GoogleAuthProvider();
+                        result = await authModule.signInWithPopup(auth, provider);
+                        break;
+                }
+                
             } catch (error) {
-                showError(error);
+                // Show error
+                const errorMessages = {
+                    'auth/invalid-credential': 'Incorrect email or password',
+                    'auth/email-already-in-use': 'Account already exists',
+                    'auth/popup-closed-by-user': 'Sign-in cancelled'
+                };
+                
+                const message = Object.entries(errorMessages).find(([key]) => 
+                    error.message?.includes(key))?.[1] || 'An error occurred';
+                
+                elements.error.textContent = message;
+                elements.error.classList.remove('hidden');
             } finally {
-                setLoading(false);
+                button.innerHTML = originalText;
+                button.disabled = false;
             }
         };
         
-        // Event listeners with delegation
-        authForm.addEventListener('submit', (e) => {
+        // Event listeners
+        form.addEventListener('submit', (e) => {
             e.preventDefault();
-            handleAuth(
-                signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value),
-                signInButton
-            );
+            handleAuthAction('signin', elements.signInBtn);
         });
         
-        createAccountButton.addEventListener('click', () => {
-            handleAuth(
-                createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value),
-                createAccountButton
-            );
+        elements.createBtn.addEventListener('click', () => {
+            handleAuthAction('create', elements.createBtn);
         });
         
-        googleSignInButton.addEventListener('click', () => {
-            const provider = new GoogleAuthProvider();
-            handleAuth(signInWithPopup(auth, provider), googleSignInButton);
+        elements.googleBtn.addEventListener('click', () => {
+            handleAuthAction('google', elements.googleBtn);
         });
     };
     
-    // Start setup when DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', setupLoginPage);
+    // Start setup when idle
+    if ('requestIdleCallback' in window) {
+        requestIdleCallback(setupLogin);
     } else {
-        setupLoginPage();
+        setTimeout(setupLogin, 0);
     }
+}
+
+// Only setup auth guard if on protected pages
+if ('requestIdleCallback' in window) {
+    requestIdleCallback(() => {
+        const path = window.location.pathname;
+        const needsAuth = !['/','index.html','/roadmap.html','/roadmap'].includes(path);
+        if (needsAuth) setupAuthGuard();
+    });
+} else {
+    setTimeout(() => {
+        const path = window.location.pathname;
+        const needsAuth = !['/','index.html','/roadmap.html','/roadmap'].includes(path);
+        if (needsAuth) setupAuthGuard();
+    }, 100);
 }

@@ -4,19 +4,75 @@
     <link rel="icon" href="logo.ico" type="image/x-icon">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nooksii</title>
     
-    <!-- External Stylesheet -->
+    <!-- SEO and Performance Meta Tags -->
+    <meta name="description" content="Manage your campus dining balance with style. Track meals, monitor funds, and stay on top of your college dining budget.">
+    <meta name="theme-color" content="#4CAF50">
+    
+    <title>Nooksii - Your Campus Balance, Served With Style</title>
+    
+    <!-- CRITICAL: DNS Prefetch and Preconnect (BEFORE other resources) -->
+    <link rel="dns-prefetch" href="https://www.gstatic.com">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Critical inline CSS to prevent CLS -->
+    <style>
+        /* Prevent layout shift for hero section */
+        .hero-signboard {
+            min-height: 400px;
+            width: 100%;
+            contain: layout;
+        }
+        
+        .hero-headline {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            line-height: 1.2;
+        }
+        
+        /* Hide elements that cause flashing */
+        .fade-in-element {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        
+        /* Prevent font swap flash */
+        body {
+            font-display: optional;
+        }
+        
+        /* Loading states */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.6s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+    
+    <!-- Preload main stylesheet -->
+    <link rel="preload" href="style.css" as="style">
     <link rel="stylesheet" href="style.css">
     
-    <!-- Google Fonts (Cafe Vibe) -->
+    <!-- Preload critical font -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin 
+          href="https://fonts.gstatic.com/s/nunito/v24/XRXV3I6Li01BKofINeaB.woff2">
+    
+    <!-- Google Fonts with display swap for better performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Special+Elite&family=Patrick+Hand&display=swap" rel="stylesheet">
     
-    <!-- 3D Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
+    <!-- Three.js will be lazy loaded when needed, not here -->
 </head>
 <body>
 
@@ -204,7 +260,7 @@
                             <div class="step-text-content">
                                 <span class="step-number">01</span>
                                 <h3 class="step-title">Make It Yours!</h3>
-                                <p class="step-description">Pick your school year, drop your balance in, and we’ll make a cozy little space just for you :)</p>
+                                <p class="step-description">Pick your school year, drop your balance in, and we'll make a cozy little space just for you :)</p>
                             </div>
                             <div class="step-visual">
                                 <video class="step-video" src="SB.mp4" muted loop playsinline></video>
@@ -215,7 +271,7 @@
                             <div class="step-text-content">
                                 <span class="step-number">02</span>
                                 <h3 class="step-title">Add Your lil Buys</h3>
-                                <p class="step-description">Grabbed a coffee? hit the ‘+’, find your treat, and boom it’s logged. Quick and Comfy!</p>
+                                <p class="step-description">Grabbed a coffee? hit the '+', find your treat, and boom it's logged. Quick and Comfy!</p>
                             </div>
                             <div class="step-visual">
                                 <video class="step-video" src="UB.mp4" muted loop playsinline></video>
@@ -276,7 +332,7 @@
                                 <svg class="faq-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg>
                             </button>
                             <div class="faq-answer">
-                                <p class="faq-answer-content">Yep, free forever :3. Nooksii exists to help students stay on top of their money without adding extra costs. No subscriptions, no paywalls, just tools that make campus life easier. Hosting costs me a bit, but it’s worth it 💛.</p>
+                                <p class="faq-answer-content">Yep, free forever :3. Nooksii exists to help students stay on top of their money without adding extra costs. No subscriptions, no paywalls, just tools that make campus life easier. Hosting costs me a bit, but it's worth it 💛.</p>
                             </div>
                         </div>
 
@@ -287,7 +343,7 @@
                                 <svg class="faq-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg>
                             </button>
                             <div class="faq-answer">
-                                <p class="faq-answer-content">Yep, but it’s quick and painless. We just ask for your email and a username so your balance actually saves. No spam, no random marketing blasts — just your own cozy little hub for tracking funds.</p>
+                                <p class="faq-answer-content">Yep, but it's quick and painless. We just ask for your email and a username so your balance actually saves. No spam, no random marketing blasts — just your own cozy little hub for tracking funds.</p>
                             </div>
                         </div>
 
@@ -298,7 +354,7 @@
                                 <svg class="faq-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg>
                             </button>
                             <div class="faq-answer">
-                                <p class="faq-answer-content">It’s super simple. Tap the big “+” button in your dashboard, pick what you bought from the list of local spots, and it will instantly deduct from your balance. You can also set up recurring items like your daily coffee so it logs automatically.</p>
+                                <p class="faq-answer-content">It's super simple. Tap the big "+" button in your dashboard, pick what you bought from the list of local spots, and it will instantly deduct from your balance. You can also set up recurring items like your daily coffee so it logs automatically.</p>
                             </div>
                         </div>
 
@@ -309,7 +365,7 @@
                                 <svg class="faq-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg>
                             </button>
                             <div class="faq-answer">
-                                <p class="faq-answer-content">Right now, you log purchases yourself so you’re fully in control. We’re exploring safe, privacy-friendly ways to automate some of this in the future without sacrificing your data security.</p>
+                                <p class="faq-answer-content">Right now, you log purchases yourself so you're fully in control. We're exploring safe, privacy-friendly ways to automate some of this in the future without sacrificing your data security.</p>
                             </div>
                         </div>
 
@@ -320,18 +376,18 @@
                                 <svg class="faq-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg>
                             </button>
                             <div class="faq-answer">
-                                <p class="faq-answer-content">We’ve got a bunch of schools covered already, but not all of them just yet. If your campus isn’t listed, you can still set up a custom account and even add your own stores so everything works like normal.</p>
+                                <p class="faq-answer-content">We've got a bunch of schools covered already, but not all of them just yet. If your campus isn't listed, you can still set up a custom account and even add your own stores so everything works like normal.</p>
                             </div>
                         </div>
 
                         <!-- FAQ Item 4 -->
                         <div class="faq-item">
                             <button class="faq-question">
-                                <span>What’s “The Daily Grind”?</span>
+                                <span>What's "The Daily Grind"?</span>
                                 <svg class="faq-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg>
                             </button>
                             <div class="faq-answer">
-                                <p class="faq-answer-content">It’s our fun leaderboard. Log your purchases daily to build a streak and climb the ranks. It’s a little extra motivation to stay consistent with your spending habits and it feels great seeing your name on the board.</p>
+                                <p class="faq-answer-content">It's our fun leaderboard. Log your purchases daily to build a streak and climb the ranks. It's a little extra motivation to stay consistent with your spending habits and it feels great seeing your name on the board.</p>
                             </div>
                         </div>
 
@@ -364,9 +420,9 @@
                                 <svg class="faq-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg>
                             </button>
                             <div class="faq-answer">
-                                <p class="faq-answer-content">We only save the essentials: your email, username, and what you log. That’s it.  
+                                <p class="faq-answer-content">We only save the essentials: your email, username, and what you log. That's it.  
                                 We are not selling your info, tracking you across the internet, or judging your snack choices 😅.  
-                                You can delete your account anytime right from your dashboard without contacting anyone. If you ever want proof it’s gone, I’ll gladly send it.  
+                                You can delete your account anytime right from your dashboard without contacting anyone. If you ever want proof it's gone, I'll gladly send it.  
                                 Nooksii is built by students for students, so your privacy is safe here 💛.</p>
                             </div>
                         </div>
@@ -378,7 +434,7 @@
                                 <svg class="faq-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg>
                             </button>
                             <div class="faq-answer">
-                                <p class="faq-answer-content">Easy. Head to your dashboard click on your profile icon and hit the delete button — no awkward emails, no questions asked. If you ever want proof that your account’s fully gone, just reach out and I’ll send it over.</p>
+                                <p class="faq-answer-content">Easy. Head to your dashboard click on your profile icon and hit the delete button — no awkward emails, no questions asked. If you ever want proof that your account's fully gone, just reach out and I'll send it over.</p>
                             </div>
                         </div>
                     </div>
@@ -400,22 +456,52 @@
         </a>
     </div>
 
-    <!-- Main App Logic -->
-    <script src="script.js" type="module"></script>
-    
-    <!-- 3D Hero Scene -->
-    <script type="module">
-        function setupHeroScene() {
-            if (typeof THREE === 'undefined') {
-                console.error('Three.js has not been loaded.');
-                return;
-            }
+    <!-- Critical inline script for immediate execution -->
+    <script>
+        // Prevent FOUC (Flash of Unstyled Content)
+        document.documentElement.className = 'js';
+        
+        // Set up performance monitoring
+        if ('PerformanceObserver' in window) {
+            // Monitor long tasks
+            try {
+                const observer = new PerformanceObserver((list) => {
+                    for (const entry of list.getEntries()) {
+                        if (entry.duration > 50) {
+                            console.warn('Long task detected:', entry.duration + 'ms');
+                        }
+                    }
+                });
+                observer.observe({entryTypes: ['longtask']});
+            } catch(e) {}
+        }
+    </script>
 
-            const container = document.getElementById('hero-canvas-container');
-            if (!container) {
-                console.error('Hero canvas container not found.');
+    <!-- Main scripts with defer for non-blocking load -->
+    <script type="module" src="script.js" defer></script>
+    <!-- DO NOT load auth.js directly - it will be imported by script.js when needed -->
+    
+    <!-- Lazy load Three.js only when needed -->
+    <script type="module">
+        // Three.js scene setup - deferred until idle
+        function loadThreeJS() {
+            if (typeof THREE !== 'undefined') {
+                setupHeroScene();
                 return;
             }
+            
+            // Dynamically load Three.js
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+            script.onload = () => {
+                setupHeroScene();
+            };
+            document.head.appendChild(script);
+        }
+        
+        function setupHeroScene() {
+            const container = document.getElementById('hero-canvas-container');
+            if (!container) return;
 
             // Scene, Camera, Renderer
             const scene = new THREE.Scene();
@@ -423,7 +509,7 @@
             const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
             
             renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap at 2 for performance
             container.appendChild(renderer.domElement);
 
             // Lighting
@@ -433,7 +519,7 @@
             directionalLight.position.set(5, 10, 7.5);
             scene.add(directionalLight);
 
-            // Floating Sparkle Particles for that Animal Crossing magic
+            // Floating Sparkle Particles
             const sparkles = [];
             const sparkleGeometry = new THREE.SphereGeometry(0.03, 8, 8);
             const sparkleMaterial = new THREE.MeshBasicMaterial({ color: 0xffe45c, transparent: true, opacity: 0.8 });
@@ -456,54 +542,71 @@
 
             camera.position.z = 5;
 
-            // Mouse interaction
+            // Mouse interaction with debouncing
             let mouseX = 0, mouseY = 0;
+            let mouseMoveTimer = null;
             document.addEventListener('mousemove', (event) => {
-                mouseX = (event.clientX / window.innerWidth) * 2 - 1;
-                mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
-            });
+                if (mouseMoveTimer) return;
+                mouseMoveTimer = requestAnimationFrame(() => {
+                    mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+                    mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+                    mouseMoveTimer = null;
+                });
+            }, { passive: true });
 
-            // Animation Loop
+            // Optimized animation loop
+            let frameCount = 0;
             function animate() {
                 requestAnimationFrame(animate);
+                frameCount++;
                 
-                // Animate sparkles
-                sparkles.forEach(sparkle => {
-                    sparkle.position.add(sparkle.userData.velocity);
-                    // Twinkle effect
-                    sparkle.material.opacity = Math.sin(Date.now() * 0.001 + sparkle.position.x) * 0.4 + 0.6; 
+                // Skip some frames for better performance
+                if (frameCount % 2 === 0) {
+                    // Animate sparkles
+                    sparkles.forEach(sparkle => {
+                        sparkle.position.add(sparkle.userData.velocity);
+                        sparkle.material.opacity = Math.sin(Date.now() * 0.001 + sparkle.position.x) * 0.4 + 0.6;
 
-                    // Reset if they go too far
-                    if (Math.abs(sparkle.position.x) > 4 || Math.abs(sparkle.position.y) > 3) {
-                        sparkle.position.set(
-                            (Math.random() - 0.5) * 8,
-                            (Math.random() - 0.5) * 6,
-                            (Math.random() - 0.5) * 4
-                        );
-                    }
-                });
+                        if (Math.abs(sparkle.position.x) > 4 || Math.abs(sparkle.position.y) > 3) {
+                            sparkle.position.set(
+                                (Math.random() - 0.5) * 8,
+                                (Math.random() - 0.5) * 6,
+                                (Math.random() - 0.5) * 4
+                            );
+                        }
+                    });
 
-                // Camera parallax effect
-                camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.05;
-                camera.position.y += (mouseY * 0.5 - camera.position.y) * 0.05;
-                camera.lookAt(scene.position);
-
+                    // Camera parallax
+                    camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.05;
+                    camera.position.y += (mouseY * 0.5 - camera.position.y) * 0.05;
+                    camera.lookAt(scene.position);
+                }
+                
                 renderer.render(scene, camera);
             }
 
-            // Handle window resize
+            // Handle window resize with debouncing
+            let resizeTimer = null;
             window.addEventListener('resize', () => {
-                if (container.clientWidth > 0 && container.clientHeight > 0) {
-                    camera.aspect = container.clientWidth / container.clientHeight;
-                    camera.updateProjectionMatrix();
-                    renderer.setSize(container.clientWidth, container.clientHeight);
-                }
-            });
+                if (resizeTimer) clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => {
+                    if (container.clientWidth > 0 && container.clientHeight > 0) {
+                        camera.aspect = container.clientWidth / container.clientHeight;
+                        camera.updateProjectionMatrix();
+                        renderer.setSize(container.clientWidth, container.clientHeight);
+                    }
+                }, 250);
+            }, { passive: true });
 
             animate();
         }
         
-        setupHeroScene();
+        // Load Three.js when idle or after 2 seconds
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(() => loadThreeJS(), { timeout: 2000 });
+        } else {
+            setTimeout(loadThreeJS, 2000);
+        }
     </script>
     
     <!-- Page-specific Scripts -->
@@ -543,6 +646,15 @@
                 });
             });
         });
+    </script>
+    
+    <!-- Optional: Service Worker for offline and caching -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            });
+        }
     </script>
 
 </body>

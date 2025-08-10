@@ -1,8 +1,20 @@
-// Optimized script.js - Lazy loading and performance improvements
-import { firebaseReady } from './auth.js';
+// Ultra-optimized script.js - Maximum performance with deferred loading
 
-// Lazy load Firestore only when needed
+// Defer Firebase completely - only load when actually needed
+let firebaseModule = null;
 let firestoreModule = null;
+let threeModule = null;
+
+// Lazy load Firebase auth module
+const getFirebaseAuth = async () => {
+    if (!firebaseModule) {
+        const { firebaseReady } = await import('./auth.js');
+        firebaseModule = await firebaseReady;
+    }
+    return firebaseModule;
+};
+
+// Lazy load Firestore only when Wall of Fame is visible
 const getFirestore = async () => {
     if (!firestoreModule) {
         firestoreModule = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
@@ -10,234 +22,64 @@ const getFirestore = async () => {
     return firestoreModule;
 };
 
-document.addEventListener('DOMContentLoaded', async () => {
-    // Cache DOM elements once
+// Lazy load Three.js only if needed
+const getThree = async () => {
+    if (!threeModule) {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+        document.head.appendChild(script);
+        await new Promise(resolve => script.onload = resolve);
+        threeModule = window.THREE;
+    }
+    return threeModule;
+};
+
+// Critical above-the-fold initialization
+function initCritical() {
+    // Fix CLS immediately by setting dimensions
+    const heroSignboard = document.querySelector('.hero-signboard');
+    if (heroSignboard) {
+        heroSignboard.style.minHeight = '400px';
+        heroSignboard.style.contain = 'layout';
+    }
+    
+    // Cache critical DOM elements
     const elements = {
         desktopLoginBtn: document.getElementById('desktop-login-button'),
         userAvatarLink: document.getElementById('user-avatar-link'),
         userAvatarImg: document.getElementById('user-avatar-img'),
         heroCtaButton: document.getElementById('hero-cta-button'),
-        wallOfFameList: document.getElementById('wall-of-fame-list'),
         menuButton: document.getElementById('mobile-menu-button'),
         mobileMenu: document.getElementById('mobile-menu'),
         mobileMenuOverlay: document.getElementById('mobile-menu-overlay'),
-        header: document.getElementById('main-header'),
-        toTopWrapper: document.getElementById('back-to-top-wrapper'),
-        scrolledMenuTrigger: document.getElementById('scrolled-menu-trigger'),
-        scrolledMenuPanel: document.getElementById('scrolled-menu-panel'),
-        scrolledCtaButton: document.getElementById('scrolled-cta-button')
+        header: document.getElementById('main-header')
     };
-
-    // --- Optimized Auth State Logic ---
-    const { auth, db } = await firebaseReady;
     
-    if (auth) {
-        // Use a single auth listener with optimized DOM updates
-        auth.onAuthStateChanged(user => {
-            requestAnimationFrame(() => {
-                updateUIForAuthState(user, elements);
-            });
-        });
-    }
-
-    // --- Defer Wall of Fame loading ---
-    if (db && elements.wallOfFameList) {
-        // Use Intersection Observer to lazy load Wall of Fame
-        const wallObserver = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting) {
-                fetchWallOfFame(db, elements.wallOfFameList);
-                wallObserver.disconnect();
-            }
-        }, { rootMargin: '100px' });
-        
-        wallObserver.observe(elements.wallOfFameList);
-    }
-
-    // --- Mobile Menu Logic (simplified) ---
-    setupMobileMenu(elements);
-
-    // --- Optimized Scroll Handling ---
-    setupScrollHandlers(elements);
-
-    // --- Lazy load animations ---
-    requestIdleCallback(() => {
-        setupFadeInAnimations();
-        setupVideoHandlers();
-    });
-});
-
-// Separate function for auth UI updates
-function updateUIForAuthState(user, elements) {
-    const isLoggedIn = !!user;
+    // Setup critical mobile menu (no Firebase needed)
+    setupCriticalMenu(elements);
     
-    // Batch DOM updates
-    if (elements.desktopLoginBtn) {
-        elements.desktopLoginBtn.classList.toggle('hidden', isLoggedIn);
-    }
-    if (elements.userAvatarLink) {
-        elements.userAvatarLink.classList.toggle('hidden', !isLoggedIn);
-    }
-
-    // Update mobile dropdown
-    updateScrolledMenu(user, elements);
+    // Setup optimized scroll (passive, debounced)
+    setupOptimizedScroll(elements);
     
-    // Update mobile menu button
-    const mobileMenuButton = document.querySelector('.mobile-menu-button');
-    if (mobileMenuButton) {
-        mobileMenuButton.href = isLoggedIn ? 'dashboard.html' : 'login.html';
-        mobileMenuButton.textContent = isLoggedIn ? 'Go to Dashboard' : 'Get Started';
-    }
-
-    if (elements.heroCtaButton) {
-        elements.heroCtaButton.href = isLoggedIn ? 'dashboard.html' : 'login.html';
-    }
-
-    // Update avatar
-    if (isLoggedIn && elements.userAvatarImg) {
-        if (user.photoURL) {
-            elements.userAvatarImg.src = user.photoURL;
-        } else {
-            elements.userAvatarImg.src = generateAvatarDataURL(user.displayName || user.email);
-        }
-    }
+    return elements;
 }
 
-// Optimized scrolled menu update
-function updateScrolledMenu(user, elements) {
-    if (!elements.scrolledMenuPanel) return;
-    
-    // Clear existing content
-    const existingContent = elements.scrolledMenuPanel.querySelectorAll('.scrolled-user-info, #scrolled-dashboard-link');
-    existingContent.forEach(el => el.remove());
-    
-    if (user) {
-        // Hide Get Started button
-        if (elements.scrolledCtaButton) {
-            elements.scrolledCtaButton.style.display = 'none';
-        }
-        
-        // Create user info in one go
-        const fragment = document.createDocumentFragment();
-        
-        const userInfoDiv = document.createElement('div');
-        userInfoDiv.className = 'scrolled-user-info';
-        userInfoDiv.style.cssText = `
-            display: flex; align-items: center; gap: 0.75rem;
-            padding: 0.75rem 1rem; margin-top: 0.5rem;
-            border-top: 1px solid rgba(255,255,255,0.2);
-        `;
-        
-        const avatar = document.createElement('img');
-        avatar.style.cssText = 'width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--bg-primary);';
-        avatar.src = user.photoURL || generateAvatarDataURL(user.displayName || user.email);
-        
-        const userText = document.createElement('span');
-        userText.style.cssText = `
-            color: var(--bg-primary); font-size: 0.9rem; font-weight: 600;
-            text-shadow: 1px 1px 1px rgba(0,0,0,0.2); white-space: nowrap;
-            overflow: hidden; text-overflow: ellipsis; flex: 1;
-        `;
-        userText.textContent = user.displayName || user.email.split('@')[0];
-        
-        userInfoDiv.appendChild(avatar);
-        userInfoDiv.appendChild(userText);
-        
-        const dashboardLink = document.createElement('a');
-        dashboardLink.id = 'scrolled-dashboard-link';
-        dashboardLink.href = 'dashboard.html';
-        dashboardLink.className = 'desktop-cta-button';
-        dashboardLink.textContent = 'Go to Dashboard';
-        dashboardLink.style.cssText = 'text-align: center; margin-top: 0.5rem; display: block;';
-        
-        fragment.appendChild(userInfoDiv);
-        fragment.appendChild(dashboardLink);
-        elements.scrolledMenuPanel.appendChild(fragment);
-    } else {
-        // Show Get Started button
-        if (elements.scrolledCtaButton) {
-            elements.scrolledCtaButton.style.display = 'block';
-        }
-    }
-}
-
-// Helper function to generate avatar
-function generateAvatarDataURL(name) {
-    const initial = name.charAt(0).toUpperCase();
-    const svg = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito" font-size="20" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
-    return `data:image/svg+xml;base64,${btoa(svg)}`;
-}
-
-// Optimized Wall of Fame fetching
-async function fetchWallOfFame(db, wallOfFameList) {
-    try {
-        const { collection, query, where, orderBy, limit, getDocs } = await getFirestore();
-        
-        const wallOfFameRef = collection(db, "wallOfFame");
-        const q = query(wallOfFameRef, orderBy("currentStreak", "desc"), limit(5));
-        const querySnapshot = await getDocs(q);
-        
-        if (querySnapshot.empty) {
-            wallOfFameList.innerHTML = '<p class="loading-text">Be the first to get on the Wall of Fame!</p>';
-            return;
-        }
-
-        // Build all cards at once
-        const fragment = document.createDocumentFragment();
-        querySnapshot.forEach(doc => {
-            const user = doc.data();
-            const card = document.createElement('div');
-            card.className = 'fame-player-card';
-            
-            const avatarSrc = user.photoURL || generateAvatarDataURL(user.displayName);
-            card.innerHTML = `
-                <img src="${avatarSrc}" alt="${user.displayName}" class="fame-avatar" loading="lazy">
-                <span class="fame-name">${user.displayName}</span>
-                <span class="fame-streak">🔥 ${user.currentStreak || 0}-day streak</span>
-            `;
-            fragment.appendChild(card);
-        });
-        
-        wallOfFameList.innerHTML = '';
-        wallOfFameList.appendChild(fragment);
-        
-    } catch (error) {
-        console.error("Error fetching Wall of Fame:", error);
-        wallOfFameList.innerHTML = '<p class="loading-text">Could not load top players right now.</p>';
-    }
-}
-
-// Setup mobile menu with event delegation
-function setupMobileMenu(elements) {
-    const { menuButton, mobileMenu, mobileMenuOverlay, scrolledMenuTrigger, scrolledMenuPanel } = elements;
+// Setup basic menu without Firebase
+function setupCriticalMenu(elements) {
+    const { menuButton, mobileMenu, mobileMenuOverlay } = elements;
     
     if (menuButton) {
         menuButton.addEventListener('click', () => {
             const isOpen = mobileMenu?.classList.contains('is-open');
             toggleMobileMenu(!isOpen, elements);
-        });
+        }, { passive: true });
     }
     
     if (mobileMenuOverlay) {
-        mobileMenuOverlay.addEventListener('click', () => toggleMobileMenu(false, elements));
+        mobileMenuOverlay.addEventListener('click', () => {
+            toggleMobileMenu(false, elements);
+        }, { passive: true });
     }
-    
-    // Scrolled menu with event delegation
-    if (scrolledMenuTrigger) {
-        scrolledMenuTrigger.addEventListener('click', (e) => {
-            e.stopPropagation();
-            scrolledMenuPanel?.classList.toggle('is-open');
-            scrolledMenuTrigger.classList.toggle('is-open');
-        });
-    }
-    
-    // Close on outside click
-    document.addEventListener('click', (e) => {
-        if (scrolledMenuPanel && !scrolledMenuPanel.contains(e.target) && 
-            scrolledMenuTrigger && !scrolledMenuTrigger.contains(e.target)) {
-            scrolledMenuPanel.classList.remove('is-open');
-            scrolledMenuTrigger.classList.remove('is-open');
-        }
-    });
 }
 
 function toggleMobileMenu(open, elements) {
@@ -256,62 +98,228 @@ function toggleMobileMenu(open, elements) {
     }
 }
 
-// Optimized scroll handling with passive listeners
-function setupScrollHandlers(elements) {
-    let scrollTimer = null;
+// Ultra-optimized scroll with RAF and debouncing
+function setupOptimizedScroll(elements) {
+    let ticking = false;
     let lastScrollY = 0;
     
-    const handleScroll = () => {
+    const updateScroll = () => {
         const scrollY = window.scrollY;
         
-        // Only update if scroll changed significantly
-        if (Math.abs(scrollY - lastScrollY) < 5) return;
-        lastScrollY = scrollY;
-        
-        if (elements.header) {
+        // Batch DOM reads/writes
+        if (elements.header && Math.abs(scrollY - lastScrollY) > 5) {
             elements.header.classList.toggle('header-scrolled', scrollY > 50);
-            if (scrollY <= 50 && elements.scrolledMenuPanel) {
-                elements.scrolledMenuPanel.classList.remove('is-open');
-                if (elements.scrolledMenuTrigger) {
-                    elements.scrolledMenuTrigger.classList.remove('is-open');
-                }
-            }
         }
         
-        if (elements.toTopWrapper) {
-            elements.toTopWrapper.classList.toggle('is-visible', scrollY > 300);
+        const toTopWrapper = document.getElementById('back-to-top-wrapper');
+        if (toTopWrapper && Math.abs(scrollY - lastScrollY) > 10) {
+            toTopWrapper.classList.toggle('is-visible', scrollY > 300);
         }
+        
+        lastScrollY = scrollY;
+        ticking = false;
     };
     
-    // Debounced scroll handler
     window.addEventListener('scroll', () => {
-        if (scrollTimer) return;
-        scrollTimer = requestAnimationFrame(() => {
-            handleScroll();
-            scrollTimer = null;
-        });
+        if (!ticking) {
+            requestAnimationFrame(updateScroll);
+            ticking = true;
+        }
     }, { passive: true });
 }
 
-// Lazy load fade-in animations
-function setupFadeInAnimations() {
-    const observer = new IntersectionObserver((entries) => {
+// Defer auth setup until actually needed
+async function setupAuthWhenReady(elements) {
+    try {
+        const firebaseHandles = await getFirebaseAuth();
+        const auth = await firebaseHandles.auth;
+        
+        if (!auth) return;
+        
+        const { onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
+        
+        onAuthStateChanged(auth, user => {
+            // Use RAF for DOM updates
+            requestAnimationFrame(() => {
+                updateUIForAuth(user, elements);
+            });
+        });
+    } catch (error) {
+        console.log('Auth not needed on this page');
+    }
+}
+
+function updateUIForAuth(user, elements) {
+    const isLoggedIn = !!user;
+    
+    // Batch all DOM updates
+    requestAnimationFrame(() => {
+        if (elements.desktopLoginBtn) {
+            elements.desktopLoginBtn.classList.toggle('hidden', isLoggedIn);
+        }
+        if (elements.userAvatarLink) {
+            elements.userAvatarLink.classList.toggle('hidden', !isLoggedIn);
+        }
+        if (elements.heroCtaButton) {
+            elements.heroCtaButton.href = isLoggedIn ? 'dashboard.html' : 'login.html';
+        }
+        
+        // Update avatar if logged in
+        if (isLoggedIn && elements.userAvatarImg) {
+            if (user.photoURL) {
+                elements.userAvatarImg.src = user.photoURL;
+            } else {
+                const initial = (user.displayName || user.email).charAt(0).toUpperCase();
+                const svg = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito" font-size="20" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
+                elements.userAvatarImg.src = `data:image/svg+xml;base64,${btoa(svg)}`;
+            }
+        }
+        
+        // Update mobile menu button
+        const mobileMenuButton = document.querySelector('.mobile-menu-button');
+        if (mobileMenuButton) {
+            mobileMenuButton.href = isLoggedIn ? 'dashboard.html' : 'login.html';
+            mobileMenuButton.textContent = isLoggedIn ? 'Go to Dashboard' : 'Get Started';
+        }
+        
+        // Handle scrolled menu
+        updateScrolledMenu(user);
+    });
+}
+
+function updateScrolledMenu(user) {
+    const scrolledMenuPanel = document.getElementById('scrolled-menu-panel');
+    const scrolledCtaButton = document.getElementById('scrolled-cta-button');
+    const scrolledMenuTrigger = document.getElementById('scrolled-menu-trigger');
+    
+    if (!scrolledMenuPanel) return;
+    
+    // Clear existing content
+    const existingContent = scrolledMenuPanel.querySelectorAll('.scrolled-user-info, #scrolled-dashboard-link');
+    existingContent.forEach(el => el.remove());
+    
+    if (user) {
+        if (scrolledCtaButton) scrolledCtaButton.style.display = 'none';
+        
+        const userInfo = document.createElement('div');
+        userInfo.className = 'scrolled-user-info';
+        userInfo.innerHTML = `
+            <img src="${user.photoURL || 'data:image/svg+xml;base64,' + btoa(`<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><rect width="32" height="32" rx="16" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito" font-size="16" fill="#FFF" text-anchor="middle" dy=".3em">${(user.displayName || user.email).charAt(0).toUpperCase()}</text></svg>`)}" 
+                 style="width: 32px; height: 32px; border-radius: 50%;">
+            <span style="color: var(--bg-primary); font-size: 0.9rem;">${user.displayName || user.email.split('@')[0]}</span>
+        `;
+        
+        const dashboardLink = document.createElement('a');
+        dashboardLink.href = 'dashboard.html';
+        dashboardLink.id = 'scrolled-dashboard-link';
+        dashboardLink.className = 'desktop-cta-button';
+        dashboardLink.textContent = 'Go to Dashboard';
+        
+        scrolledMenuPanel.appendChild(userInfo);
+        scrolledMenuPanel.appendChild(dashboardLink);
+    } else {
+        if (scrolledCtaButton) scrolledCtaButton.style.display = 'block';
+    }
+    
+    // Setup scrolled menu trigger
+    if (scrolledMenuTrigger) {
+        scrolledMenuTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            scrolledMenuPanel?.classList.toggle('is-open');
+            scrolledMenuTrigger.classList.toggle('is-open');
+        }, { once: true });
+    }
+}
+
+// Lazy load Wall of Fame only when visible
+async function setupWallOfFame() {
+    const wallOfFameList = document.getElementById('wall-of-fame-list');
+    if (!wallOfFameList) return;
+
+    // Show skeleton loader first
+    let skeletonHTML = '';
+    for (let i = 0; i < 3; i++) {
+        skeletonHTML += `
+            <div class="fame-player-card">
+                <div class="skeleton skeleton-avatar" style="width: 35px; height: 35px; margin-right: 0.75rem;"></div>
+                <div class="skeleton skeleton-text" style="flex-grow: 1; height: 1em;"></div>
+                <div class="skeleton skeleton-text" style="width: 80px; height: 1em; margin-left: 1rem;"></div>
+            </div>
+        `;
+    }
+    wallOfFameList.innerHTML = skeletonHTML;
+
+    try {
+        // Import Firestore functions
+        const { collection, query, orderBy, limit, getDocs } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+        
+        // Get Firebase connection handles
+        const firebaseHandles = await getFirebaseAuth();
+        // Await the db promise from the getter to ensure the connection is ready
+        const db = await firebaseHandles.db;
+
+        if (!db) {
+            wallOfFameList.innerHTML = '<p class="loading-text">Could not connect to leaderboard.</p>';
+            return;
+        }
+        
+        const wallOfFameRef = collection(db, "wallOfFame");
+        const q = query(wallOfFameRef, orderBy("currentStreak", "desc"), limit(5));
+        const querySnapshot = await getDocs(q);
+        
+        if (querySnapshot.empty) {
+            wallOfFameList.innerHTML = '<p class="loading-text">Be the first to get on the Wall of Fame!</p>';
+            return;
+        }
+        
+        // Clear skeleton loader and show real data
+        wallOfFameList.innerHTML = ''; 
+        
+        querySnapshot.forEach(doc => {
+            const user = doc.data();
+            const card = document.createElement('div');
+            card.className = 'fame-player-card';
+            
+            // Add a check for displayName to prevent errors if it's missing
+            const displayName = user.displayName || 'Anonymous';
+            const initial = displayName.charAt(0).toUpperCase();
+            const svgAvatar = `<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg"><rect width="64" height="64" rx="32" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito" font-size="32" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
+            const avatarSrc = user.photoURL || `data:image/svg+xml;base64,${btoa(svgAvatar)}`;
+            
+            card.innerHTML = `
+                <img src="${avatarSrc}" alt="${displayName}" class="fame-avatar" loading="lazy">
+                <span class="fame-name">${displayName}</span>
+                <span class="fame-streak">🔥 ${user.currentStreak || 0}-day streak</span>
+            `;
+            wallOfFameList.appendChild(card);
+        });
+        
+    } catch (error) {
+        console.error("Wall of Fame error:", error);
+        wallOfFameList.innerHTML = '<p class="loading-text">Could not load top players right now.</p>';
+    }
+}
+
+// Lazy load animations and videos
+function setupLazyAnimations() {
+    // Fade-in animations
+    const fadeObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 entry.target.style.opacity = '1';
                 entry.target.style.transform = 'translateY(0)';
-                observer.unobserve(entry.target);
+                fadeObserver.unobserve(entry.target);
             }
         });
-    }, { 
-        threshold: 0.1,
-        rootMargin: '50px'
-    });
+    }, { threshold: 0.1, rootMargin: '50px' });
     
     document.querySelectorAll('.step-item, .wall-of-fame-card, .faq-board').forEach(el => {
         el.classList.add('fade-in-element');
-        observer.observe(el);
+        fadeObserver.observe(el);
     });
+    
+    // Setup video handlers
+    setupVideoHandlers();
 }
 
 // Optimized video handling
@@ -319,27 +327,29 @@ function setupVideoHandlers() {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     const stepItems = document.querySelectorAll('.step-item');
     
+    if (!stepItems.length) return;
+    
     if (isMobile) {
-        // Simple click-to-play for mobile
+        // Mobile: Click to play with lightweight overlays
         stepItems.forEach(item => {
             const video = item.querySelector('.step-video');
             const container = item.querySelector('.step-visual');
             if (!video || !container) return;
             
+            // Prevent autoplay
             video.removeAttribute('autoplay');
-            video.removeAttribute('loop');
             video.pause();
             
-            // Simple play button overlay
+            // Create lightweight play button
             const playBtn = document.createElement('div');
-            playBtn.className = 'video-play-overlay';
-            playBtn.innerHTML = '▶';
             playBtn.style.cssText = `
                 position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
                 width: 60px; height: 60px; background: rgba(255,255,255,0.9);
                 border-radius: 50%; display: flex; align-items: center;
                 justify-content: center; cursor: pointer; font-size: 24px;
+                z-index: 1;
             `;
+            playBtn.innerHTML = '▶';
             
             container.style.position = 'relative';
             container.appendChild(playBtn);
@@ -365,13 +375,39 @@ function setupVideoHandlers() {
             });
         }, { threshold: 0.5 });
         
-        stepItems.forEach(item => {
-            const video = item.querySelector('.step-video');
-            if (video) {
-                video.muted = true;
-                video.setAttribute('playsinline', '');
-                videoObserver.observe(item);
-            }
-        });
+        stepItems.forEach(item => videoObserver.observe(item));
     }
 }
+
+// Initialize only critical stuff immediately
+const elements = initCritical();
+
+// Defer everything else
+if ('requestIdleCallback' in window) {
+    // High priority - auth and basic features
+    requestIdleCallback(() => {
+        setupAuthWhenReady(elements);
+    }, { timeout: 2000 });
+    
+    // Medium priority - Wall of Fame
+    requestIdleCallback(() => {
+        setupWallOfFame();
+    }, { timeout: 3000 });
+    
+    // Low priority - animations
+    requestIdleCallback(() => {
+        setupLazyAnimations();
+    }, { timeout: 5000 });
+} else {
+    // Fallback for browsers without requestIdleCallback
+    setTimeout(() => setupAuthWhenReady(elements), 100);
+    setTimeout(() => setupWallOfFame(), 500);
+    setTimeout(() => setupLazyAnimations(), 1000);
+}
+
+// Three.js only loads if explicitly needed (not on page load)
+window.loadThreeJS = async () => {
+    const THREE = await getThree();
+    // Initialize your 3D content here
+    console.log('Three.js loaded:', THREE);
+};

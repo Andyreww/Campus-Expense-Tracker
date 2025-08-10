@@ -1425,3 +1425,15 @@ section {
     transform: translateY(20px);
 }
 .hidden { display: none !important; }
+
+.hero-signboard {
+    min-height: 400px;
+}
+
+#wall-of-fame-list {
+    min-height: 200px;
+}
+
+.fade-in-element {
+    will-change: opacity, transform;
+}
