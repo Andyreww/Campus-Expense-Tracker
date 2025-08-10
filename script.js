@@ -387,12 +387,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // These animations are lightweight and can start immediately
     setupLazyAnimations();
 
-    // Defer auth setup with a more significant timeout. This yields the main thread,
+    // Defer auth setup with a minimal timeout. This yields the main thread,
     // allowing the browser to paint and become interactive before we load
     // the heavier Firebase scripts. It's a key trick for Lighthouse.
     setTimeout(() => {
         setupAuthWhenReady(elements);
-    }, 3000); // Increased timeout to 3 seconds
+    }, 1);
 
     // Use Intersection Observer to load Wall of Fame only when it's visible
     const wallOfFameSection = document.getElementById('wall-of-fame');
