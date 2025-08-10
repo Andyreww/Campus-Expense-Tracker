@@ -387,12 +387,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // These animations are lightweight and can start immediately
     setupLazyAnimations();
 
-    // Defer auth setup with a minimal timeout. This yields the main thread,
-    // allowing the browser to paint and become interactive before we load
-    // the heavier Firebase scripts. It's a key trick for Lighthouse.
-    setTimeout(() => {
+    // Defer auth setup until browser is idle or first interaction
+    const kickAuth = () => {
+        window.removeEventListener('scroll', kickAuthPassive, { capture: true });
+        window.removeEventListener('pointerdown', kickAuthPassive, { capture: true });
         setupAuthWhenReady(elements);
-    }, 1);
+    };
+    const kickAuthPassive = () => kickAuth();
+    if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => {
+            // If user interacted already, skip (it already kicked)
+            if (!authStarted) kickAuth();
+        }, { timeout: 2500 });
+    }
+    let authStarted = false;
+    const wrapKick = () => { if (!authStarted) { authStarted = true; kickAuth(); } };
+    window.addEventListener('pointerdown', wrapKick, { once: true, passive: true, capture: true });
+    window.addEventListener('scroll', wrapKick, { once: true, passive: true, capture: true });
 
     // Use Intersection Observer to load Wall of Fame only when it's visible
     const wallOfFameSection = document.getElementById('wall-of-fame');
@@ -400,7 +411,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const observer = new IntersectionObserver((entries, observer) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    setupWallOfFame();
+                    // Gate Firestore load until user shows interest (scroll or tap)
+                    const startWOF = () => { setupWallOfFame(); };
+                    if ('requestIdleCallback' in window) {
+                        requestIdleCallback(startWOF, { timeout: 1500 });
+                    } else {
+                        setTimeout(startWOF, 200);
+                    }
                     // We're done with this observer, so disconnect it
                     observer.disconnect();
                 }

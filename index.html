@@ -38,6 +38,7 @@
             opacity: 0;
             transform: translateY(20px);
             transition: opacity 0.6s ease, transform 0.6s ease;
+            will-change: transform, opacity; /* encourage compositing */
         }
 
         /* Defer rendering of below-the-fold content on initial paint */
@@ -63,6 +64,21 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        /* Respect reduced motion and reduce animation cost */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+        
+    /* Reserve space to reduce CLS for media blocks */
+    .hero-section { min-height: 520px; }
+    .step-visual { aspect-ratio: 16 / 9; position: relative; }
+    .step-visual > video { width: 100%; height: 100%; object-fit: cover; display: block; }
     </style>
     
     <!-- Non-blocking main stylesheet load with noscript fallback -->
@@ -71,9 +87,12 @@
     
     <!-- Note: Avoid preloading specific Google font files to prevent mismatch warnings -->
     
-    <!-- Google Fonts with display swap for better performance -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Special+Elite&family=Patrick+Hand&display=swap" rel="stylesheet">
+        <!-- Google Fonts loaded non-blocking to avoid render-blocking CSS -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Special+Elite&family=Patrick+Hand&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript>
+            <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Special+Elite&family=Patrick+Hand&display=swap">
+        </noscript>
     
     <!-- Three.js will be lazy loaded when needed, not here -->
 </head>
@@ -107,7 +126,7 @@
                     </nav>
                     <a href="login.html" id="desktop-login-button" class="desktop-cta-button">Get Started</a>
                     <a href="dashboard.html" id="user-avatar-link" class="user-avatar-link hidden">
-                        <img id="user-avatar-img" src="" alt="User Avatar" class="user-avatar" loading="lazy" decoding="async" />
+                        <img id="user-avatar-img" src="" alt="User Avatar" class="user-avatar" width="32" height="32" loading="lazy" decoding="async" />
                     </a>
                 </div>
 
