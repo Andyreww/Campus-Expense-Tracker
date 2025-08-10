@@ -384,9 +384,15 @@ const elements = initCritical();
 
 // Defer everything else using DOMContentLoaded for a faster start
 document.addEventListener('DOMContentLoaded', () => {
-    // These can run as soon as the DOM is ready, without waiting for images/videos
-    setupAuthWhenReady(elements);
+    // These animations are lightweight and can start immediately
     setupLazyAnimations();
+
+    // Defer auth setup with a more significant timeout. This yields the main thread,
+    // allowing the browser to paint and become interactive before we load
+    // the heavier Firebase scripts. It's a key trick for Lighthouse.
+    setTimeout(() => {
+        setupAuthWhenReady(elements);
+    }, 1000); // Increased timeout to 1 second
 
     // Use Intersection Observer to load Wall of Fame only when it's visible
     const wallOfFameSection = document.getElementById('wall-of-fame');
