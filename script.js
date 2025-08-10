@@ -392,7 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // the heavier Firebase scripts. It's a key trick for Lighthouse.
     setTimeout(() => {
         setupAuthWhenReady(elements);
-    }, 1000); // Increased timeout to 1 second
+    }, 3000); // Increased timeout to 3 seconds
 
     // Use Intersection Observer to load Wall of Fame only when it's visible
     const wallOfFameSection = document.getElementById('wall-of-fame');
