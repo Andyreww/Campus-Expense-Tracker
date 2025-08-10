@@ -387,45 +387,57 @@ document.addEventListener('DOMContentLoaded', () => {
     // These animations are lightweight and can start immediately
     setupLazyAnimations();
 
-    // Defer auth setup until browser is idle or first interaction
-    const kickAuth = () => {
-        window.removeEventListener('scroll', kickAuthPassive, { capture: true });
-        window.removeEventListener('pointerdown', kickAuthPassive, { capture: true });
-        setupAuthWhenReady(elements);
-    };
-    const kickAuthPassive = () => kickAuth();
-    if ('requestIdleCallback' in window) {
-        requestIdleCallback(() => {
-            // If user interacted already, skip (it already kicked)
-            if (!authStarted) kickAuth();
-        }, { timeout: 2500 });
-    }
+    // Defer auth setup strictly to explicit user interaction (no idle/scroll)
     let authStarted = false;
-    const wrapKick = () => { if (!authStarted) { authStarted = true; kickAuth(); } };
-    window.addEventListener('pointerdown', wrapKick, { once: true, passive: true, capture: true });
-    window.addEventListener('scroll', wrapKick, { once: true, passive: true, capture: true });
+    const startAuth = () => { if (!authStarted) { authStarted = true; setupAuthWhenReady(elements); } };
+    window.addEventListener('pointerdown', startAuth, { once: true, passive: true, capture: true });
+    window.addEventListener('keydown', startAuth, { once: true, passive: true, capture: true });
+    const heroCTA = document.getElementById('hero-cta-button');
+    if (heroCTA) heroCTA.addEventListener('click', startAuth, { once: true, passive: true, capture: true });
 
-    // Use Intersection Observer to load Wall of Fame only when it's visible
+    // Load Wall of Fame on explicit user request to avoid loading Firestore in background
     const wallOfFameSection = document.getElementById('wall-of-fame');
+    const wallOfFameList = document.getElementById('wall-of-fame-list');
     const saveData = navigator.connection && navigator.connection.saveData;
     const lowCore = navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4;
-    if (wallOfFameSection && !saveData && !lowCore) {
-        const observer = new IntersectionObserver((entries, observer) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    // Gate Firestore load until user shows interest (scroll or tap)
-                    const startWOF = () => { setupWallOfFame(); };
-                    if ('requestIdleCallback' in window) {
-                        requestIdleCallback(startWOF, { timeout: 1500 });
-                    } else {
-                        setTimeout(startWOF, 200);
+    if (wallOfFameSection && wallOfFameList) {
+        const isMobileLayout = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+        if (saveData || lowCore) {
+            wallOfFameList.innerHTML = '<p class="loading-text">Leaderboard disabled to save data/resources.</p>';
+        } else if (isMobileLayout) {
+            // Clear placeholder and render a centered mobile-only button
+            wallOfFameList.innerHTML = '';
+            const card = wallOfFameList.closest('.wall-of-fame-card');
+            const holder = document.createElement('div');
+            holder.className = 'wof-load-btn-container';
+            const btn = document.createElement('button');
+            btn.className = 'desktop-cta-button wof-load-btn';
+            btn.textContent = 'Show Leaderboard';
+            btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                btn.textContent = 'Loading...';
+                await setupWallOfFame();
+                holder.remove();
+            }, { once: true });
+            holder.appendChild(btn);
+            (card || wallOfFameList).appendChild(holder);
+        } else {
+            // Desktop: lazy-load when section becomes visible
+            wallOfFameList.innerHTML = '';
+            if ('IntersectionObserver' in window) {
+                const io = new IntersectionObserver((entries, ob) => {
+                    const e = entries[0];
+                    if (e.isIntersecting) {
+                        ob.disconnect();
+                        setupWallOfFame();
                     }
-                    // We're done with this observer, so disconnect it
-                    observer.disconnect();
-                }
-            });
-        }, { rootMargin: '100px' }); // Load it when it's 100px away from the viewport
-        observer.observe(wallOfFameSection);
+                }, { rootMargin: '100px' });
+                io.observe(wallOfFameSection);
+            } else {
+                // Fallback: load after a short delay post-load
+                window.addEventListener('load', () => setTimeout(setupWallOfFame, 1200), { once: true });
+            }
+        }
     }
 });
 

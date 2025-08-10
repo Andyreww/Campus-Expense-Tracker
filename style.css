@@ -99,11 +99,9 @@ h1, h2, h3, h4, h5, h6 {
 #main-header {
     position: fixed; top: 0; left: 0; right: 0; z-index: 50;
     display: flex; justify-content: center;
-    padding: 0.75rem 0;
+    padding: 0.75rem 0; /* keep constant to avoid CLS */
     pointer-events: none;
-    transition: padding 0.5s cubic-bezier(0.65, 0, 0.35, 1);
 }
-#main-header.header-scrolled { padding: 0.5rem 0; }
 #main-header > .container {
     pointer-events: auto;
     display: flex;
@@ -115,9 +113,10 @@ h1, h2, h3, h4, h5, h6 {
     border: 1px solid transparent;
     border-radius: 0px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0);
-    transition: max-width 0.5s cubic-bezier(0.65, 0, 0.35, 1), box-shadow 0.5s cubic-bezier(0.65, 0, 0.35, 1), border-color 0.5s cubic-bezier(0.65, 0, 0.35, 1), border-radius 0.5s cubic-bezier(0.65, 0, 0.35, 1), background-color 0.5s cubic-bezier(0.65, 0, 0.35, 1);
+    transition: transform 0.5s cubic-bezier(0.65, 0, 0.35, 1), box-shadow 0.5s cubic-bezier(0.65, 0, 0.35, 1), border-color 0.5s cubic-bezier(0.65, 0, 0.35, 1), border-radius 0.5s cubic-bezier(0.65, 0, 0.35, 1), background-color 0.5s cubic-bezier(0.65, 0, 0.35, 1);
     position: relative;
-    transform: translateZ(0); /* Promotes to its own rendering layer to fix corner glitches */
+    transform: translateZ(0);
+    transform-origin: top center; /* smooth scale from top */
 }
 
 /* Pseudo-element for the wooden background to fade in */
@@ -134,7 +133,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 #main-header.header-scrolled > .container {
-    max-width: 90%;
+    transform: scale(0.95);
     border-radius: 12px;
     border: 2px solid var(--wood-dark);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
@@ -206,7 +205,7 @@ h1, h2, h3, h4, h5, h6 {
     border-bottom: 3px solid #388E3C;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     text-shadow: none;
-    transition: all 0.15s ease-out;
+    transition: transform 0.15s ease-out, background 0.15s ease-out, box-shadow 0.15s ease-out;
 }
 
 #main-header.header-scrolled .desktop-cta-button:hover,
@@ -225,6 +224,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .user-avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--border-color); }
+
+/* Reserve space to avoid header shifts when auth UI swaps */
+.header-right-group { min-width: 260px; display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; }
+.desktop-nav-container + .header-right-group { min-width: auto; }
 
 /* Mobile vs Desktop Header Layout */
 @media (max-width: 767px) {
@@ -292,14 +295,16 @@ h1, h2, h3, h4, h5, h6 {
 }
 .mobile-menu-overlay.is-open { opacity: 1; pointer-events: auto; }
 .mobile-menu-panel {
-    position: fixed; top: 0; right: -100%; width: 75%; max-width: 300px; height: 100%;
-    background-color: rgba(255, 253, 247, 0.8);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    z-index: 100; transition: right 0.4s cubic-bezier(0.65, 0, 0.35, 1);
+    position: fixed; top: 0; right: 0; width: 75%; max-width: 300px; height: 100%;
+    background-color: rgba(255, 253, 247, 0.85);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    z-index: 100; transition: transform 0.4s cubic-bezier(0.65, 0, 0.35, 1);
+    transform: translateX(100%);
+    will-change: transform;
     display: flex; flex-direction: column; padding: 6rem 2rem 2rem;
     box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1); border-left: 1px solid var(--border-color);
 }
-.mobile-menu-panel.is-open { right: 0; }
+.mobile-menu-panel.is-open { transform: translateX(0); }
 .mobile-menu-link {
     font-size: 1.5rem; font-weight: 700; color: var(--text-primary);
     padding: 1rem 0; border-bottom: 1px solid var(--border-color);
@@ -495,6 +500,7 @@ section {
     box-shadow: 0 10px 25px rgba(0,0,0,0.1);
     text-align: center;
     position: relative;
+    min-height: 280px; /* reserve height to reduce CLS */
 }
 
 .wall-of-fame-card::after {
@@ -565,6 +571,24 @@ section {
 
 .loading-text {
     color: var(--text-secondary);
+}
+
+/* Wall of Fame: Mobile-only load button */
+.wof-load-btn-container {
+    display: none; /* default hidden; only show on mobile */
+}
+.wof-load-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+@media (max-width: 767px) {
+    .wof-load-btn-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 0.75rem;
+    }
 }
 
 /* Mobile adjustments */
