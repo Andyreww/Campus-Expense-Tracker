@@ -80,6 +80,23 @@ function setupCriticalMenu(elements) {
             toggleMobileMenu(false, elements);
         }, { passive: true });
     }
+
+    // Close the mobile menu when any link inside it is clicked (navigation)
+    if (mobileMenu) {
+        mobileMenu.addEventListener('click', (e) => {
+            const target = e.target;
+            if (target && target.closest('a')) {
+                toggleMobileMenu(false, elements);
+            }
+        });
+    }
+}
+
+// Sync header scrolled state with current scroll position
+function syncHeaderScrolled(elements) {
+    const { header } = elements;
+    if (!header) return;
+    header.classList.toggle('header-scrolled', window.scrollY > 50);
 }
 
 function toggleMobileMenu(open, elements) {
@@ -96,6 +113,18 @@ function toggleMobileMenu(open, elements) {
             '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 18"/></svg>' :
             '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
     }
+}
+
+// Ensure any transient menus are closed (useful on BFCache restore or breakpoint changes)
+function closeAllMenus(elements) {
+    // Close unscrolled mobile menu
+    toggleMobileMenu(false, elements);
+
+    // Close scrolled mobile dropdown if present
+    const scrolledMenuPanel = document.getElementById('scrolled-menu-panel');
+    const scrolledMenuTrigger = document.getElementById('scrolled-menu-trigger');
+    if (scrolledMenuPanel) scrolledMenuPanel.classList.remove('is-open');
+    if (scrolledMenuTrigger) scrolledMenuTrigger.classList.remove('is-open');
 }
 
 // Ultra-optimized scroll with RAF and debouncing
@@ -381,6 +410,10 @@ function setupVideoHandlers() {
 
 // Initialize only critical stuff immediately
 const elements = initCritical();
+// On initial load, ensure all menus are closed in case of stale DOM classes
+closeAllMenus(elements);
+// Also sync header visuals once on load
+syncHeaderScrolled(elements);
 
 // Defer everything else using DOMContentLoaded for a faster start
 document.addEventListener('DOMContentLoaded', () => {
@@ -442,6 +475,20 @@ document.addEventListener('DOMContentLoaded', () => {
             else window.addEventListener('load', registerIO, { once: true });
         }
     }
+
+    // Reveal mobile controls only on mobile viewports
+    const unhideMobileControls = () => {
+        const isMobile = window.matchMedia('(max-width: 767px)').matches;
+        const mobileBtn = document.getElementById('mobile-menu-button');
+        const scrolledContainer = document.getElementById('scrolled-menu-container');
+        if (mobileBtn) mobileBtn.hidden = !isMobile;
+        if (scrolledContainer) scrolledContainer.hidden = !isMobile;
+    };
+    unhideMobileControls();
+    const mqMobile = window.matchMedia('(max-width: 767px)');
+    const mqHandler = () => unhideMobileControls();
+    if (mqMobile.addEventListener) mqMobile.addEventListener('change', mqHandler);
+    else mqMobile.addListener(mqHandler);
 });
 
 
@@ -451,3 +498,32 @@ window.loadThreeJS = async () => {
     // Initialize your 3D content here
     console.log('Three.js loaded:', THREE);
 };
+
+// Close menus on BFCache restore and when viewport crosses into desktop
+window.addEventListener('pageshow', (e) => {
+    // e.persisted is true when restored from bfcache in some browsers
+    closeAllMenus(elements);
+    syncHeaderScrolled(elements);
+});
+
+// Watch for viewport changes; if desktop, force close mobile menus
+(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const handler = (ev) => {
+        if (ev.matches) closeAllMenus(elements);
+    };
+    if (mq.addEventListener) mq.addEventListener('change', handler);
+    else mq.addListener(handler); // Safari fallback
+})();
+
+// Also close menus when the page becomes visible again (history back/forward or tab switch)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        // If we're on desktop now, ensure menus are closed
+        if (window.matchMedia('(min-width: 768px)').matches) {
+            closeAllMenus(elements);
+        }
+    // Always resync header scrolled state on return
+    syncHeaderScrolled(elements);
+    }
+});

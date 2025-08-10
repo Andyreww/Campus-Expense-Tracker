@@ -1,7 +1,7 @@
 // Ultra-optimized auth.js - Maximum lazy loading
 
 // Constants
-const TESTING_MODE = true;
+const TESTING_MODE = false;
 const LAUNCH_DATE = new Date("Aug 20, 2025 00:00:00");
 
 // Cache for loaded modules

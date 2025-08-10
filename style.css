@@ -328,6 +328,12 @@ h1, h2, h3, h4, h5, h6 {
    HERO SECTION (REVAMPED)
    ======================================== */
 .hero-section {
+/* Safety: never show mobile menu UI on desktop widths */
+@media (min-width: 768px) {
+    .mobile-menu-panel { transform: translateX(100%) !important; }
+    .mobile-menu-overlay { opacity: 0 !important; pointer-events: none !important; }
+    .mobile-menu-panel { display: none !important; }
+}
     min-height: 100vh; /* fallback */
     min-height: 100svh; /* stabilize against mobile URL bar */
     display: grid;
