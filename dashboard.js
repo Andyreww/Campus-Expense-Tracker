@@ -1,7 +1,7 @@
 // --- IMPORTS ---
 import { firebaseReady, logout } from './auth.js';
 import { doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc, addDoc, Timestamp, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+// Storage APIs are imported lazily inside saveProfile to avoid blocking initial load
 import { updateProfile, deleteUser } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
 
@@ -21,6 +21,7 @@ let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar,
 
 // --- App State ---
 let map = null;
+let leafletReady = false;
 let currentUser = null;
 let currentUserData = null; // To store user profile data globally
 let selectedPfpFile = null;
@@ -35,16 +36,12 @@ async function main() {
     try {
         // Await the firebaseReady wrapper first, then resolve its getters
         const services = await firebaseReady;
-        const [auth, db, storage] = await Promise.all([
-            services.auth,
-            services.db,
-            services.storage,
-        ]);
+    const auth = await services.auth;
 
-        if (!auth || !db || !storage) {
+    if (!auth) {
             throw new Error('Firebase services could not be initialized.');
         }
-        firebaseServices = { auth, db, storage };
+    firebaseServices = { auth };
 
         // Resolve current user reliably
         currentUser = auth.currentUser;
@@ -55,12 +52,40 @@ async function main() {
             }).then((u) => { currentUser = u || null; });
         }
 
-        if (!currentUser) {
-            // No session -> go to login
-            window.location.replace('/login.html');
-            return;
+    if (!currentUser) {
+            // In testing mode, allow unauthenticated access to render demo UI
+            if (window.__TESTING_MODE) {
+                console.warn('[DASH] TESTING_MODE: rendering demo dashboard without auth');
+        firebaseServices = { auth: null };
+                // Minimal demo data
+                const demoUser = {
+                    displayName: 'Demo User',
+                    photoURL: '',
+                    bio: '',
+                    balances: { credits: 100, dining: 250, swipes: 10, bonus: 2 },
+                    balanceTypes: [
+                        { id: 'credits', label: 'Campus Credits', type: 'money' },
+                        { id: 'dining', label: 'Dining Dollars', type: 'money' },
+                        { id: 'swipes', label: 'Meal Swipes', type: 'count', resetsWeekly: true },
+                        { id: 'bonus', label: 'Bonus Swipes', type: 'count', resetsWeekly: true },
+                    ],
+                    isDenisonStudent: true,
+                    classYear: 'Sophomore',
+                    showOnWallOfFame: false,
+                    university: 'Demo U'
+                };
+                currentUser = { uid: 'DEMO' };
+                renderDashboard(demoUser);
+                return;
+            } else {
+                // No session -> go to login
+                window.location.replace('/login.html');
+                return;
+            }
         }
-
+    // Only now load Firestore (after we know we'll need it)
+    const db = await services.db;
+    firebaseServices.db = db;
         checkProfile();
 
     } catch (error) {
@@ -74,6 +99,26 @@ async function main() {
 // --- App Logic ---
 async function checkProfile() {
     try {
+        if (!firebaseServices?.db || !currentUser?.uid || currentUser.uid === 'DEMO') {
+            // Skip Firestore fetch in demo mode
+            renderDashboard({
+                displayName: 'Demo User',
+                photoURL: '',
+                bio: '',
+                balances: { credits: 100, dining: 250, swipes: 10, bonus: 2 },
+                balanceTypes: [
+                    { id: 'credits', label: 'Campus Credits', type: 'money' },
+                    { id: 'dining', label: 'Dining Dollars', type: 'money' },
+                    { id: 'swipes', label: 'Meal Swipes', type: 'count', resetsWeekly: true },
+                    { id: 'bonus', label: 'Bonus Swipes', type: 'count', resetsWeekly: true },
+                ],
+                isDenisonStudent: true,
+                classYear: 'Sophomore',
+                showOnWallOfFame: false,
+                university: 'Demo U'
+            });
+            return;
+        }
         const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
         const userDoc = await getDoc(userDocRef);
 
@@ -134,11 +179,15 @@ function renderDashboard(userData) {
     // Dynamic balance rendering
     renderBalanceCards(userData);
     updateBalancesUI(balances);
-    
+
     fetchAndRenderWeather();
-    renderQuickLogWidgets(firebaseServices.db);
+    // Defer non-critical work to reduce TBT
+    const idle = (fn) => ('requestIdleCallback' in window) ? requestIdleCallback(fn, { timeout: 1500 }) : setTimeout(fn, 0);
+    if (firebaseServices?.db && currentUser?.uid && currentUser.uid !== 'DEMO') {
+        idle(() => renderQuickLogWidgets(firebaseServices.db));
+    }
     populatePaymentDropdown(userData);
-    checkAndTriggerLazyLog(userData); // Automatic Lazy Log check
+    idle(() => checkAndTriggerLazyLog(userData)); // Automatic Lazy Log check
     
     const today = new Date();
     if (newspaperDate) {
@@ -153,7 +202,9 @@ function renderDashboard(userData) {
     loadingIndicator.style.display = 'none';
     dashboardContainer.style.display = 'block';
     
-    setupEventListeners();
+    // Defer wiring listeners to idle to reduce TBT on low-end devices
+    const wire = () => setupEventListeners();
+    if ('requestIdleCallback' in window) requestIdleCallback(wire, { timeout: 1500 }); else setTimeout(wire, 0);
     handleInitialTab();
     handleBioInput();
 }
@@ -462,15 +513,15 @@ function assignDOMElements() {
 }
 
 function setupEventListeners() {
-    const { db, storage } = firebaseServices;
+    const { db } = firebaseServices;
 
-    if (avatarButton) avatarButton.addEventListener('click', () => pfpModalOverlay.classList.remove('hidden'));
+    if (avatarButton) avatarButton.addEventListener('click', () => { pfpModalOverlay.classList.remove('hidden'); pfpModalOverlay.inert = false; });
     if (pfpCloseButton) pfpCloseButton.addEventListener('click', closeModal);
     if (pfpModalOverlay) pfpModalOverlay.addEventListener('click', (e) => {
         if (e.target === pfpModalOverlay) closeModal();
     });
     if (pfpUploadInput) pfpUploadInput.addEventListener('change', handlePfpUpload);
-    if (pfpSaveButton) pfpSaveButton.addEventListener('click', () => saveProfile(storage, db));
+    if (pfpSaveButton) pfpSaveButton.addEventListener('click', () => saveProfile(db));
 
     if (logoutButton) {
         logoutButton.addEventListener('click', () => {
@@ -497,10 +548,14 @@ function setupEventListeners() {
             mainFab.addEventListener('click', (e) => {
                 e.preventDefault();
                 fabContainer.classList.toggle('expanded');
+                const backdrop = document.getElementById('fab-backdrop');
+                if (backdrop) backdrop.inert = !fabContainer.classList.contains('expanded');
             });
             document.addEventListener('click', (e) => {
                 if (!fabContainer.contains(e.target)) {
                     fabContainer.classList.remove('expanded');
+                    const backdrop = document.getElementById('fab-backdrop');
+                    if (backdrop) backdrop.inert = true;
                 }
             });
         }
@@ -510,6 +565,7 @@ function setupEventListeners() {
         await populateLocationsDropdown(db);
         handlePaymentTypeChange();
         customLogModal.classList.remove('hidden');
+        customLogModal.inert = false;
         customItemName.focus();
         const saveWidgetContainer = saveAsWidgetCheckbox.closest('.form-group-inline');
         if (saveWidgetContainer) {
@@ -544,10 +600,10 @@ function setupEventListeners() {
         }
     }, true);
 
-    if (openDeleteAccountBtn) openDeleteAccountBtn.addEventListener('click', () => deleteConfirmModalOverlay.classList.remove('hidden'));
-    if (deleteCancelBtn) deleteCancelBtn.addEventListener('click', () => deleteConfirmModalOverlay.classList.add('hidden'));
+    if (openDeleteAccountBtn) openDeleteAccountBtn.addEventListener('click', () => { deleteConfirmModalOverlay.classList.remove('hidden'); deleteConfirmModalOverlay.inert = false; });
+    if (deleteCancelBtn) deleteCancelBtn.addEventListener('click', () => { deleteConfirmModalOverlay.classList.add('hidden'); deleteConfirmModalOverlay.inert = true; });
     if (deleteConfirmModalOverlay) deleteConfirmModalOverlay.addEventListener('click', (e) => {
-        if (e.target === deleteConfirmModalOverlay) deleteConfirmModalOverlay.classList.add('hidden');
+        if (e.target === deleteConfirmModalOverlay) { deleteConfirmModalOverlay.classList.add('hidden'); deleteConfirmModalOverlay.inert = true; }
     });
     if (deleteConfirmBtn) deleteConfirmBtn.addEventListener('click', deleteUserDataAndLogout);
 
@@ -562,6 +618,7 @@ function setupEventListeners() {
     });
     if (lazyLogCancelBtn) lazyLogCancelBtn.addEventListener('click', () => {
         lazyLogModal.classList.add('hidden');
+    lazyLogModal.inert = true;
         if (lazyLogForm.dataset.isLazyLog === 'true') {
             const userDocRef = doc(db, "users", currentUser.uid);
             updateDoc(userDocRef, { lazyLogDismissedUntil: Timestamp.now() });
@@ -570,6 +627,7 @@ function setupEventListeners() {
     if (lazyLogModal) lazyLogModal.addEventListener('click', e => {
         if (e.target === lazyLogModal) {
              lazyLogModal.classList.add('hidden');
+             lazyLogModal.inert = true;
              if (lazyLogForm.dataset.isLazyLog === 'true') {
                 const userDocRef = doc(db, "users", currentUser.uid);
                 updateDoc(userDocRef, { lazyLogDismissedUntil: Timestamp.now() });
@@ -785,6 +843,7 @@ function showLazyLogModal(userData, date, isLazyLog) {
     });
 
     lazyLogModal.classList.remove('hidden');
+    lazyLogModal.inert = false;
 }
 
 async function saveLazyLogData(db, logDate) {
@@ -1001,7 +1060,8 @@ function switchTab(sectionId, db) {
         const widgetsExist = quickLogWidgetsContainer && quickLogWidgetsContainer.querySelector('.quick-log-widget-btn');
         if (sectionId === 'home-section' && widgetsExist) {
             quickLogWidgetsContainer.style.display = 'block';
-            updateShelfWidth(); // Recalculate shelf width when switching to home
+            // Postpone measurement to next frame for smoother interaction
+            requestAnimationFrame(() => updateShelfWidth());
         } else {
             quickLogWidgetsContainer.style.display = 'none';
         }
@@ -1027,14 +1087,37 @@ function handleInitialTab() {
     }
 }
 
-function openMapModal() {
+async function openMapModal() {
+    if (!leafletReady) {
+        await loadLeafletAssets();
+        leafletReady = true;
+    }
     if (!map) initializeMap();
     mapModalOverlay.classList.remove('hidden');
+    // Allow interaction (was never unset causing mobile inability to close)
+    mapModalOverlay.inert = false;
+    // Focus close button for accessibility if present
+    if (mapCloseButton) {
+        try { mapCloseButton.focus(); } catch(_) {}
+    }
+    // Attach Escape key handler (added once)
+    if (!window._mapEscHandler) {
+        window._mapEscHandler = (e) => {
+            if (e.key === 'Escape' && !mapModalOverlay.classList.contains('hidden')) {
+                closeMapModal();
+            }
+        };
+    }
+    document.addEventListener('keydown', window._mapEscHandler);
     setTimeout(() => { if (map) map.invalidateSize(); }, 300);
 }
 
 function closeMapModal() {
     mapModalOverlay.classList.add('hidden');
+    mapModalOverlay.inert = true;
+    if (window._mapEscHandler) {
+        document.removeEventListener('keydown', window._mapEscHandler);
+    }
 }
 
 function updateAvatar(photoURL, displayName) {
@@ -1052,6 +1135,7 @@ function updateAvatar(photoURL, displayName) {
 
 function closeModal() {
     pfpModalOverlay.classList.add('hidden');
+    pfpModalOverlay.inert = true;
     pfpUploadInput.value = '';
     selectedPfpFile = null;
     pfpError.classList.add('hidden');
@@ -1062,6 +1146,7 @@ function closeModal() {
 
 function closeCustomLogModal() {
     customLogModal.classList.add('hidden');
+    customLogModal.inert = true;
     customLogForm.reset();
     if(saveAsWidgetCheckbox) {
         saveAsWidgetCheckbox.checked = false;
@@ -1088,7 +1173,7 @@ function handlePfpUpload(e) {
     reader.readAsDataURL(file);
 }
 
-async function saveProfile(storage, db) {
+async function saveProfile(db) {
     if (!currentUser) return;
     pfpSaveButton.disabled = true;
     pfpSaveButton.textContent = 'Saving...';
@@ -1104,9 +1189,13 @@ async function saveProfile(storage, db) {
     const updateData = { bio: newBio };
     try {
         if (selectedPfpFile) {
-            const storageRef = ref(storage, `profile_pictures/${currentUser.uid}`);
-            const snapshot = await uploadBytes(storageRef, selectedPfpFile);
-            const downloadURL = await getDownloadURL(snapshot.ref);
+            // Lazy load storage module and service only when needed
+            const storageModule = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js');
+            const services = await firebaseReady;
+            const storage = await services.storage;
+            const storageRef = storageModule.ref(storage, `profile_pictures/${currentUser.uid}`);
+            const snapshot = await storageModule.uploadBytes(storageRef, selectedPfpFile);
+            const downloadURL = await storageModule.getDownloadURL(snapshot.ref);
             updateData.photoURL = downloadURL;
             await updateProfile(currentUser, { photoURL: downloadURL });
             updateAvatar(downloadURL, currentUser.displayName);
@@ -1699,7 +1788,7 @@ async function fetchAndRenderLeaderboard(db) {
 
             item.innerHTML = `
                 <span class="leaderboard-rank">#${index + 1}</span>
-                <img src="${avatarSrc}" alt="${user.displayName}" class="leaderboard-avatar">
+                <img src="${avatarSrc}" alt="${user.displayName}" class="leaderboard-avatar" width="48" height="48" loading="lazy" decoding="async">
                 <div class="leaderboard-details">
                     <span class="leaderboard-name">${user.displayName}</span>
                     ${bioHtml}
@@ -1771,35 +1860,58 @@ function updateBalancesUI(balances) {
 
 async function fetchAndRenderWeather() {
     if (!weatherWidget) return;
-    weatherWidget.innerHTML = `<div class="spinner"></div>`;
+    // Defer weather fetch until section is near viewport to reduce TBT/CPU
+    const startFetch = async () => {
+        weatherWidget.innerHTML = `<div class="spinner"></div>`;
+        const lat = 40.08;
+        const lon = -82.49;
+        const apiUrl = `/.netlify/functions/getWeather?lat=${lat}&lon=${lon}`;
 
-    const lat = 40.08;
-    const lon = -82.49;
-    const apiUrl = `/.netlify/functions/getWeather?lat=${lat}&lon=${lon}`;
+        try {
+            const response = await fetch(apiUrl);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Error fetching weather');
 
-    try {
-        const response = await fetch(apiUrl);
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Error fetching weather');
+            const temp = Math.round(data.main.temp);
+            const description = data.weather[0].description;
+            const iconCode = data.weather[0].icon;
 
-        const temp = Math.round(data.main.temp);
-        const description = data.weather[0].description;
-        const iconCode = data.weather[0].icon;
-
-        weatherWidget.innerHTML = `
-            <div class="weather-content">
-                <img src="https://openweathermap.org/img/wn/${iconCode}@2x.png" alt="${description}" class="weather-icon">
-                <div class="weather-details">
-                    <div class="weather-temp">${temp}°F</div>
-                    <div class="weather-location">Granville, OH</div>
-                    <div class="weather-description">${description}</div>
+            weatherWidget.innerHTML = `
+                <div class="weather-content">
+                    <img src="https://openweathermap.org/img/wn/${iconCode}@2x.png" alt="${description}" class="weather-icon" width="80" height="80" loading="lazy" decoding="async">
+                    <div class="weather-details">
+                        <div class="weather-temp">${temp}°F</div>
+                        <div class="weather-location">Granville, OH</div>
+                        <div class="weather-description">${description}</div>
+                    </div>
                 </div>
-            </div>
-        `;
-    } catch (error) {
-        console.error("Weather fetch error:", error);
-        weatherWidget.innerHTML = `<p class="weather-error">Could not load weather data.</p>`;
+            `;
+        } catch (error) {
+            console.error("Weather fetch error:", error);
+            weatherWidget.innerHTML = `<p class="weather-error">Could not load weather data.</p>`;
+        }
+    };
+
+    const run = () => {
+        // Small timeout to avoid blocking long tasks at paint time
+        setTimeout(startFetch, 0);
+    };
+
+    if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    io.disconnect();
+                    if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 2000 });
+                    else run();
+                }
+            });
+        }, { rootMargin: '200px' });
+        io.observe(weatherWidget);
+    } else {
+        run();
     }
+
 }
 
 function initializeMap() {
@@ -1851,6 +1963,28 @@ function initializeMap() {
     });
 
     setTimeout(() => { if (map) map.invalidateSize(); }, 100);
+}
+
+function loadLeafletAssets() {
+    return new Promise((resolve, reject) => {
+        // If L is already present, resolve immediately
+        if (window.L) return resolve();
+        const css = document.createElement('link');
+        css.rel = 'stylesheet';
+        css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        css.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+        css.crossOrigin = '';
+        document.head.appendChild(css);
+
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+        script.crossOrigin = '';
+        script.defer = true;
+        script.onload = () => resolve();
+        script.onerror = (e) => reject(e);
+        document.head.appendChild(script);
+    });
 }
 
 const style = document.createElement('style');
