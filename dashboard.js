@@ -1,8 +1,15 @@
 // --- IMPORTS ---
 import { firebaseReady, logout } from './auth.js';
-import { doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc, addDoc, Timestamp, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-// Storage APIs are imported lazily inside saveProfile to avoid blocking initial load
-import { updateProfile, deleteUser } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+// Firestore/auth modules now loaded dynamically to trim initial JS cost
+let firestoreModule = null; // populated on first Firestore need
+let authModule = null;      // populated on first auth utility need
+
+async function fs() {
+    if (!firestoreModule) {
+        firestoreModule = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
+    }
+    return firestoreModule;
+}
 
 
 // --- DOM Elements ---
@@ -29,6 +36,8 @@ let firebaseServices = null;
 let isDeleteModeActive = false;
 let pressTimer = null;
 let userBalanceTypes = [];
+let cachedBalanceHTML = null;
+let lastBalanceSignature = '';
 
 // --- Main App Initialization ---
 async function main() {
@@ -119,7 +128,8 @@ async function checkProfile() {
             });
             return;
         }
-        const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
+    const { doc, getDoc } = await fs();
+    const userDocRef = doc(firebaseServices.db, "users", currentUser.uid);
         const userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists()) {
@@ -179,8 +189,6 @@ function renderDashboard(userData) {
     // Dynamic balance rendering
     renderBalanceCards(userData);
     updateBalancesUI(balances);
-
-    fetchAndRenderWeather();
     // Defer non-critical work to reduce TBT
     const idle = (fn) => ('requestIdleCallback' in window) ? requestIdleCallback(fn, { timeout: 1500 }) : setTimeout(fn, 0);
     if (firebaseServices?.db && currentUser?.uid && currentUser.uid !== 'DEMO') {
@@ -202,17 +210,50 @@ function renderDashboard(userData) {
     loadingIndicator.style.display = 'none';
     dashboardContainer.style.display = 'block';
     
-    // Defer wiring listeners to idle to reduce TBT on low-end devices
+    // Bind critical tab navigation immediately so active highlight works even if user clicks fast
+    setupCriticalTabListeners();
+    // Defer heavier/less critical listeners (pfp modals, fab, etc.) to idle to reduce TBT
     const wire = () => setupEventListeners();
     if ('requestIdleCallback' in window) requestIdleCallback(wire, { timeout: 1500 }); else setTimeout(wire, 0);
     handleInitialTab();
+    // Verify active tab visual (fallback if stylesheet race prevents gradient)
+    verifyActiveTabVisual();
     handleBioInput();
+    ensureMobileScroll();
+}
+
+function setupCriticalTabListeners() {
+    if (!tabItems) return;
+    const { db } = firebaseServices || {};
+    tabItems.forEach(tab => {
+        if (!tab.dataset.tabBound && tab.dataset.section) { // only internal tabs
+            tab.addEventListener('click', (e) => handleTabClick(e, db));
+            tab.dataset.tabBound = '1';
+        }
+    });
 }
 
 function renderBalanceCards(userData) {
     const { balanceTypes, isDenisonStudent, classYear } = userData;
-    
-    // Clear existing cards
+
+    // Build a signature to detect if we actually need to re-render
+    const signature = JSON.stringify({
+        denison: !!isDenisonStudent,
+        classYear: classYear || '',
+        balanceTypes: (balanceTypes || []).map(b => b.id).sort()
+    });
+    if (signature === lastBalanceSignature && cachedBalanceHTML) {
+        // Re-use cached markup (no flash)
+        tabletopGrid.innerHTML = cachedBalanceHTML;
+        // Re-bind map opener if present
+        mapOpener = document.getElementById('map-opener');
+        if (mapOpener && !mapOpener.dataset.bound) {
+            mapOpener.addEventListener('click', openMapModal);
+            mapOpener.dataset.bound = '1';
+        }
+        return;
+    }
+    lastBalanceSignature = signature;
     tabletopGrid.innerHTML = '';
     
     // Filter balance types based on user type
@@ -260,15 +301,17 @@ function renderBalanceCards(userData) {
         return;
     }
     
-    // Render each balance card
-    visibleBalanceTypes.forEach((balanceType, index) => {
+    // Render each balance card into a fragment (reduces intermediate paints)
+    const frag = document.createDocumentFragment();
+    visibleBalanceTypes.forEach((balanceType) => {
         try {
             const card = createBalanceCard(balanceType, userData.balances[balanceType.id] || 0);
-            tabletopGrid.appendChild(card);
+            frag.appendChild(card);
         } catch (error) {
             console.error('Error creating balance card:', error, balanceType);
         }
     });
+    tabletopGrid.appendChild(frag);
     
     // Set card count for better grid layout
     const cardCount = visibleBalanceTypes.length;
@@ -278,36 +321,53 @@ function renderBalanceCards(userData) {
         tabletopGrid.removeAttribute('data-card-count'); // Let CSS handle wrapping for more than 4
     }
     
-    // Always add weather and map at the end in a wrapper
-    const infoCardsRow = document.createElement('div');
-    infoCardsRow.className = 'info-cards-row';
-    
-    const weatherCard = document.createElement('section');
-    weatherCard.id = 'weather-widget';
-    weatherCard.className = 'table-item weather-note';
-    infoCardsRow.appendChild(weatherCard);
-    
-    const mapCard = document.createElement('section');
-    mapCard.className = 'table-item map-container';
-    mapCard.id = 'map-opener';
-    mapCard.innerHTML = `
-        <div class="folded-map">
-            <div class="map-fold-top"></div>
-            <div class="map-fold-bottom"></div>
-            <span class="map-label">Campus Map</span>
-        </div>
-    `;
-    infoCardsRow.appendChild(mapCard);
-    
-    // Add the wrapper to the grid
-    tabletopGrid.appendChild(infoCardsRow);
-    
-    // Re-assign weather and map elements
-    weatherWidget = document.getElementById('weather-widget');
-    mapOpener = document.getElementById('map-opener');
-    if (mapOpener) {
-        mapOpener.addEventListener('click', openMapModal);
-    }
+    // Defer info cards row insertion to next frame, but only cache AFTER insertion so weather isn't lost.
+    requestAnimationFrame(() => {
+        // If we already have a cached snapshot from a prior render, reuse it fully (contains weather/map)
+        if (cachedBalanceHTML) {
+            tabletopGrid.innerHTML = cachedBalanceHTML;
+            weatherWidget = document.getElementById('weather-widget');
+            mapOpener = document.getElementById('map-opener');
+            if (mapOpener && !mapOpener.dataset.bound) {
+                mapOpener.addEventListener('click', openMapModal);
+                mapOpener.dataset.bound = '1';
+            }
+            // Attempt weather fetch if never loaded (e.g., first visit after cache restore)
+            if (weatherWidget && !weatherWidget.dataset.loaded) {
+                fetchAndRenderWeather();
+            }
+            return; // Done.
+        }
+
+        const infoCardsRow = document.createElement('div');
+        infoCardsRow.className = 'info-cards-row';
+        const weatherCard = document.createElement('section');
+        weatherCard.id = 'weather-widget';
+        weatherCard.className = 'table-item weather-note';
+        const mapCard = document.createElement('section');
+        mapCard.className = 'table-item map-container';
+        mapCard.id = 'map-opener';
+        mapCard.innerHTML = `
+            <div class="folded-map">
+                <div class="map-fold-top"></div>
+                <div class="map-fold-bottom"></div>
+                <span class="map-label">Campus Map</span>
+            </div>
+        `;
+        infoCardsRow.appendChild(weatherCard);
+        infoCardsRow.appendChild(mapCard);
+        tabletopGrid.appendChild(infoCardsRow);
+        weatherWidget = weatherCard; // direct reference
+        mapOpener = mapCard;
+        if (mapOpener && !mapOpener.dataset.bound) {
+            mapOpener.addEventListener('click', openMapModal);
+            mapOpener.dataset.bound = '1';
+        }
+        // Kick off weather fetch now that DOM exists
+        fetchAndRenderWeather();
+        // Cache full snapshot (now includes weather + map)
+        cachedBalanceHTML = tabletopGrid.innerHTML;
+    });
 }
 
 function createBalanceCard(balanceType, currentBalance) {
@@ -530,7 +590,10 @@ function setupEventListeners() {
     }
 
     if (tabItems) tabItems.forEach(tab => {
-        tab.addEventListener('click', (e) => handleTabClick(e, db));
+        if (!tab.dataset.tabBound && tab.dataset.section) {
+            tab.addEventListener('click', (e) => handleTabClick(e, db));
+            tab.dataset.tabBound = '1';
+        }
     });
     
     if (publicLeaderboardCheckbox) publicLeaderboardCheckbox.addEventListener('change', (e) => handlePublicToggle(e, db));
@@ -1050,11 +1113,14 @@ function switchTab(sectionId, db) {
         }
 
         // Update active classes for tabs and sections
-        document.querySelectorAll('.tab-item[data-section]').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-item[data-section]').forEach(t => {
+            t.classList.remove('active', 'active-fallback');
+        });
         mainSections.forEach(s => s.classList.remove('active'));
 
         targetTab.classList.add('active');
         targetSection.classList.add('active');
+    verifyActiveTabVisual();
 
         // Show/hide the quick log widgets based on the active section
         const widgetsExist = quickLogWidgetsContainer && quickLogWidgetsContainer.querySelector('.quick-log-widget-btn');
@@ -1073,6 +1139,66 @@ function switchTab(sectionId, db) {
         } else {
             publicLeaderboardContainer.classList.add('hidden');
         }
+    }
+}
+
+// Ensures the green gradient shows; if not, applies a fallback inline style class.
+function verifyActiveTabVisual() {
+    // Clean any stray fallback classes from non-active tabs first
+    document.querySelectorAll('.tab-item.active-fallback:not(.active)').forEach(el => el.classList.remove('active-fallback'));
+    const active = document.querySelector('.tab-item.active');
+    if (!active) return;
+    const cs = getComputedStyle(active);
+    const bg = cs.backgroundImage || cs.background || '';
+    if (!bg.includes('76, 175, 80') && !bg.includes('#4CAF50')) {
+        if (!document.getElementById('active-tab-fallback-style')) {
+            const style = document.createElement('style');
+            style.id = 'active-tab-fallback-style';
+            style.textContent = `.tab-item.active-fallback { background: linear-gradient(180deg, #4CAF50 0%, #45a049 100%) !important; color: #fff !important; border-color: transparent !important; border-bottom: 3px solid #388E3C !important; transform: translateY(-2px) !important; box-shadow: 0 3px 10px rgba(76,175,80,0.3) !important; }`;
+            document.head.appendChild(style);
+        }
+        active.classList.add('active-fallback');
+    } else if (active.classList.contains('active-fallback')) {
+        // If native style now applies, drop fallback
+        active.classList.remove('active-fallback');
+    }
+}
+
+// Some mobile browsers may have body overflow locked if a modal was opened early; ensure scroll enabled
+function ensureMobileScroll() {
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (window.innerWidth <= 820);
+    if (!isMobile) return;
+    try {
+        // Remove accidental overflow / position locks
+        const html = document.documentElement;
+        [html, document.body].forEach(el => {
+            if (el.style.overflow === 'hidden' || el.style.overflowY === 'hidden') {
+                el.style.overflow = 'visible';
+                el.style.overflowY = 'auto';
+            }
+            el.classList.remove('no-scroll');
+        });
+        document.body.style.overflowY = 'auto';
+        document.body.style.webkitOverflowScrolling = 'touch';
+        if (getComputedStyle(document.body).position === 'fixed') {
+            document.body.style.position = '';
+            document.body.style.top = '';
+        }
+        // Remove any leftover inline style that sets height 100vh on body
+        if (document.body.style.height && /100vh|100%/.test(document.body.style.height)) {
+            document.body.style.height = '';
+        }
+        // If a modal is open, don't unlock (modal should scroll if tall). Only run if no overlays visible.
+        const anyModalOpen = !!document.querySelector('.modal-overlay:not(.hidden)');
+        if (!anyModalOpen) {
+            html.inert = false;
+            document.body.inert = false;
+        }
+        // Debug
+        console.debug('[SCROLL_FIX] Applied scroll unlock');
+    } catch(err) {
+        console.warn('[SCROLL_FIX] Failed to adjust scroll state', err);
     }
 }
 
@@ -1752,6 +1878,7 @@ async function fetchAndRenderLeaderboard(db) {
     if (!leaderboardList) return;
     leaderboardList.innerHTML = '<div class="spinner" style="margin: 2rem auto;"></div>';
     
+    const { collection, query, orderBy, getDocs } = await fs();
     const usersRef = collection(db, "users");
     const q = query(usersRef, orderBy("currentStreak", "desc"));
     
@@ -1860,6 +1987,9 @@ function updateBalancesUI(balances) {
 
 async function fetchAndRenderWeather() {
     if (!weatherWidget) return;
+    // Guard against duplicate fetches
+    if (weatherWidget.dataset.loading === '1' || weatherWidget.dataset.loaded === '1') return;
+    weatherWidget.dataset.loading = '1';
     // Defer weather fetch until section is near viewport to reduce TBT/CPU
     const startFetch = async () => {
         weatherWidget.innerHTML = `<div class="spinner"></div>`;
@@ -1886,9 +2016,13 @@ async function fetchAndRenderWeather() {
                     </div>
                 </div>
             `;
+            weatherWidget.dataset.loaded = '1';
+            delete weatherWidget.dataset.loading;
         } catch (error) {
             console.error("Weather fetch error:", error);
             weatherWidget.innerHTML = `<p class="weather-error">Could not load weather data.</p>`;
+            weatherWidget.dataset.loaded = '1';
+            delete weatherWidget.dataset.loading;
         }
     };
 
