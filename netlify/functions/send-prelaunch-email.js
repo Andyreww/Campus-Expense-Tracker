@@ -28,13 +28,33 @@ export const handler = async (event) => {
       to: [email],
       subject: "You're on the list! ✅🦉",
       html: `
-        <div style="font-family: sans-serif; line-height: 1.6;">
-          <h1 style="color: #4A2C2A;">You're In! (Almost)</h1>
-          <p>Hey!</p>
-          <p>Thanks for signing up for Nooksii! You've successfully reserved your spot. We're putting the finishing touches on everything to make it perfect.</p>
-          <p>Your Nook will be ready for you on <strong>August 20th</strong>. Until then, just hang tight!</p>
-          <p>We can't wait to see you there,</p>
-          <p>– The Nooksii Team</p>
+        <div style="background: #f7f7f7; padding: 40px; font-family: 'Nunito', 'Lato', sans-serif; text-align: center;">
+          <div style="max-width: 600px; margin: auto; background: #fffdf7; border-radius: 16px; box-shadow: 0 8px 32px rgba(76,175,80,0.08); padding: 32px 24px;">
+            <div style="margin-bottom: 18px;">
+              <div style="font-size: 2.8rem; margin-bottom: 8px;">🦉⏳</div>
+              <h1 style="color: #4A2C2A; font-size: 2.2rem; margin: 0; font-family: 'Patrick Hand', cursive;">You're In! (Almost)</h1>
+              <p style="color: #856f6f; font-size: 1.1rem; margin-top: 8px;">Your spot is reserved. Cozy up, launch day is coming!</p>
+            </div>
+            <div style="margin: 32px 0;">
+              <div style="background: #f0ead6; border-radius: 8px; padding: 18px 12px;">
+                <p style="font-size: 1.15rem; color: #4A2C2A; margin: 0 0 10px 0;">Thanks for signing up for Nooksii! We're putting the finishing touches on your new campus hub.</p>
+                <div style="margin: 18px 0;">
+                  <span style="display: inline-block; background: #4caf50; color: #fff; font-weight: bold; border-radius: 999px; padding: 8px 22px; font-size: 1.1rem; letter-spacing: 0.03em;">Launches August 20th</span>
+                </div>
+                <div style="margin: 18px 0;">
+                  <div style="width: 100%; background: #ded0b6; border-radius: 6px; height: 16px; position: relative;">
+                    <div style="width: 80%; background: linear-gradient(90deg,#4caf50,#45a049); height: 100%; border-radius: 6px;"></div>
+                    <span style="position: absolute; left: 50%; top: 0; transform: translateX(-50%); color: #4A2C2A; font-size: 0.95rem; font-family: 'Special Elite', monospace;">Almost There...</span>
+                  </div>
+                </div>
+                <p style="font-size: 1rem; color: #856f6f; margin: 18px 0 0 0;">We'll send you a cozy invite as soon as your Nook is ready. Until then, keep an eye on your inbox!</p>
+              </div>
+            </div>
+            <a href="https://nooksii.com" style="display: inline-block; margin-top: 18px; background: linear-gradient(90deg,#4caf50,#45a049); color: #fff; text-decoration: none; font-weight: bold; padding: 12px 28px; border-radius: 999px; font-size: 1.1rem; box-shadow: 0 2px 8px rgba(76,175,80,0.12);">Stay Tuned</a>
+            <div style="margin-top: 32px; color: #aaa; font-size: 0.95rem;">
+              <span style="font-size: 1.2rem;">🦉</span> The Nooksii Team
+            </div>
+          </div>
         </div>
       `,
     });
