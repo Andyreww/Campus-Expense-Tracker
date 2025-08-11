@@ -12,10 +12,12 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Patrick+Hand&family=Special+Elite&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Patrick+Hand&family=Special+Elite&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript>
+        <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Patrick+Hand&family=Special+Elite&display=swap" rel="stylesheet">
+    </noscript>
     
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Leaflet is lazy-loaded on first map open to avoid blocking render -->
 </head>
 <body>
 
@@ -25,10 +27,10 @@
     </div>
 
     <!-- Profile Picture Modal -->
-    <div id="pfp-modal-overlay" class="modal-overlay hidden">
+    <div id="pfp-modal-overlay" class="modal-overlay hidden" inert>
         <div id="pfp-modal" class="pfp-modal">
             <h2>Change Your Look</h2>
-            <img id="pfp-preview" src="" alt="New profile picture preview" class="pfp-preview">
+            <img id="pfp-preview" src="" alt="New profile picture preview" class="pfp-preview" width="160" height="160" decoding="async">
             
             <div class="form-group bio-group">
                 <label for="user-bio-input">Your Status</label>
@@ -53,7 +55,7 @@
     </div>
 
     <!-- Delete Account Confirmation Modal -->
-    <div id="delete-confirm-modal-overlay" class="modal-overlay hidden">
+    <div id="delete-confirm-modal-overlay" class="modal-overlay hidden" inert>
         <div id="delete-confirm-modal" class="pfp-modal">
             <h2>Are you sure?</h2>
             <p style="font-family: 'Nunito', sans-serif; color: var(--text-secondary); margin: 1rem 0 1.5rem 0; line-height: 1.5;">
@@ -68,7 +70,7 @@
     </div>
 
      <!-- Map Modal -->
-    <div id="map-modal-overlay" class="modal-overlay hidden">
+    <div id="map-modal-overlay" class="modal-overlay hidden" inert>
         <div id="map-modal" class="map-modal">
             <div id="map-render-target"></div>
             <button id="map-close-button" class="close-button">&times;</button>
@@ -87,7 +89,7 @@
                 </div>
             </div>
             <button id="avatar-button" class="avatar-button">
-                <img id="user-avatar" class="avatar" src="" alt="User Avatar">
+                <img id="user-avatar" class="avatar" src="" alt="User Avatar" width="56" height="56" decoding="async">
             </button>
         </header>
 
@@ -105,14 +107,15 @@
             </main>
 
             <main id="leaderboard-section" class="main-section">
-                <div class="leaderboard-newspaper">
+             <div class="leaderboard-newspaper">
+                 <span class="exclusive-ribbon"></span>
                      <div class="leaderboard-header">
                         <h2 class="newspaper-title">The Daily Grind</h2>
-                        <p class="newspaper-subtitle">"All the news that's fit to sip"</p>
+                        <p class="newspaper-subtitle">"Little Sips of Big News"</p>
                         <p class="newspaper-date" id="newspaper-date"></p>
                     </div>
                     <div class="newspaper-columns">
-                        <h3 class="section-headline">Streakboard Sees New All-Time Highs!</h3>
+                        <h3 class="section-headline">The Streakboard’s Feeling Extra Cozy Today</h3>
                         <div id="leaderboard-list" class="leaderboard-list">
                             <!-- Leaderboard will be rendered here -->
                         </div>
@@ -123,7 +126,7 @@
     </div>
 
     <!-- Mobile backdrop for FAB -->
-    <div class="fab-backdrop" id="fab-backdrop"></div>
+    <div class="fab-backdrop" id="fab-backdrop" inert></div>
 
     <!-- Floating Action Button (FAB) container -->
     <div class="fab-container" id="fab-container">
@@ -145,7 +148,7 @@
     </div>
 
     <!-- Custom Log Modal -->
-    <div id="custom-log-modal" class="modal-overlay hidden">
+    <div id="custom-log-modal" class="modal-overlay hidden" inert>
         <div class="custom-log-modal">
             <h2>Quick Custom Log</h2>
             <form id="custom-log-form">
@@ -206,7 +209,7 @@
     </div>
     
     <!-- Lazy Log Modal (also used for EOD) -->
-    <div id="lazy-log-modal" class="modal-overlay hidden">
+    <div id="lazy-log-modal" class="modal-overlay hidden" inert>
         <div class="lazy-log-modal">
             <h2 id="lazy-log-title">Forgot to Log? 😴</h2>
             <p id="lazy-log-subtitle" class="lazy-log-subtitle">No worries! Just enter your current balances to catch up.</p>

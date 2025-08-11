@@ -1,7 +1,20 @@
 // Ultra-optimized auth.js - Maximum lazy loading
 
 // Constants
-const TESTING_MODE = false;
+// TESTING_MODE: now limited strictly to local development hosts only.
+// Rationale: removes public ?demo bypass while preserving zero-config local convenience.
+// If you ever need a remote demo, temporarily reintroduce the query param or deploy a separate demo branch.
+const TESTING_MODE = (() => {
+    try {
+        const host = window.location?.hostname || '';
+        return host === 'localhost' || host === '127.0.0.1';
+    } catch {
+        return false;
+    }
+})();
+// Expose for other modules and quick checks
+window.__TESTING_MODE = TESTING_MODE;
+export const IS_TESTING = TESTING_MODE;
 const LAUNCH_DATE = new Date("Aug 20, 2025 00:00:00");
 
 // Cache for loaded modules
@@ -142,6 +155,9 @@ export const firebaseReady = Promise.resolve({
     get storage() { return getStorage(); }
 });
 
+// Expose for other modules and quick checks (only for runtime)
+try { window.__TESTING_MODE = TESTING_MODE; } catch {}
+
 // Logout function - loads auth only when needed
 export const logout = async () => {
     const auth = await getAuth();
@@ -199,6 +215,12 @@ function safeNavigate(target) {
 
 // Auth state guard - only loads when on protected pages
 async function setupAuthGuard() {
+    // Testing bypass: skip all auth redirects when TESTING_MODE is true
+    if (TESTING_MODE) {
+        console.warn('[AUTH] Auth guard disabled (TESTING_MODE). All pages allowed without login.');
+        authCheckInProgress = false;
+        return;
+    }
     // Prevent multiple simultaneous auth checks
     if (authCheckInProgress) return;
     authCheckInProgress = true;
