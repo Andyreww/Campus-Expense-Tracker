@@ -8,10 +8,15 @@
     <meta name="mobile-web-app-capable" content="yes">
     <title>Nooksii - Dashboard</title>
     
-    <link rel="stylesheet" href="dashboard.css">
+    <!-- Preload stylesheet to shorten render-blocking time -->
+    <link rel="preload" href="dashboard.css" as="style" onload="this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="dashboard.css"></noscript>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Additional preconnects to speed up Firebase/auth origin handshakes -->
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://apis.google.com">
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Patrick+Hand&family=Special+Elite&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <noscript>
         <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Nunito:wght@700;900&family=Patrick+Hand&family=Special+Elite&display=swap" rel="stylesheet">
