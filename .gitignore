@@ -1,5 +1,4 @@
 node_modules
-gate.html
-gate.css
 # Local Netlify folder
 .netlify
+.github

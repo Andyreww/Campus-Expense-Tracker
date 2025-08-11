@@ -208,6 +208,16 @@
                             <div class="poll-action" style="display: none;"><button class="poll-vote-button"><svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><svg class="x-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
                         </div>
 
+                        <div class="poll-item" data-poll-id="more-languages">
+                            <div class="poll-content">
+                                <h3 class="poll-title">Support for More Languages</h3>
+                                <p class="poll-description">Expand language support to include more options for non-English speakers.</p>
+                                <div class="poll-progress-bar"><div class="poll-progress-fill" style="width: 0%;"></div><span class="poll-vote-count">0 Votes</span></div>
+                                <div class="poll-voters"></div>
+                            </div>
+                            <div class="poll-action" style="display: none;"><button class="poll-vote-button"><svg class="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><svg class="x-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+                        </div>
+
                         <!-- New "Suggest a Feature" Card -->
                         <div class="poll-item poll-item-suggestion">
                            <div class="suggestion-content">
@@ -242,10 +252,14 @@
             runTransaction, arrayUnion, serverTimestamp, onSnapshot,
             arrayRemove
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    // Import modular auth listener
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         document.addEventListener('DOMContentLoaded', async () => {
-            // Wait for Firebase to be ready
-            const { auth, db } = await firebaseReady;
+            // Wait for Firebase to be ready and resolve actual instances
+            const services = await firebaseReady;
+            const auth = await services.auth;
+            const db = await services.db;
             const pollListContainer = document.getElementById('poll-list');
             let currentUser = null; 
             let userVotes = {};
@@ -419,7 +433,7 @@
 
 
             // 2. Set up the auth listener
-            auth.onAuthStateChanged((user) => {
+            onAuthStateChanged(auth, (user) => {
                 currentUser = user;
                 toggleVoteButtonsVisibility(!!user); // Show/hide buttons
                 

@@ -73,7 +73,7 @@ h1, h2, h3, h4, h5, h6 {
 .logo-icon {
     vertical-align: -4px;
     margin-right: 0.5rem;
-    transition: all 0.5s cubic-bezier(0.65, 0, 0.35, 1);
+    transition: color 0.5s cubic-bezier(0.65, 0, 0.35, 1), transform 0.5s cubic-bezier(0.65, 0, 0.35, 1);
     color: var(--brand-primary);
 }
 
@@ -99,11 +99,9 @@ h1, h2, h3, h4, h5, h6 {
 #main-header {
     position: fixed; top: 0; left: 0; right: 0; z-index: 50;
     display: flex; justify-content: center;
-    padding: 0.75rem 0;
+    padding: 0.75rem 0; /* keep constant to avoid CLS */
     pointer-events: none;
-    transition: padding 0.5s cubic-bezier(0.65, 0, 0.35, 1);
 }
-#main-header.header-scrolled { padding: 0.5rem 0; }
 #main-header > .container {
     pointer-events: auto;
     display: flex;
@@ -115,9 +113,10 @@ h1, h2, h3, h4, h5, h6 {
     border: 1px solid transparent;
     border-radius: 0px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0);
-    transition: all 0.5s cubic-bezier(0.65, 0, 0.35, 1);
+    transition: transform 0.5s cubic-bezier(0.65, 0, 0.35, 1), box-shadow 0.5s cubic-bezier(0.65, 0, 0.35, 1), border-color 0.5s cubic-bezier(0.65, 0, 0.35, 1), border-radius 0.5s cubic-bezier(0.65, 0, 0.35, 1), background-color 0.5s cubic-bezier(0.65, 0, 0.35, 1);
     position: relative;
-    transform: translateZ(0); /* Promotes to its own rendering layer to fix corner glitches */
+    transform: translateZ(0);
+    transform-origin: top center; /* smooth scale from top */
 }
 
 /* Pseudo-element for the wooden background to fade in */
@@ -134,7 +133,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 #main-header.header-scrolled > .container {
-    max-width: 90%;
+    transform: scale(0.95);
     border-radius: 12px;
     border: 2px solid var(--wood-dark);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
@@ -173,7 +172,7 @@ h1, h2, h3, h4, h5, h6 {
     color: var(--text-primary);
     display: flex;
     align-items: center;
-    transition: all 0.5s cubic-bezier(0.65, 0, 0.35, 1);
+    transition: color 0.5s cubic-bezier(0.65, 0, 0.35, 1), text-shadow 0.5s cubic-bezier(0.65, 0, 0.35, 1), transform 0.5s cubic-bezier(0.65, 0, 0.35, 1);
     text-shadow: 2px 2px 0 var(--bg-secondary), 3px 3px 0 var(--border-color); /* Layered shadow for pop */
 }
 
@@ -193,7 +192,7 @@ h1, h2, h3, h4, h5, h6 {
 .nav-link:hover { color: var(--brand-primary); }
 .desktop-cta-button {
     background-color: var(--brand-primary); color: white; padding: 0.6rem 1.2rem;
-    border-radius: 9999px; font-weight: 700; transition: all 0.3s ease;
+    border-radius: 9999px; font-weight: 700; transition: background-color 0.3s ease, transform 0.15s ease, box-shadow 0.15s ease;
     text-decoration: none;
 }
 .desktop-cta-button:hover { background-color: var(--brand-secondary); }
@@ -206,7 +205,7 @@ h1, h2, h3, h4, h5, h6 {
     border-bottom: 3px solid #388E3C;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     text-shadow: none;
-    transition: all 0.15s ease-out;
+    transition: transform 0.15s ease-out, background 0.15s ease-out, box-shadow 0.15s ease-out;
 }
 
 #main-header.header-scrolled .desktop-cta-button:hover,
@@ -224,7 +223,11 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.user-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border-color); }
+.user-avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--border-color); }
+
+/* Reserve space to avoid header shifts when auth UI swaps */
+.header-right-group { min-width: 260px; display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; }
+.desktop-nav-container + .header-right-group { min-width: auto; }
 
 /* Mobile vs Desktop Header Layout */
 @media (max-width: 767px) {
@@ -292,14 +295,16 @@ h1, h2, h3, h4, h5, h6 {
 }
 .mobile-menu-overlay.is-open { opacity: 1; pointer-events: auto; }
 .mobile-menu-panel {
-    position: fixed; top: 0; right: -100%; width: 75%; max-width: 300px; height: 100%;
-    background-color: rgba(255, 253, 247, 0.8);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    z-index: 100; transition: right 0.4s cubic-bezier(0.65, 0, 0.35, 1);
+    position: fixed; top: 0; right: 0; width: 75%; max-width: 300px; height: 100%;
+    background-color: rgba(255, 253, 247, 0.85);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    z-index: 100; transition: transform 0.4s cubic-bezier(0.65, 0, 0.35, 1);
+    transform: translateX(100%);
+    will-change: transform;
     display: flex; flex-direction: column; padding: 6rem 2rem 2rem;
     box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1); border-left: 1px solid var(--border-color);
 }
-.mobile-menu-panel.is-open { right: 0; }
+.mobile-menu-panel.is-open { transform: translateX(0); }
 .mobile-menu-link {
     font-size: 1.5rem; font-weight: 700; color: var(--text-primary);
     padding: 1rem 0; border-bottom: 1px solid var(--border-color);
@@ -323,7 +328,14 @@ h1, h2, h3, h4, h5, h6 {
    HERO SECTION (REVAMPED)
    ======================================== */
 .hero-section {
-    min-height: 100vh;
+/* Safety: never show mobile menu UI on desktop widths */
+@media (min-width: 768px) {
+    .mobile-menu-panel { transform: translateX(100%) !important; }
+    .mobile-menu-overlay { opacity: 0 !important; pointer-events: none !important; }
+    .mobile-menu-panel { display: none !important; }
+}
+    min-height: 100vh; /* fallback */
+    min-height: 100svh; /* stabilize against mobile URL bar */
     display: grid;
     place-items: center;
     padding: 5rem 1.5rem;
@@ -367,6 +379,10 @@ h1, h2, h3, h4, h5, h6 {
 @media (max-width: 480px) {
     .hero-signboard {
         padding: 2rem 1rem;
+    /* Reduce heavy effects on low-tier devices */
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    background-color: rgba(255, 253, 247, 0.98);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
     }
 }
 
@@ -480,6 +496,7 @@ section {
 /* ========================================
    WALL OF FAME (RECEIPT STYLE)
    ======================================== */
+.wall-of-fame-section { min-height: 360px; }
 
 .wall-of-fame-card {
     background-color: #fdfaf2; /* Off-white paper color */
@@ -491,6 +508,7 @@ section {
     box-shadow: 0 10px 25px rgba(0,0,0,0.1);
     text-align: center;
     position: relative;
+    min-height: 280px; /* reserve height to reduce CLS */
 }
 
 .wall-of-fame-card::after {
@@ -563,6 +581,24 @@ section {
     color: var(--text-secondary);
 }
 
+/* Wall of Fame: Mobile-only load button */
+.wof-load-btn-container {
+    display: none; /* default hidden; only show on mobile */
+}
+.wof-load-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+@media (max-width: 767px) {
+    .wof-load-btn-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 0.75rem;
+    }
+}
+
 /* Mobile adjustments */
 @media (max-width: 480px) {
     .wall-of-fame-card {
@@ -597,7 +633,7 @@ section {
     border-radius: 12px;
     padding: 2rem 1.5rem;
     text-align: center;
-    transition: all 0.15s ease-out;
+    transition: transform 0.15s ease-out, background-color 0.15s ease-out, border-bottom-width 0.15s ease-out;
     position: relative;
     cursor: pointer;
     color: var(--text-primary);
@@ -919,6 +955,9 @@ section {
         /* Lighter shadow for performance */
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
+    /* Avoid hover transforms on touch devices to reduce layout/repaint */
+    .feature-card:hover, .feature-card:active { transform: none; border-bottom-width: 7px; }
+    .mobile-menu-panel { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
     .faq-item:hover {
         /* No hover effects on mobile */
         transform: none !important;
@@ -987,12 +1026,27 @@ section {
     width: 20px;
     height: 20px;
     color: var(--text-secondary);
-    flex-shrink: 0;
+    transition: transform 0.2s ease;
     transition: transform 0.3s ease;
 }
 
 .faq-item.is-open .faq-icon {
     transform: rotate(180deg);
+
+/* Reduced motion: disable float animation and heavy transitions */
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto !important; }
+    .hero-signboard { animation: none !important; }
+    .hero-button, .desktop-cta-button, .feature-card, .logo-text, .logo-icon {
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Backdrop-filter fallback */
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+    .hero-signboard { backdrop-filter: none; -webkit-backdrop-filter: none; background-color: rgba(255, 253, 247, 0.98); }
+    .mobile-menu-panel { backdrop-filter: none; -webkit-backdrop-filter: none; background-color: rgba(255, 253, 247, 0.95); }
+}
 }
 
 /* Optimized animation using transform instead of max-height */
@@ -1425,3 +1479,15 @@ section {
     transform: translateY(20px);
 }
 .hidden { display: none !important; }
+
+.hero-signboard {
+    min-height: 400px;
+}
+
+#wall-of-fame-list {
+    min-height: 200px;
+}
+
+.fade-in-element {
+    will-change: opacity, transform;
+}
