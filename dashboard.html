@@ -49,6 +49,11 @@
                 <button id="pfp-save-button" class="pfp-button save-button">Save Changes</button>
             </div>
             <button id="pfp-close-button" class="close-button">&times;</button>
+            <div style="border-top: 2px solid var(--border-color); margin: 1.75rem 0 1.25rem 0;"></div>
+            <button id="rename-balances-btn" class="pfp-button upload-button" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Rename Balance Labels
+            </button>
             
             <!-- Delete Account Section -->
             <div style="border-top: 2px solid var(--border-color); margin: 2rem 0 1.5rem 0;"></div>
@@ -56,6 +61,22 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                 Delete Account
             </button>
+        </div>
+    </div>
+
+    <!-- Rename Balances Modal -->
+    <div id="rename-balances-modal" class="modal-overlay hidden" inert>
+        <div class="pfp-modal" style="max-width:440px;">
+            <h2 style="margin-top:0;">Rename Balance Labels</h2>
+            <p style="font-size:0.8rem; line-height:1.3; color:var(--text-secondary); margin:0 0 1rem 0;">Personalize how each balance appears. Names are private to you and update across the app.</p>
+            <form id="rename-balances-form">
+                <div class="rename-balance-inputs" style="display:flex; flex-direction:column; gap:0.75rem; max-height:260px; overflow-y:auto; padding-right:4px;"></div>
+                <div style="display:flex; gap:0.75rem; margin-top:1.25rem;">
+                    <button type="button" id="rename-balances-close" class="pfp-button upload-button" style="flex:1;">Cancel</button>
+                    <button type="button" id="rename-balances-save" class="pfp-button save-button" style="flex:1;">Save</button>
+                </div>
+            </form>
+            <button id="rename-balances-close-x" class="close-button" aria-label="Close" style="top:10px; right:10px;">&times;</button>
         </div>
     </div>
 
@@ -236,7 +257,12 @@
             <input type="checkbox" id="public-leaderboard-checkbox">
             <span class="slider"></span>
         </label>
-        <span>Show me on "Top of the Grind"? <small style="opacity: 0.7; font-size: 0.75rem; display: block;">Public campus leaderboard</small></span>
+        <span>
+            Show me on "Top of the Grind"?
+            <small style="opacity: 0.75; font-size: 0.70rem; display: block; line-height: 1.1; max-width: 220px;">
+                When enabled, your display name, avatar, streak and status become visible on the public campus leaderboard. You can turn this off anytime.
+            </small>
+        </span>
     </div>
 
     <nav class="bottom-tab-bar">

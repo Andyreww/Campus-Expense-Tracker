@@ -10,7 +10,9 @@ let loadingIndicator, statsContainer, pageTitle, welcomeMessage, userAvatar, ava
     pfpModalOverlay, pfpPreview, pfpUploadInput, pfpSaveButton,
     pfpCloseButton, pfpError, userBioInput, customBalanceSelector, projectionInfoButton,
     openDeleteAccountBtn, deleteConfirmModalOverlay, deleteCancelBtn, 
-    deleteConfirmBtn, deleteErrorMessage;
+    deleteConfirmBtn, deleteErrorMessage,
+    // Rename balances elements (added for parity with dashboard)
+    renameBalancesModal, renameBalancesForm, renameBalancesCloseBtn, renameBalancesSaveBtn, renameBalancesBtn;
 
 // --- App State ---
 let currentUser = null;
@@ -86,27 +88,27 @@ async function checkProfile() {
 function setupBalanceTypes(userData) {
     const { balanceTypes, isDenisonStudent, classYear } = userData;
     let rawBalanceTypes = [];
-    
+    // Always start from stored balanceTypes to preserve custom labels
+    const stored = (balanceTypes || []).slice();
     if (isDenisonStudent) {
-        // For Denison students
+        const mapById = new Map(stored.map(b => [b.id, b]));
+        const seniorIds = ['credits','dining'];
+        const fullIds = ['credits','dining','swipes','bonus'];
+        const required = classYear === 'Senior' ? seniorIds : fullIds;
+        rawBalanceTypes = required.map(id => mapById.get(id)).filter(Boolean);
+        // Add fallbacks if missing to avoid breaking UI
+        const ensure = (id,label,type,extra={}) => { if(!rawBalanceTypes.some(bt=>bt.id===id)) rawBalanceTypes.push({ id, label, type, ...extra }); };
         if (classYear === 'Senior') {
-            // Seniors only see credits and dining
-            rawBalanceTypes = [
-                { id: 'credits', label: 'Campus Credits', type: 'money' },
-                { id: 'dining', label: 'Dining Dollars', type: 'money' }
-            ];
+            ensure('credits','Campus Credits','money');
+            ensure('dining','Dining Dollars','money');
         } else {
-            // Other years see all 4 standard types
-            rawBalanceTypes = [
-                { id: 'credits', label: 'Campus Credits', type: 'money' },
-                { id: 'dining', label: 'Dining Dollars', type: 'money' },
-                { id: 'swipes', label: 'Meal Swipes', type: 'count', resetsWeekly: true, resetDay: 'Sunday' },
-                { id: 'bonus', label: 'Bonus Swipes', type: 'count', resetsWeekly: true, resetDay: 'Sunday' }
-            ];
+            ensure('credits','Campus Credits','money');
+            ensure('dining','Dining Dollars','money');
+            ensure('swipes','Meal Swipes','count',{resetsWeekly:true, resetDay:'Sunday'});
+            ensure('bonus','Bonus Swipes','count',{resetsWeekly:true, resetDay:'Sunday'});
         }
     } else {
-        // For custom universities, use their balance types
-        rawBalanceTypes = balanceTypes || [];
+        rawBalanceTypes = stored;
     }
 
     // FIX: Filter to only include balance types that are 'money'
@@ -329,6 +331,14 @@ function assignDOMElements() {
     deleteCancelBtn = document.getElementById('delete-cancel-button');
     deleteConfirmBtn = document.getElementById('delete-confirm-button');
     deleteErrorMessage = document.getElementById('delete-error-message');
+    // Rename balances modal elements
+    renameBalancesModal = document.getElementById('rename-balances-modal');
+    renameBalancesForm = document.getElementById('rename-balances-form');
+    renameBalancesCloseBtn = document.getElementById('rename-balances-close');
+    const renameBalancesCloseX = document.getElementById('rename-balances-close-x');
+    if (!renameBalancesCloseBtn && renameBalancesCloseX) renameBalancesCloseBtn = renameBalancesCloseX; // fallback
+    renameBalancesSaveBtn = document.getElementById('rename-balances-save');
+    renameBalancesBtn = document.getElementById('rename-balances-btn');
 }
 
 function setupEventListeners() {
@@ -364,6 +374,100 @@ function setupEventListeners() {
         if (e.target === deleteConfirmModalOverlay) deleteConfirmModalOverlay.classList.add('hidden');
     });
     if (deleteConfirmBtn) deleteConfirmBtn.addEventListener('click', deleteUserDataAndLogout);
+
+    // Rename balances modal listeners
+    if (renameBalancesBtn && !renameBalancesBtn.dataset.bound) {
+        renameBalancesBtn.addEventListener('click', openRenameBalancesModal);
+        renameBalancesBtn.dataset.bound = '1';
+    }
+    if (renameBalancesCloseBtn && !renameBalancesCloseBtn.dataset.bound) { renameBalancesCloseBtn.addEventListener('click', closeRenameBalancesModal); renameBalancesCloseBtn.dataset.bound='1'; }
+    const renameBalancesCloseX2 = document.getElementById('rename-balances-close-x');
+    if (renameBalancesCloseX2 && !renameBalancesCloseX2.dataset.bound) { renameBalancesCloseX2.addEventListener('click', closeRenameBalancesModal); renameBalancesCloseX2.dataset.bound='1'; }
+    if (renameBalancesModal) renameBalancesModal.addEventListener('click', (e) => { if (e.target === renameBalancesModal) closeRenameBalancesModal(); });
+    if (renameBalancesSaveBtn) renameBalancesSaveBtn.addEventListener('click', saveRenamedBalances);
+}
+
+// --- Rename Balance Labels Feature (parity with dashboard) ---
+function openRenameBalancesModal() {
+    if (!renameBalancesModal || !renameBalancesForm) return;
+    const container = renameBalancesForm.querySelector('.rename-balance-inputs');
+    if (!container) return;
+    container.innerHTML = '';
+    // Source types from userDataCache.balanceTypes preserving custom labels
+    const allTypes = (userDataCache?.balanceTypes || userBalanceTypes || []).slice();
+    // Determine visible IDs for Denison students
+    let allowedIds = null;
+    if (userDataCache?.isDenisonStudent) {
+        if (userDataCache.classYear === 'Senior') {
+            allowedIds = new Set(['credits','dining']);
+        } else {
+            allowedIds = new Set(['credits','dining','swipes','bonus']);
+        }
+    }
+    const filtered = allTypes.filter(t => t && t.id && (!allowedIds || allowedIds.has(t.id)));
+    filtered.sort((a,b)=>a.id.localeCompare(b.id));
+    const finalList = filtered.length ? filtered : allTypes;
+    finalList.forEach(bt => {
+        if (!bt || !bt.id) return;
+        const row = document.createElement('div');
+        row.className = 'rename-balance-row';
+        row.innerHTML = `
+            <label class="rename-balance-label" for="rename-input-${bt.id}">${bt.id}</label>
+            <input id="rename-input-${bt.id}" type="text" data-balance-id="${bt.id}" value="${bt.label || ''}" maxlength="24" placeholder="${bt.id}" />
+        `;
+        container.appendChild(row);
+    });
+    renameBalancesModal.classList.remove('hidden');
+    renameBalancesModal.inert = false;
+}
+
+function closeRenameBalancesModal() {
+    if (!renameBalancesModal) return;
+    renameBalancesModal.classList.add('hidden');
+    renameBalancesModal.inert = true;
+}
+
+async function saveRenamedBalances() {
+    if (!renameBalancesForm) return;
+    const inputs = [...renameBalancesForm.querySelectorAll('input[data-balance-id]')];
+    if (!inputs.length) { closeRenameBalancesModal(); return; }
+    const original = (userDataCache?.balanceTypes || userBalanceTypes || []).slice();
+    let changed = false;
+    const updated = original.map(bt => {
+        const input = inputs.find(i => i.dataset.balanceId === bt.id);
+        if (!input) return bt;
+        const val = input.value.trim();
+        if (val && val !== bt.label) { changed = true; return { ...bt, label: val }; }
+        return bt;
+    });
+    if (!changed) { closeRenameBalancesModal(); return; }
+    try {
+        if (currentUser?.uid && currentUser.uid !== 'DEMO' && firebaseServices?.db) {
+            const userDocRef = doc(firebaseServices.db, 'users', currentUser.uid);
+            await updateDoc(userDocRef, { balanceTypes: updated });
+        }
+        userBalanceTypes = updated.filter(bt => bt.type === 'money'); // maintain money filter
+        if (userDataCache) userDataCache.balanceTypes = updated;
+        // Rebuild dropdown and dependent UI with new labels
+        initializeBalanceDropdown();
+        if (purchaseData && userDataCache) {
+            renderChart(userDataCache, purchaseData);
+            renderInsights(purchaseData);
+            renderHistory(purchaseData);
+        }
+        // Lightweight inline success feedback
+        const btn = renameBalancesSaveBtn;
+        if (btn) {
+            const originalText = btn.textContent;
+            btn.textContent = 'Saved';
+            setTimeout(()=>{ btn.textContent = originalText; }, 1400);
+        }
+    } catch (err) {
+        console.error('Failed to save renamed balances (stats page)', err);
+        alert('Failed to update labels.');
+    } finally {
+        closeRenameBalancesModal();
+    }
 }
 
 function containsProfanity(text) {
@@ -2118,16 +2222,30 @@ function initializeWhatIfScenario(userData, purchases) {
         return;
     }
     
-    // Show controls only if we have enough data
-    const filteredPurchases = purchases.filter(p => 
-        !p.balanceType || p.balanceType === selectedBalanceType
-    );
-    
-    if (filteredPurchases.length >= 3) {
+    // Show controls only if user has sufficient day coverage for this balance type
+    const filteredPurchases = purchases.filter(p => !p.balanceType || p.balanceType === selectedBalanceType);
+    const distinctDays = new Set(filteredPurchases.map(p => p.purchaseDate.toISOString().split('T')[0]));
+    const MIN_DAYS_REQUIRED = 3; // configurable threshold
+    if (distinctDays.size < MIN_DAYS_REQUIRED) {
+        // Expose container but mark disabled with explanatory helper
         whatIfControls.classList.remove('hidden');
-    } else {
-        return;
+        whatIfControls.classList.add('disabled');
+        if (whatIfToggle) {
+            whatIfToggle.disabled = true;
+            whatIfToggle.title = `Need at least ${MIN_DAYS_REQUIRED} separate logging days to use What-If`;
+        }
+        if (!whatIfControls.querySelector('.what-if-disabled-hint')) {
+            const hint = document.createElement('div');
+            hint.className = 'what-if-disabled-hint';
+            hint.style.cssText = 'margin-top:6px;font-size:0.75rem;color:var(--text-secondary);font-family:Nunito, sans-serif;';
+            hint.textContent = `Log on ${MIN_DAYS_REQUIRED - distinctDays.size} more day${(MIN_DAYS_REQUIRED - distinctDays.size)===1?'':'s'} to unlock What-If projections.`;
+            whatIfControls.appendChild(hint);
+        }
+        return; // stop further init
     }
+    // If we reach here, ensure enabled state
+    whatIfControls.classList.remove('hidden','disabled');
+    if (whatIfToggle) { whatIfToggle.disabled = false; whatIfToggle.title = ''; }
     
     // Get current balance
     const currentBalance = userData.balances?.[selectedBalanceType] || 0;
