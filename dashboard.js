@@ -38,6 +38,8 @@ let pressTimer = null;
 let userBalanceTypes = [];
 let cachedBalanceHTML = null;
 let lastBalanceSignature = '';
+// Rename balance modal elements
+let renameBalancesModal, renameBalancesForm, renameBalancesCloseBtn, renameBalancesSaveBtn, renameBalancesBtn;
 
 // --- Main App Initialization ---
 async function main() {
@@ -240,7 +242,7 @@ function renderBalanceCards(userData) {
     const signature = JSON.stringify({
         denison: !!isDenisonStudent,
         classYear: classYear || '',
-        balanceTypes: (balanceTypes || []).map(b => b.id).sort()
+        balanceTypes: (balanceTypes || []).map(b => ({ id: b.id, label: b.label || '' })).sort((a,b) => a.id.localeCompare(b.id))
     });
     if (signature === lastBalanceSignature && cachedBalanceHTML) {
         // Re-use cached markup (no flash)
@@ -260,37 +262,36 @@ function renderBalanceCards(userData) {
     let visibleBalanceTypes = [];
     
     if (isDenisonStudent) {
-        // For Denison students
+        // Use user-provided labels (from balanceTypes) but enforce which IDs are shown
+        const mapById = new Map((balanceTypes || []).map(b => [b.id, b]));
         if (classYear === 'Senior') {
-            // Seniors only see credits and dining
-            visibleBalanceTypes = [
-                { id: 'credits', label: 'Campus Credits', type: 'money' },
-                { id: 'dining', label: 'Dining Dollars', type: 'money' }
-            ];
+            visibleBalanceTypes = ['credits','dining'].map(id => mapById.get(id)).filter(Boolean);
         } else {
-            // Other years see all 4 standard types
-            visibleBalanceTypes = [
-                { id: 'credits', label: 'Campus Credits', type: 'money' },
-                { id: 'dining', label: 'Dining Dollars', type: 'money' },
-                { id: 'swipes', label: 'Meal Swipes', type: 'count', resetsWeekly: true, resetDay: 'Sunday' },
-                { id: 'bonus', label: 'Bonus Swipes', type: 'count', resetsWeekly: true, resetDay: 'Sunday' }
-            ];
+            visibleBalanceTypes = ['credits','dining','swipes','bonus'].map(id => mapById.get(id)).filter(Boolean);
+        }
+        // Fallback add missing defaults with standard labels if not present (edge case)
+        const ensure = (id,label,type,extra={}) => { if (!visibleBalanceTypes.some(bt=>bt.id===id)) visibleBalanceTypes.push({ id, label, type, ...extra }); };
+        if (classYear === 'Senior') {
+            ensure('credits','Campus Credits','money');
+            ensure('dining','Dining Dollars','money');
+        } else {
+            ensure('credits','Campus Credits','money');
+            ensure('dining','Dining Dollars','money');
+            ensure('swipes','Meal Swipes','count',{resetsWeekly:true, resetDay:'Sunday'});
+            ensure('bonus','Bonus Swipes','count',{resetsWeekly:true, resetDay:'Sunday'});
         }
     } else {
-        // For custom universities, use their balance types
-        visibleBalanceTypes = balanceTypes || [];
-        
-        // Remove any duplicate IDs (edge case protection)
-        const seenIds = new Set();
-        visibleBalanceTypes = visibleBalanceTypes.filter(bt => {
-            if (seenIds.has(bt.id)) {
-                console.warn('Duplicate balance type ID found:', bt.id);
-                return false;
-            }
-            seenIds.add(bt.id);
-            return true;
-        });
+        // For custom universities, use their balance types directly
+        visibleBalanceTypes = (balanceTypes || []).slice();
     }
+    // Remove duplicates by id
+    const seenIds = new Set();
+    visibleBalanceTypes = visibleBalanceTypes.filter(bt => {
+        if (!bt || !bt.id) return false;
+        if (seenIds.has(bt.id)) return false;
+        seenIds.add(bt.id);
+        return true;
+    });
     
     // Handle edge case: no balance types configured
     if (visibleBalanceTypes.length === 0) {
@@ -480,19 +481,13 @@ function populatePaymentDropdown(userData) {
     let availableTypes = [];
     
     if (isDenisonStudent) {
-        if (classYear === 'Senior') {
-            availableTypes = [
-                { id: 'credits', label: 'Campus Credits' },
-                { id: 'dining', label: 'Dining Dollars' }
-            ];
-        } else {
-            availableTypes = [
-                { id: 'credits', label: 'Campus Credits' },
-                { id: 'dining', label: 'Dining Dollars' },
-                { id: 'swipes', label: 'Meal Swipes' },
-                { id: 'bonus', label: 'Bonus Swipes' }
-            ];
-        }
+        const mapById = new Map((balanceTypes || []).map(b => [b.id, b]));
+        const order = classYear === 'Senior' ? ['credits','dining'] : ['credits','dining','swipes','bonus'];
+        availableTypes = order.map(id => mapById.get(id)).filter(Boolean);
+        // Fallbacks if missing
+        const fallback = (id,label) => { if(!availableTypes.some(t=>t.id===id)) availableTypes.push({ id, label }); };
+        if (classYear === 'Senior') { fallback('credits','Campus Credits'); fallback('dining','Dining Dollars'); }
+        else { fallback('credits','Campus Credits'); fallback('dining','Dining Dollars'); fallback('swipes','Meal Swipes'); fallback('bonus','Bonus Swipes'); }
     } else {
         availableTypes = balanceTypes || [];
     }
@@ -504,6 +499,85 @@ function populatePaymentDropdown(userData) {
         if (index === 0) option.selected = true;
         customPaymentType.appendChild(option);
     });
+}
+
+// --- Rename Balance Labels Feature ---
+function openRenameBalancesModal() {
+    if (!renameBalancesModal || !renameBalancesForm) return;
+    const container = renameBalancesForm.querySelector('.rename-balance-inputs');
+    if (!container) return;
+    container.innerHTML = '';
+    // Source types (saved types list)
+    const allTypes = (currentUserData?.balanceTypes || userBalanceTypes || []).slice();
+    // Determine visible IDs for Denison students
+    let allowedIds = null;
+    if (currentUserData?.isDenisonStudent) {
+        if (currentUserData.classYear === 'Senior') {
+            allowedIds = new Set(['credits','dining']);
+        } else {
+            allowedIds = new Set(['credits','dining','swipes','bonus']);
+        }
+    }
+    const filtered = allTypes.filter(t => t && t.id && (!allowedIds || allowedIds.has(t.id)));
+    // Order stable by id
+    filtered.sort((a,b)=>a.id.localeCompare(b.id));
+
+    // If nothing (edge case) fallback to full list
+    const finalList = filtered.length ? filtered : allTypes;
+
+    finalList.forEach(bt => {
+        if (!bt || !bt.id) return;
+        const row = document.createElement('div');
+        row.className = 'rename-balance-row';
+        row.innerHTML = `
+            <label class="rename-balance-label" for="rename-input-${bt.id}">${bt.id}</label>
+            <input id="rename-input-${bt.id}" type="text" data-balance-id="${bt.id}" value="${bt.label || ''}" maxlength="24" placeholder="${bt.id}" />
+        `;
+        container.appendChild(row);
+    });
+    renameBalancesModal.classList.remove('hidden');
+    renameBalancesModal.inert = false;
+}
+
+function closeRenameBalancesModal() {
+    if (!renameBalancesModal) return;
+    renameBalancesModal.classList.add('hidden');
+    renameBalancesModal.inert = true;
+}
+
+async function saveRenamedBalances() {
+    if (!renameBalancesForm) return;
+    const inputs = [...renameBalancesForm.querySelectorAll('input[data-balance-id]')];
+    if (!inputs.length) { closeRenameBalancesModal(); return; }
+    const original = (currentUserData?.balanceTypes || userBalanceTypes || []).slice();
+    let changed = false;
+    const updated = original.map(bt => {
+        const input = inputs.find(i => i.dataset.balanceId === bt.id);
+        if (!input) return bt;
+        const val = input.value.trim();
+        if (val && val !== bt.label) { changed = true; return { ...bt, label: val }; }
+        return bt;
+    });
+    if (!changed) { closeRenameBalancesModal(); return; }
+    try {
+        if (currentUser?.uid && currentUser.uid !== 'DEMO' && firebaseServices?.db) {
+            const { doc, updateDoc } = await fs();
+            const userDocRef = doc(firebaseServices.db, 'users', currentUser.uid);
+            await updateDoc(userDocRef, { balanceTypes: updated });
+        }
+        userBalanceTypes = updated;
+        if (currentUserData) currentUserData.balanceTypes = updated;
+        cachedBalanceHTML = null; // force fresh render with new labels
+        renderBalanceCards(currentUserData);
+        updateBalancesUI(currentUserData.balances);
+        populatePaymentDropdown(currentUserData);
+        showSuccessMessage('✓ Balance labels updated');
+    } catch (err) {
+        console.error('Failed to save renamed balances', err);
+        showSimpleAlert('Failed to update labels.');
+    } finally {
+        closeRenameBalancesModal();
+    }
 }
 
 function assignDOMElements() {
@@ -570,6 +644,15 @@ function assignDOMElements() {
     lazyLogTitle = document.getElementById('lazy-log-title');
     lazyLogSubtitle = document.getElementById('lazy-log-subtitle');
     eodUpdateBtn = document.getElementById('eod-update-btn');
+    // Rename balances modal
+    renameBalancesModal = document.getElementById('rename-balances-modal');
+    renameBalancesForm = document.getElementById('rename-balances-form');
+    // Two possible close buttons: main cancel and the X icon
+    renameBalancesCloseBtn = document.getElementById('rename-balances-close');
+    const renameBalancesCloseX = document.getElementById('rename-balances-close-x');
+    if (!renameBalancesCloseBtn && renameBalancesCloseX) renameBalancesCloseBtn = renameBalancesCloseX; // fallback so earlier code keeps working
+    renameBalancesSaveBtn = document.getElementById('rename-balances-save');
+    renameBalancesBtn = document.getElementById('rename-balances-btn');
 }
 
 function setupEventListeners() {
@@ -603,6 +686,16 @@ function setupEventListeners() {
     if (mapModalOverlay) mapModalOverlay.addEventListener('click', (e) => {
         if(e.target === mapModalOverlay) closeMapModal();
     });
+    // Rename balances controls
+    if (renameBalancesBtn && !renameBalancesBtn.dataset.bound) {
+        renameBalancesBtn.addEventListener('click', openRenameBalancesModal);
+        renameBalancesBtn.dataset.bound = '1';
+    }
+    if (renameBalancesCloseBtn && !renameBalancesCloseBtn.dataset.bound) { renameBalancesCloseBtn.addEventListener('click', closeRenameBalancesModal); renameBalancesCloseBtn.dataset.bound='1'; }
+    const renameBalancesCloseX2 = document.getElementById('rename-balances-close-x');
+    if (renameBalancesCloseX2 && !renameBalancesCloseX2.dataset.bound) { renameBalancesCloseX2.addEventListener('click', closeRenameBalancesModal); renameBalancesCloseX2.dataset.bound='1'; }
+    if (renameBalancesModal) renameBalancesModal.addEventListener('click', (e) => { if (e.target === renameBalancesModal) closeRenameBalancesModal(); });
+    if (renameBalancesSaveBtn) renameBalancesSaveBtn.addEventListener('click', saveRenamedBalances);
 
     // FAB Logic
     if (mainFab && fabContainer) {
@@ -632,14 +725,18 @@ function setupEventListeners() {
         customItemName.focus();
         const saveWidgetContainer = saveAsWidgetCheckbox.closest('.form-group-inline');
         if (saveWidgetContainer) {
-            const widgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
-            const snapshot = await getDocs(widgetsRef);
-            // Hide "also create" checkbox if max widgets are reached
-            if (snapshot.size >= 3) {
-                saveWidgetContainer.style.display = 'none';
-                saveAsWidgetCheckbox.checked = false;
-            } else {
-                saveWidgetContainer.style.display = 'flex';
+            try {
+                const { collection, getDocs } = await fs();
+                const widgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
+                const snapshot = await getDocs(widgetsRef);
+                if (snapshot.size >= 3) {
+                    saveWidgetContainer.style.display = 'none';
+                    saveAsWidgetCheckbox.checked = false;
+                } else {
+                    saveWidgetContainer.style.display = 'flex';
+                }
+            } catch(err) {
+                console.warn('[Favies] Could not check widget count:', err);
             }
         }
     });
@@ -683,8 +780,10 @@ function setupEventListeners() {
         lazyLogModal.classList.add('hidden');
     lazyLogModal.inert = true;
         if (lazyLogForm.dataset.isLazyLog === 'true') {
-            const userDocRef = doc(db, "users", currentUser.uid);
-            updateDoc(userDocRef, { lazyLogDismissedUntil: Timestamp.now() });
+            fs().then(({ doc, updateDoc, Timestamp }) => {
+                const userDocRef = doc(db, "users", currentUser.uid);
+                updateDoc(userDocRef, { lazyLogDismissedUntil: Timestamp.now() });
+            }).catch(()=>{});
         }
     });
     if (lazyLogModal) lazyLogModal.addEventListener('click', e => {
@@ -692,8 +791,10 @@ function setupEventListeners() {
              lazyLogModal.classList.add('hidden');
              lazyLogModal.inert = true;
              if (lazyLogForm.dataset.isLazyLog === 'true') {
-                const userDocRef = doc(db, "users", currentUser.uid);
-                updateDoc(userDocRef, { lazyLogDismissedUntil: Timestamp.now() });
+                fs().then(({ doc, updateDoc, Timestamp }) => {
+                    const userDocRef = doc(db, "users", currentUser.uid);
+                    updateDoc(userDocRef, { lazyLogDismissedUntil: Timestamp.now() });
+                }).catch(()=>{});
              }
         }
     });
@@ -741,6 +842,7 @@ async function deleteUserDataAndLogout() {
 }
 
 async function deleteSubcollection(db, collectionPath) {
+    const { collection, query, getDocs, deleteDoc } = await fs();
     const collectionRef = collection(db, collectionPath);
     const q = query(collectionRef);
     const snapshot = await getDocs(q);
@@ -758,6 +860,7 @@ async function deleteSubcollection(db, collectionPath) {
 // --- LAZY LOG & EOD ---
 async function checkAndPerformBalanceResets(userData) {
     const { balanceTypes, balances, lastResetDates = {}, isDenisonStudent, classYear } = userData;
+    const { doc, updateDoc } = await fs();
     // Get current time in EST (America/New_York)
     const now = new Date();
     const estNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
@@ -914,6 +1017,7 @@ async function saveLazyLogData(db, logDate) {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Updating...';
     lazyLogError.classList.add('hidden');
+    const { doc, getDoc, collection, Timestamp, writeBatch } = await fs();
 
     const inputs = lazyLogForm.querySelectorAll('.lazy-log-input');
     const newBalances = {};
@@ -1314,6 +1418,30 @@ async function saveProfile(db) {
     }
     const updateData = { bio: newBio };
     try {
+        // Ensure Firestore helpers are loaded (doc, updateDoc, getDoc, setDoc)
+        if (!db) {
+            try {
+                const services = await firebaseReady;
+                db = await services.db;
+            } catch (e) {
+                console.warn('[PROFILE] Firestore unavailable while saving profile');
+            }
+        }
+        let docRefFactory = null;
+        let updateDocFn = null;
+        let getDocFn = null;
+        let setDocFn = null;
+        if (db) {
+            try {
+                const { doc, updateDoc, getDoc, setDoc } = await fs();
+                docRefFactory = doc;
+                updateDocFn = updateDoc;
+                getDocFn = getDoc;
+                setDocFn = setDoc;
+            } catch (e) {
+                console.error('[PROFILE] Failed to load Firestore helpers:', e);
+            }
+        }
         if (selectedPfpFile) {
             // Lazy load storage module and service only when needed
             const storageModule = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js');
@@ -1326,20 +1454,24 @@ async function saveProfile(db) {
             await updateProfile(currentUser, { photoURL: downloadURL });
             updateAvatar(downloadURL, currentUser.displayName);
         }
-        const userDocRef = doc(db, "users", currentUser.uid);
-        await updateDoc(userDocRef, updateData);
-        currentUser.bio = newBio;
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists() && userDocSnap.data().showOnWallOfFame) {
-            const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
-            const { displayName, photoURL, currentStreak, longestStreak } = userDocSnap.data();
-            await setDoc(wallOfFameDocRef, { 
-                displayName, 
-                photoURL, 
-                currentStreak: currentStreak || 0,
-                longestStreak: longestStreak || 0,
-                bio: newBio 
-            }, { merge: true });
+        if (db && docRefFactory && updateDocFn && getDocFn && setDocFn) {
+            const userDocRef = docRefFactory(db, "users", currentUser.uid);
+            await updateDocFn(userDocRef, updateData);
+            currentUser.bio = newBio;
+            const userDocSnap = await getDocFn(userDocRef);
+            if (userDocSnap.exists() && userDocSnap.data().showOnWallOfFame) {
+                const wallOfFameDocRef = docRefFactory(db, "wallOfFame", currentUser.uid);
+                const { displayName, photoURL, currentStreak, longestStreak } = userDocSnap.data();
+                await setDocFn(wallOfFameDocRef, { 
+                    displayName, 
+                    photoURL, 
+                    currentStreak: currentStreak || 0,
+                    longestStreak: longestStreak || 0,
+                    bio: newBio 
+                }, { merge: true });
+            }
+        } else {
+            console.warn('[PROFILE] Skipped Firestore profile update (db unavailable).');
         }
         closeModal();
     } catch (error) {
@@ -1355,6 +1487,7 @@ async function saveProfile(db) {
 async function checkAndCreateFrequentWidget(db, itemName, itemPrice, storeName) {
     if (!currentUser) return false;
     try {
+    const { collection, getDocs, addDoc, Timestamp } = await fs();
         const widgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
         const widgetsSnapshot = await getDocs(widgetsRef);
         if (widgetsSnapshot.size >= 3) return false;
@@ -1408,18 +1541,31 @@ async function populateLocationsDropdown(db) {
     customItemStore.innerHTML = '<option>Loading...</option>';
     
     try {
+    const { collection, query, orderBy, getDocs } = await fs();
         const storesRef = collection(db, "users", currentUser.uid, "customStores");
         const q = query(storesRef, orderBy("name"));
         const querySnapshot = await getDocs(q);
 
         customItemStore.innerHTML = '';
 
-        // Add Denison-specific stores only if the user is a Denison student
+        // Add Denison-specific campus locations if the user is a Denison student
         if (currentUserData && currentUserData.isDenisonStudent) {
-            const rossOption = document.createElement('option');
-            rossOption.value = "Ross Granville Market";
-            rossOption.textContent = "Ross Granville Market";
-            customItemStore.appendChild(rossOption);
+            const denisonLocations = [
+                'Ross Granville Market',
+                'Dragon Village',      // china-garden / DV_price.json
+                'Three Tigers',        // three-tigers / TTigers_price.json
+                'Harvest Pizza',       // harvest-pizza / harvest_price.json
+                "Pocho's",            // pochos / pochos_price.json
+                'Granville Pub',       // granville-pub / pub_price.json
+                'The Station',         // the-station / station_price.json
+                "Whitt's"             // whitts / whitts_price.json
+            ];
+            denisonLocations.forEach(loc => {
+                const opt = document.createElement('option');
+                opt.value = loc;
+                opt.textContent = loc;
+                customItemStore.appendChild(opt);
+            });
         }
 
         querySnapshot.forEach(doc => {
@@ -1443,6 +1589,7 @@ async function populateLocationsDropdown(db) {
 
 async function createWidgetOnly(db) {
     if (!currentUser) return;
+    const { collection, getDocs, query, where, addDoc, Timestamp } = await fs();
     
     const itemName = customItemName.value.trim();
     const itemPrice = parseFloat(customItemPrice.value);
@@ -1501,6 +1648,7 @@ async function createWidgetOnly(db) {
 
 async function logCustomPurchase(db) {
     if (!currentUser) return;
+    const { doc, getDoc, collection, addDoc, Timestamp, updateDoc, query, where, getDocs, setDoc } = await fs();
 
     const itemName = customItemName.value.trim();
     const itemPrice = parseFloat(customItemPrice.value);
@@ -1658,6 +1806,7 @@ function updateShelfWidth() {
 
 async function renderQuickLogWidgets(db) {
     if (!currentUser || !quickLogWidgetsContainer) return;
+    const { collection, query, orderBy, getDocs, deleteDoc } = await fs();
 
     const widgetsRef = collection(db, "users", currentUser.uid, "quickLogWidgets");
     const q = query(widgetsRef, orderBy("createdAt", "desc"));
@@ -1766,6 +1915,7 @@ function toggleDeleteMode(enable) {
 
 async function logFromWidget(db, widgetData, buttonEl) {
     if (!currentUser) return;
+    const { doc, getDoc, collection, addDoc, updateDoc, setDoc, Timestamp } = await fs();
 
     const { itemName, itemPrice, currency = 'dollars', balanceType = 'credits' } = widgetData;
 
@@ -1934,7 +2084,11 @@ async function fetchAndRenderLeaderboard(db) {
 
 async function handlePublicToggle(e, db) {
     if (!currentUser) return;
+    const { doc, updateDoc, getDoc, setDoc, deleteDoc } = await fs();
     const isChecked = e.target.checked;
+    const checkboxEl = e.target;
+    const previous = !isChecked; // previous state before user click
+    checkboxEl.disabled = true;
     const userDocRef = doc(db, "users", currentUser.uid);
     const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
 
@@ -1951,13 +2105,20 @@ async function handlePublicToggle(e, db) {
                     currentStreak: currentStreak || 0,
                     longestStreak: longestStreak || 0,
                     bio: bio || ""
-                });
+                }, { merge: true });
             }
         } else {
             await deleteDoc(wallOfFameDocRef);
         }
+        showSuccessMessage(isChecked ? '✓ Added to Top Grind' : 'Removed from Top Grind');
     } catch (error) {
         console.error("Error updating Top of the Grind status:", error);
+        // Revert UI state on failure
+        checkboxEl.checked = previous;
+        showQuickLogError('Update failed. Try again.');
+    }
+    finally {
+        checkboxEl.disabled = false;
     }
 }
 

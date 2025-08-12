@@ -1423,6 +1423,62 @@ body {
     box-shadow: inset 0 1px 1px rgba(0,0,0,0.2);
 }
 
+/* --- Rename Balance Labels Modal Styles --- */
+#rename-balances-modal .pfp-modal {
+    text-align: left;
+    padding: 2rem 2rem 1.75rem;
+    background: var(--bg-primary);
+    border: 2px solid var(--wood-dark);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35), inset 0 -4px 12px rgba(0,0,0,0.15);
+}
+#rename-balances-modal h2 {
+    font-family: 'Patrick Hand', cursive;
+    font-size: 2rem;
+    letter-spacing: .5px;
+    text-align: center;
+    margin-bottom: .35rem;
+}
+#rename-balances-modal p { font-family: 'Nunito', sans-serif; font-size: .8rem; opacity: .85; }
+
+.rename-balance-inputs { scrollbar-width: thin; scrollbar-color: var(--wood-dark) var(--bg-secondary); }
+.rename-balance-inputs::-webkit-scrollbar { width: 10px; }
+.rename-balance-inputs::-webkit-scrollbar-track { background: var(--bg-secondary); border-radius: 12px; }
+.rename-balance-inputs::-webkit-scrollbar-thumb { background: var(--wood-dark); border-radius: 12px; border: 2px solid var(--bg-secondary); }
+.rename-balance-inputs::-webkit-scrollbar-thumb:hover { background: var(--brand-primary); }
+
+.rename-balance-row { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 0.65rem; }
+.rename-balance-label { font-size: 0.55rem; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase; opacity: 0.7; font-family: 'Nunito', sans-serif; background: var(--bg-secondary); padding: 0.4rem 0.55rem; border-radius: 8px; border: 1px solid var(--wood-dark); text-align: center; }
+.rename-balance-row input {
+    background: var(--bg-secondary);
+    border: 2px solid var(--wood-dark);
+    padding: 0.65rem 0.85rem;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-family: 'Nunito', sans-serif;
+    color: var(--text-primary);
+    font-weight: 700;
+    transition: border-color .25s, background .25s, transform .15s, box-shadow .25s;
+    border-bottom: 5px solid var(--wood-dark);
+    box-shadow: inset 0 -2px 1px rgba(0,0,0,0.15);
+}
+.rename-balance-row input:focus {
+    outline: none;
+    background-color: #fff;
+    border-color: var(--brand-primary);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.08), 0 0 0 3px rgba(76, 175, 80, 0.35);
+    border-bottom-width: 5px;
+}
+.rename-balance-row input:hover { border-color: var(--brand-primary); }
+.rename-balance-row input:active { transform: translateY(2px); border-bottom-width: 2px; }
+
+#rename-balances-modal .pfp-button { font-size: 0.85rem; }
+#rename-balances-save { position: relative; }
+
+@media (max-width: 520px) {
+  .rename-balance-row { grid-template-columns: 1fr; }
+  .rename-balance-label { justify-self: flex-start; }
+}
+
 .delete-account-btn {
     width: 100%;
     padding: 0.6rem 1rem;

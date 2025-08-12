@@ -1833,7 +1833,8 @@ async function main() {
             // For subscriptions, always use credits for Denison students
             const paymentBalance = 'credits';
             if (totalCost > (userBalances[paymentBalance] || 0)) {
-                showSimpleAlert("Not enough Campus Credits!");
+                const creditsLabel = (userProfile.balanceTypes || []).find(bt => bt.id === 'credits')?.label || 'Campus Credits';
+                showSimpleAlert(`Not enough ${creditsLabel}!`);
                 return;
             }
 
