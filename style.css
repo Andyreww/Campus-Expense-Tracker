@@ -259,7 +259,7 @@ h1, h2, h3, h4, h5, h6 {
     background-color: rgba(0,0,0,0.2);
 }
 .scrolled-menu-panel {
-    position: absolute; top: calc(100% + 10px); right: 0; width: 200px;
+    position: absolute; top: calc(100% + 10px); right: 0; width: 240px;
     background-color: var(--wood-light);
     backdrop-filter: none;
     border: 1px solid var(--wood-dark);
@@ -283,6 +283,27 @@ h1, h2, h3, h4, h5, h6 {
 }
 #scrolled-cta-button { 
     text-align: center; margin-top: 0.5rem; 
+}
+
+/* Signed-in row in the scrolled dropdown */
+.scrolled-user-info {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.5rem 0.75rem; margin-top: 0.25rem;
+    border-top: 1px solid var(--wood-dark);
+}
+.scrolled-user-info img {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 1px solid var(--wood-dark); flex: 0 0 auto;
+}
+.scrolled-user-info span {
+    color: var(--bg-primary); font-weight: 700; font-size: 0.95rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto;
+}
+
+/* Make dashboard button look intentional inside the panel */
+.scrolled-menu-panel #scrolled-dashboard-link.desktop-cta-button {
+    display: block; width: 100%; text-align: center; margin: 0.35rem 0 0.1rem;
+    padding: 0.6rem 0.9rem; border-radius: 0.5rem;
 }
 
 /* Unscrolled Mobile Menu Panel */
@@ -417,6 +438,13 @@ h1, h2, h3, h4, h5, h6 {
     text-shadow: none;
     position: relative; 
     white-space: nowrap; 
+}
+
+/* Desktop-only micro-adjustment to visually center the second line */
+@media (min-width: 1024px) {
+    .hero-headline .highlight-text {
+        left: -15px; /* subtle nudge to align optical center */
+    }
 }
 
 .sub-heading {
@@ -826,14 +854,14 @@ section {
     width: 100%;
     max-width: 350px;
     aspect-ratio: 16 / 9;
-    background: var(--bg-secondary);
+    background: #000; /* neutral video placeholder instead of beige */
     border: 2px solid #5c4240;
     border-radius: 1rem;
     flex-shrink: 0;
     overflow: hidden;
     position: relative;
     box-shadow: 0 5px 15px rgba(0,0,0, 0.2);
-    cursor: pointer;
+    cursor: pointer; /* click to play/pause */
 }
 .step-video {
     width: 100%;
@@ -842,6 +870,32 @@ section {
     display: block;
     border-radius: inherit;
 }
+
+/* Subtle corner play indicator that doesn’t cover content */
+.step-visual::after {
+    content: '▶';
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.85);
+    color: #333;
+    font-size: 14px;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    opacity: 1;
+    transition: opacity 0.2s ease;
+    pointer-events: none; /* not clickable; video area handles click */
+}
+.step-visual.is-playing::after {
+    opacity: 0; /* hide indicator while playing */
+}
+
+/* Video controls placed below the video, not overlaying it */
+/* Removed below-video controls; using a small corner glyph instead */
 
 @media (min-width: 768px) {
     .cafe-sign-board .step-item {
@@ -862,6 +916,50 @@ section {
     .step-visual {
         width: 50%;
         max-width: none;
+    }
+}
+
+/* Reduce scrolling on desktop: 2-column steps grid and tighter spacing */
+@media (min-width: 1024px) {
+    .how-it-works-section .container {
+        padding-top: 4rem;
+        padding-bottom: 4rem;
+    }
+    .cafe-sign-board .steps-container {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2rem 2rem;
+    align-items: stretch; /* allow items to stretch to track size */
+    grid-auto-rows: 1fr; /* equal-height rows */
+    }
+    .cafe-sign-board .step-item {
+        /* Override 768px row layout for a compact card style */
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        margin-bottom: 0; /* rely on grid gap */
+        gap: 1rem;
+        height: 100%; /* fill the grid track height */
+    }
+    /* Explicitly reset even items that were row-reversed at 768px */
+    .cafe-sign-board .step-item:nth-child(even) {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .cafe-sign-board .step-text-content {
+        text-align: left;
+        width: 100%;
+        max-width: none;
+        flex: 1 1 auto; /* grow to fill remaining height */
+    }
+    .cafe-sign-board .step-item:nth-child(even) .step-text-content {
+        text-align: left; /* normalize alignment in grid */
+    }
+    .step-visual {
+        width: 100%;
+        max-width: 420px;
+        align-self: stretch;
+        margin-top: auto; /* pin video to bottom for consistent bottoms */
     }
 }
 
@@ -914,6 +1012,17 @@ section {
     gap: 1.5rem;
     /* Add padding to ensure pins are visible */
     padding-top: 0.75rem;
+}
+
+/* Utilize desktop space: widen board and switch FAQ to two columns */
+@media (min-width: 1024px) {
+    .faq-board {
+        max-width: 1100px;
+    }
+    .faq-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+    }
 }
 
 .faq-item {

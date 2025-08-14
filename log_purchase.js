@@ -1724,10 +1724,12 @@ async function main() {
                 });
         
                 let updateData = {};
+                let streakUpdate = null; // carry streak values for wallOfFame replication
                 updateData[`balances.${selectedPaymentBalance}`] = currentBalance - totalCost;
                 
-                // Only update streak for Ross Market purchases by Denison students
-                if (currentStoreId === 'ross' && isDenisonStudent) {
+                // Update streak for Denison students when logging at Ross or any campus restaurant
+                const isCampusRestaurant = CAMPUS_RESTAURANTS.some(r => r.id === currentStoreId);
+                if (isDenisonStudent && (currentStoreId === 'ross' || isCampusRestaurant)) {
                     const { currentStreak = 0, longestStreak = 0, lastLogDate = null } = userProfile;
                     const today = new Date(); 
                     today.setHours(0, 0, 0, 0);
@@ -1742,12 +1744,30 @@ async function main() {
                         newCurrentStreak = 1;
                     }
                     updateData.currentStreak = newCurrentStreak;
-                    updateData.longestStreak = Math.max(longestStreak, newCurrentStreak);
+                    const newLongest = Math.max(longestStreak, newCurrentStreak);
+                    updateData.longestStreak = newLongest;
                     updateData.lastLogDate = Timestamp.now();
+                    streakUpdate = { current: newCurrentStreak, longest: newLongest };
                 }
+                // Preserve any EOD half-credit and raise score when streak surpasses it
+                const existingScore = (typeof userProfile.leaderboardScore === 'number') ? userProfile.leaderboardScore : (userProfile.currentStreak || 0);
+                const newLeaderboardScore = streakUpdate ? Math.max(existingScore, streakUpdate.current) : existingScore;
+                updateData.leaderboardScore = newLeaderboardScore;
                 
                 walletToAnimate = selectedPaymentBalance;
                 await updateDoc(userDocRef, updateData);
+                // If opted into public leaderboard, replicate latest streak data
+                if (streakUpdate && userProfile.showOnWallOfFame) {
+                    const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
+                    await setDoc(wallOfFameDocRef, {
+                        displayName: currentUser.displayName || "Anonymous",
+                        photoURL: currentUser.photoURL || "",
+                        currentStreak: streakUpdate.current,
+                        longestStreak: streakUpdate.longest,
+                        leaderboardScore: newLeaderboardScore,
+                        bio: userProfile.bio || ""
+                    }, { merge: true });
+                }
                 await checkAndCreateFrequentWidget(db, storeName);
                 
                 cart = [];
