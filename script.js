@@ -135,9 +135,13 @@ function setupOptimizedScroll(elements) {
     const updateScroll = () => {
         const scrollY = window.scrollY;
         
-        // Batch DOM reads/writes
-        if (elements.header && Math.abs(scrollY - lastScrollY) > 5) {
-            elements.header.classList.toggle('header-scrolled', scrollY > 50);
+        // Always re-evaluate header state to avoid sticky state on slow scroll
+        if (elements.header) {
+            const isScrolled = scrollY > 50; // threshold remains the same visually
+            const currently = elements.header.classList.contains('header-scrolled');
+            if (currently !== isScrolled) {
+                elements.header.classList.toggle('header-scrolled', isScrolled);
+            }
         }
         
         const toTopWrapper = document.getElementById('back-to-top-wrapper');
@@ -250,12 +254,44 @@ function updateScrolledMenu(user) {
         if (scrolledCtaButton) scrolledCtaButton.style.display = 'block';
     }
     
-    // Setup scrolled menu trigger
-    if (scrolledMenuTrigger) {
+    // Setup scrolled menu trigger (guard against duplicate binds)
+    if (scrolledMenuTrigger && !scrolledMenuTrigger.dataset.bound) {
+        scrolledMenuTrigger.dataset.bound = '1';
         scrolledMenuTrigger.addEventListener('click', (e) => {
             e.stopPropagation();
             scrolledMenuPanel?.classList.toggle('is-open');
             scrolledMenuTrigger.classList.toggle('is-open');
+        });
+    }
+
+    // Close scrolled panel when clicking any link inside it
+    if (scrolledMenuPanel && !scrolledMenuPanel.dataset.linkbound) {
+        scrolledMenuPanel.dataset.linkbound = '1';
+        scrolledMenuPanel.addEventListener('click', (e) => {
+            const link = e.target.closest('a');
+            if (link) {
+                scrolledMenuPanel.classList.remove('is-open');
+                if (scrolledMenuTrigger) scrolledMenuTrigger.classList.remove('is-open');
+            }
+        });
+    }
+
+    // Global click-away and Escape to close when open (bind once)
+    if (scrolledMenuPanel && !document.documentElement.dataset.scrolledMenuDismissBound) {
+        document.documentElement.dataset.scrolledMenuDismissBound = '1';
+        document.addEventListener('click', (e) => {
+            if (!scrolledMenuPanel.classList.contains('is-open')) return;
+            const target = e.target;
+            if (scrolledMenuPanel.contains(target)) return;
+            if (scrolledMenuTrigger && scrolledMenuTrigger.contains(target)) return;
+            scrolledMenuPanel.classList.remove('is-open');
+            if (scrolledMenuTrigger) scrolledMenuTrigger.classList.remove('is-open');
+        }, true);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && scrolledMenuPanel.classList.contains('is-open')) {
+                scrolledMenuPanel.classList.remove('is-open');
+                if (scrolledMenuTrigger) scrolledMenuTrigger.classList.remove('is-open');
+            }
         });
     }
 }
@@ -293,7 +329,8 @@ async function setupWallOfFame() {
         }
         
         const wallOfFameRef = collection(db, "wallOfFame");
-        const q = query(wallOfFameRef, orderBy("currentStreak", "desc"), limit(5));
+    // Prefer leaderboardScore (may include half-day boosts), fallback to currentStreak
+    const q = query(wallOfFameRef, orderBy("leaderboardScore", "desc"), limit(5));
         const querySnapshot = await getDocs(q);
         
         if (querySnapshot.empty) {
@@ -315,10 +352,12 @@ async function setupWallOfFame() {
             const svgAvatar = `<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg"><rect width="64" height="64" rx="32" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito" font-size="32" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
             const avatarSrc = user.photoURL || `data:image/svg+xml;base64,${btoa(svgAvatar)}`;
             
+            const score = (typeof user.leaderboardScore === 'number') ? user.leaderboardScore : (user.currentStreak || 0);
+            const scoreLabel = Number.isInteger(score) ? `${score}` : `${score}`; // allow 0.5 to show
             card.innerHTML = `
                 <img src="${avatarSrc}" alt="${displayName}" class="fame-avatar" loading="lazy">
                 <span class="fame-name">${displayName}</span>
-                <span class="fame-streak">🔥 ${user.currentStreak || 0}-day streak</span>
+                <span class="fame-streak">🔥 ${scoreLabel}-day streak</span>
             `;
             wallOfFameList.appendChild(card);
         });
@@ -358,54 +397,33 @@ function setupVideoHandlers() {
     
     if (!stepItems.length) return;
     
-    if (isMobile) {
-        // Mobile: Click to play with lightweight overlays
-        stepItems.forEach(item => {
-            const video = item.querySelector('.step-video');
-            const container = item.querySelector('.step-visual');
-            if (!video || !container) return;
-            
-            // Prevent autoplay
-            video.removeAttribute('autoplay');
-            video.pause();
-            
-            // Create lightweight play button
-            const playBtn = document.createElement('div');
-            playBtn.style.cssText = `
-                position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                width: 60px; height: 60px; background: rgba(255,255,255,0.9);
-                border-radius: 50%; display: flex; align-items: center;
-                justify-content: center; cursor: pointer; font-size: 24px;
-                z-index: 1;
-            `;
-            playBtn.innerHTML = '▶';
-            
-            container.style.position = 'relative';
-            container.appendChild(playBtn);
-            
-            playBtn.addEventListener('click', () => {
-                playBtn.remove();
-                video.play();
-                video.setAttribute('loop', '');
-            }, { once: true });
-        });
-    } else {
-        // Desktop: Intersection Observer for autoplay
-        const videoObserver = new IntersectionObserver((entries, observer) => {
-            entries.forEach(entry => {
-                const video = entry.target.querySelector('.step-video');
-                if (!video) return;
-                
-                if (entry.isIntersecting) {
-                    video.play().catch(() => {});
+    // Unified: Click-to-play on both mobile and desktop, no autoplay
+    stepItems.forEach(item => {
+        const video = item.querySelector('.step-video');
+        const container = item.querySelector('.step-visual');
+        if (!video || !container) return;
+
+        // Ensure paused initially
+        video.removeAttribute('autoplay');
+        video.pause();
+        container.classList.toggle('is-playing', !video.paused);
+
+        const toggle = async () => {
+            try {
+                if (video.paused) {
+                    await video.play();
                 } else {
                     video.pause();
                 }
-            });
-        }, { threshold: 0.5 });
-        
-        stepItems.forEach(item => videoObserver.observe(item));
-    }
+            } catch (_) {}
+            container.classList.toggle('is-playing', !video.paused);
+        };
+
+        container.addEventListener('click', toggle);
+        video.addEventListener('ended', () => {
+            container.classList.remove('is-playing');
+        });
+    });
 }
 
 // Initialize only critical stuff immediately
@@ -419,6 +437,16 @@ syncHeaderScrolled(elements);
 document.addEventListener('DOMContentLoaded', () => {
     // These animations are lightweight and can start immediately
     setupLazyAnimations();
+
+    // Ensure videos render a frame without autoplay
+    document.querySelectorAll('.step-video').forEach(v => {
+        try {
+            v.removeAttribute('autoplay');
+            v.pause();
+            // load metadata and first frame
+            v.load();
+        } catch (_) {}
+    });
 
     // Defer auth setup strictly to explicit user interaction (no idle/scroll)
     let authStarted = false;

@@ -44,7 +44,12 @@ exports.handler = async function(event, context) {
                     } else {
                         resolve({
                             statusCode: 200,
-                            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Access-Control-Allow-Origin': '*',
+                                // 10 minutes cache with SWR to reduce API hits; Netlify/edge/CDN may honor this
+                                'Cache-Control': 'public, max-age=0, s-maxage=600, stale-while-revalidate=300'
+                            },
                             body: JSON.stringify(weatherData),
                         });
                     }

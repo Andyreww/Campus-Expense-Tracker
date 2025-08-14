@@ -43,6 +43,7 @@
 
 html {
     background-color: var(--wood-light); /* QUICK FIX: Prevents white flash on load */
+    height: 100%; /* Ensure body 100% min-height can reference viewport */
 }
 
 html, body {
@@ -59,6 +60,10 @@ body {
     color: var(--text-primary);
     margin: 0;
     min-width: 320px;
+    /* Ensure the patterned background fills the viewport even when content is short */
+    min-height: 100vh;
+    /* On modern mobile browsers, svh/dvh handle dynamic toolbars better */
+    min-height: 100svh;
 }
 
 /* ========================================
@@ -84,10 +89,14 @@ body {
     padding: 1.5rem 1rem 8rem 1rem;
     max-width: 1200px;
     margin: 0 auto;
+    /* Ensure the container fills the viewport height minus the fixed bottom nav */
+    min-height: calc(100svh - 60px);
 }
 #main-content-wrapper {
     width: 100%;
     overflow: visible;
+    /* Prevent overlap with the fixed bottom nav and floating UI */
+    padding-bottom: 90px; /* 60px nav + ~30px cushion for FAB/public pill */
 }
 .main-section { display: none; }
 .main-section.active {
@@ -730,6 +739,118 @@ body {
 .leaderboard-item:last-child { border-bottom: none; }
 .leaderboard-item.current-user { background-color: rgba(76, 175, 80, 0.15); padding: 0.5rem; box-shadow: inset 0 0 0 2px rgba(76, 175, 80, 0.3); }
 
+/* Top #1 flair */
+.leaderboard-item.top-one {
+    position: relative;
+    overflow: hidden; /* ensure effects stay inside border */
+    border: 2px solid rgba(212, 175, 55, 0.6); /* softer gold */
+    border-left-width: 10px;
+    /* 3D button: give it a bottom edge like pfp save button */
+    border-bottom-width: 8px;
+    border-bottom-color: rgba(140, 105, 15, 0.42);
+    background:
+    /* top highlight film */
+    linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 28%, rgba(0,0,0,0) 70%),
+        linear-gradient(90deg, rgba(212, 175, 55, 0.10), rgba(212, 175, 55, 0.04) 40%, transparent 70%),
+        linear-gradient(to right, rgba(76, 175, 80, 0.06), transparent);
+    box-shadow:
+    0 10px 16px rgba(212, 175, 55, 0.10),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-bottom-width 0.15s ease, background-color 0.15s ease;
+    cursor: pointer;
+}
+
+.leaderboard-item.top-one::before {
+    /* animated sheen sweep, clipped inside borders */
+    content: '';
+    position: absolute;
+    top: 6px; bottom: 6px; left: 12px; width: 18%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
+    transform: skewX(-20deg);
+    animation: lb-sheen 3.6s ease-in-out infinite alternate; /* L->R then R->L */
+    pointer-events: none;
+}
+
+/* remove rank-side crown (we place the crown on the avatar) */
+.leaderboard-item.top-one::after { content: none; }
+
+.leaderboard-item.top-one .leaderboard-avatar {
+    border: 2px solid rgba(212, 175, 55, 0.8);
+    border-radius: 50%;
+    box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.13), 0 6px 18px rgba(212, 175, 55, 0.22);
+    animation: lb-pulse 2.4s ease-in-out infinite;
+}
+
+.leaderboard-item.top-one .leaderboard-name::after {
+    content: ' • Bellionaire ';
+    color: #8a6d1a; /* toned-down amber */
+    font-weight: 800;
+    letter-spacing: 0.2px;
+}
+
+@keyframes lb-sheen {
+    0% { left: 12px; }
+    100% { left: calc(100% - 12px - 18%); }
+}
+
+/* Crown on top of the avatar for #1 */
+.leaderboard-item.top-one .avatar-wrap {
+    position: relative;
+    display: inline-block;
+}
+.leaderboard-item.top-one .avatar-wrap::after {
+    content: '👑';
+    position: absolute;
+    top: -12px;
+    left: 18px; /* sits over the avatar slightly to the right */
+    font-size: 18px;
+    transform: rotate(-10deg);
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.25));
+    pointer-events: none;
+}
+
+@keyframes lb-pulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.12), 0 6px 18px rgba(212, 175, 55, 0.20); }
+    50% { box-shadow: 0 0 0 6px rgba(212, 175, 55, 0.20), 0 10px 24px rgba(212, 175, 55, 0.28); }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    .leaderboard-item.top-one::before,
+    .leaderboard-item.top-one .leaderboard-avatar {
+        animation: none !important;
+    }
+}
+
+.leaderboard-item.top-one:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        0 14px 26px rgba(212, 175, 55, 0.16),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    /* deepen bottom edge like pfp save button */
+    border-bottom-width: 12px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.08) 28%, rgba(0,0,0,0) 70%),
+        linear-gradient(90deg, rgba(212, 175, 55, 0.12), rgba(212, 175, 55, 0.06) 40%, transparent 70%),
+        linear-gradient(to right, rgba(76, 175, 80, 0.08), transparent);
+}
+
+.leaderboard-item.top-one:active {
+    transform: translateY(1px);
+    box-shadow:
+        0 8px 16px rgba(212, 175, 55, 0.12),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    /* pressed edge like pfp button */
+    border-bottom-width: 4px;
+}
+
+/* keyboard focus parity with buttons */
+.leaderboard-item.top-one:focus-visible {
+    outline: 3px solid rgba(212, 175, 55, 0.55);
+    outline-offset: 2px;
+}
+
 .leaderboard-avatar {
     width: 48px;
     height: 48px;
@@ -763,7 +884,31 @@ body {
     background: #d32f2f; color: white; padding: 0.5rem 2rem; transform: rotate(-5deg);
     font-size: 0.9rem; font-weight: bold; box-shadow: 0 2px 10px rgba(0,0,0,0.3); letter-spacing: 1px;
 }
-.section-headline { font-size: 1.8rem; font-weight: 700; text-align: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--text-primary); text-transform: uppercase; }
+.section-headline { font-size: 1.8rem; font-weight: 700; text-align: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--text-primary); text-transform: uppercase; position: relative; overflow: visible; }
+.section-headline .streak-info-btn { margin-left: 8px; vertical-align: middle; position: relative; top: -2px; }
+.streak-info { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 999px; font-weight: 800; font-size: 0.9rem; padding: 0; line-height: 1; position: relative; }
+.streak-info.pfp-button { 
+    /* Override green save-button palette with newspaper tones */
+    background: linear-gradient(180deg, #f5f1e8 0%, #e9e1d2 100%);
+    color: var(--text-primary);
+    border-color: #cdbf9f; /* softer edge color */
+}
+.streak-info.pfp-button:hover { 
+    background: linear-gradient(180deg, #fffaf0 0%, #efe6d6 100%);
+}
+.streak-info.pfp-button:active { 
+    background: linear-gradient(180deg, #e9e1d2 0%, #d8ccb6 100%);
+}
+.streak-info::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); background: #2b2b2b; color: #fff; font-weight: 600; font-size: 0.8rem; line-height: 1.35; padding: 10px 12px; border-radius: 8px; min-width: 220px; max-width: 320px; width: auto; white-space: normal; overflow-wrap: break-word; word-break: normal; hyphens: auto; box-shadow: 0 6px 18px rgba(0,0,0,0.35); opacity: 0; pointer-events: none; transition: opacity 0.15s ease, transform 0.15s ease; text-align: left; z-index: 999; }
+.streak-info:hover::after, .streak-info:focus::after { opacity: 1; transform: translateX(-50%) translateY(-2px); }
+
+@media (max-width: 480px) {
+        .streak-info::after { max-width: calc(100vw - 32px); min-width: min(220px, calc(100vw - 32px)); left: 50%; transform: translateX(-50%); white-space: normal; overflow-wrap: break-word; }
+    /* Prevent clipping by parents and ensure it layers above */
+    .section-headline { overflow: visible; z-index: 1; }
+    .streak-info { position: relative; z-index: 2; }
+    .section-headline .streak-info-btn { top: -1px; }
+}
 .newspaper-columns { margin-top: 2rem; }
 
 /* ========================================
@@ -1367,9 +1512,38 @@ body {
 .error-message { color: #c0392b; font-weight: 500; margin-top: 1rem; min-height: 1.2em; }
 .map-modal { background-color: var(--bg-primary); border-radius: 1rem; padding: 0; width: 90%; max-width: 800px; height: 600px; position: relative; overflow: hidden; }
 #map-render-target { width: 100%; height: 100%; border-radius: 1rem; }
-.public-leaderboard-container { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); z-index: 100; width: auto; max-width: calc(100% - 90px); border-radius: 50px; padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem; background-color: var(--wood-dark); border: 2px solid var(--wood-light); box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: opacity 0.3s ease, transform 0.3s ease; }
+.public-leaderboard-container { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); z-index: 100; width: auto; max-width: calc(100% - 90px); border-radius: 999px; padding: 6px 10px; display: flex; align-items: center; gap: 8px; background-color: var(--wood-dark); border: 2px solid var(--wood-light); box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: opacity 0.3s ease, transform 0.3s ease; }
 .public-leaderboard-container.hidden { opacity: 0; transform: translate(-50%, 20px); pointer-events: none; }
-.public-leaderboard-container span { font-weight: 700; color: var(--bg-secondary); font-size: 0.9rem; white-space: nowrap; font-family: 'Nunito', sans-serif; }
+.public-leaderboard-container span { font-weight: 700; color: var(--bg-secondary); font-size: 0.9rem; white-space: nowrap; font-family: 'Nunito', sans-serif; line-height: 1; display: inline-flex; align-items: center; gap: 6px; max-width: none; }
+
+/* Compact helper text inside pill */
+.public-leaderboard-container small { display: none !important; }
+.public-leaderboard-label { color: var(--bg-secondary); }
+.info-dot { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--wood-light); background: rgba(255,255,255,0.12); color: var(--bg-secondary); font-weight: 800; font-size: 0.75rem; line-height: 16px; text-align: center; cursor: help; position: relative; padding: 0; }
+.info-dot:hover { background: rgba(255,255,255,0.18); }
+.info-dot:focus-visible { outline: 2px solid var(--brand-secondary); outline-offset: 2px; }
+.info-dot::after { content: attr(data-tip); position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); background: #2b2b2b; color: #fff; font-weight: 600; font-size: 0.75rem; line-height: 1.25; padding: 8px 10px; border-radius: 8px; display: block; min-width: 200px; max-width: 260px; width: auto; white-space: normal; overflow-wrap: break-word; word-break: normal; hyphens: auto; text-align: left; box-shadow: 0 6px 18px rgba(0,0,0,0.35); opacity: 0; pointer-events: none; transition: opacity 0.15s ease, transform 0.15s ease; z-index: 1000; }
+.info-dot:hover::after, .info-dot:focus::after { opacity: 1; transform: translateX(-50%) translateY(-2px); }
+
+@media (max-width: 480px) {
+    .public-leaderboard-container { padding: 6px 10px; gap: 6px; max-width: calc(100% - 40px); }
+    .public-leaderboard-container span { font-size: 0.85rem; }
+    /* Anchor tooltip above the info button, keep inside viewport */
+    .info-dot::after {
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 10px);
+        transform: translateX(-50%);
+        width: auto;
+        max-width: min(320px, calc(100vw - 32px));
+        min-width: min(220px, calc(100vw - 32px));
+        box-sizing: border-box;
+        text-align: left;
+        font-size: 0.8rem;
+        line-height: 1.35;
+        padding: 10px 12px;
+    }
+}
 .public-leaderboard-toggle { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
 .public-leaderboard-toggle input { opacity: 0; width: 0; height: 0; }
 .public-leaderboard-toggle .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--wood-light); border: 1px solid var(--wood-dark); transition: .4s; border-radius: 34px; }
@@ -1772,7 +1946,8 @@ body {
     .fab { width: 48px; height: 48px; font-size: 1.5rem; }
     .fab-secondary { width: 42px; height: 42px; font-size: 1rem; }
     .public-leaderboard-container { bottom: 70px; padding: 0.5rem 1rem; max-width: calc(100% - 40px); }
-    .public-leaderboard-container span { font-size: 0.8rem; }
+    .public-leaderboard-container span { font-size: 0.85rem; max-width: calc(100vw - 140px); }
+    /* Keep pill slim on mobile: hide helper line */
     .public-leaderboard-container small { display: none !important; }
     
     .fab:not(.expanded) {

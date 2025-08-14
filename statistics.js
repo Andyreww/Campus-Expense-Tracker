@@ -25,6 +25,48 @@ let userDataCache = null;
 let userBalanceTypes = [];
 let unlockedForecasts = {}; // State to track unlocked forecasts per balance type
 
+// Avatar cache config (shared with dashboard)
+const AVATAR_CACHE_KEY = 'avatarCache:v1';
+const AVATAR_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function getCachedAvatar() {
+    try {
+        const raw = localStorage.getItem(AVATAR_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.url || !parsed.dataUrl || !parsed.ts) return null;
+        return parsed;
+    } catch (_) {
+        return null;
+    }
+}
+
+function setCachedAvatar(url, dataUrl) {
+    try {
+        localStorage.setItem(AVATAR_CACHE_KEY, JSON.stringify({ url, dataUrl, ts: Date.now() }));
+    } catch (_) {}
+}
+
+async function fetchAvatarAsDataURL(url) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 6000);
+    try {
+        const res = await fetch(url, { cache: 'no-store', mode: 'cors', signal: controller.signal });
+        if (!res.ok) throw new Error('Avatar fetch failed: ' + res.status);
+        const blob = await res.blob();
+        if (blob.size > 600000) return null; // Skip very large images
+        const reader = new FileReader();
+        const dataUrl = await new Promise((resolve, reject) => {
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+        return dataUrl;
+    } finally {
+        clearTimeout(id);
+    }
+}
+
 // --- Main App Initialization ---
 async function main() {
     assignDOMElements();
@@ -310,6 +352,20 @@ function assignDOMElements() {
     pageTitle = document.getElementById('page-title');
     welcomeMessage = document.getElementById('welcome-message');
     userAvatar = document.getElementById('user-avatar');
+    if (userAvatar) {
+        try { userAvatar.setAttribute('crossorigin', 'anonymous'); } catch(_) {}
+        userAvatar.addEventListener('error', () => {
+            const cached = getCachedAvatar();
+            if (cached && cached.dataUrl) {
+                userAvatar.src = cached.dataUrl;
+            } else if (currentUser && currentUser.displayName) {
+                const initial = currentUser.displayName.charAt(0).toUpperCase();
+                const svg = `<svg width="56" height="56" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="28" ry="28" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="28" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
+                const svgUrl = `data:image/svg+xml;base64,${btoa(svg)}`;
+                userAvatar.src = svgUrl;
+            }
+        }, { once: true });
+    }
     avatarButton = document.getElementById('avatar-button');
     historyList = document.getElementById('purchase-history-list');
     insightsList = document.getElementById('insights-list');
@@ -582,15 +638,31 @@ function handleBioInput() {
 }
 
 function updateAvatar(photoURL, displayName) {
+    const cached = getCachedAvatar();
+    const now = Date.now();
+    const hasFreshCache = cached && cached.dataUrl && cached.url === photoURL && (now - cached.ts) < AVATAR_TTL_MS;
     if (photoURL) {
-        userAvatar.src = photoURL;
-        pfpPreview.src = photoURL;
+        if (hasFreshCache) {
+            if (userAvatar) userAvatar.src = cached.dataUrl;
+            if (pfpPreview) pfpPreview.src = cached.dataUrl;
+        } else {
+            if (userAvatar) userAvatar.src = photoURL;
+            if (pfpPreview) pfpPreview.src = photoURL;
+            (async () => {
+                try {
+                    const dataUrl = await fetchAvatarAsDataURL(photoURL);
+                    if (dataUrl) {
+                        setCachedAvatar(photoURL, dataUrl);
+                    }
+                } catch (_) {}
+            })();
+        }
     } else {
         const initial = displayName ? displayName.charAt(0).toUpperCase() : '?';
         const svg = `<svg width="56" height="56" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="28" ry="28" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="28" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
         const svgUrl = `data:image/svg+xml;base64,${btoa(svg)}`;
-        userAvatar.src = svgUrl;
-        pfpPreview.src = svgUrl;
+        if (userAvatar) userAvatar.src = svgUrl;
+        if (pfpPreview) pfpPreview.src = svgUrl;
     }
 }
 
@@ -661,6 +733,10 @@ async function saveProfile(storage, db) {
             updateData.photoURL = downloadURL;
             await updateProfile(currentUser, { photoURL: downloadURL });
             updateAvatar(downloadURL, currentUser.displayName);
+            try {
+                const dataUrl = await fetchAvatarAsDataURL(downloadURL);
+                if (dataUrl) setCachedAvatar(downloadURL, dataUrl);
+            } catch(_) {}
         }
 
         const userDocRef = doc(db, "users", currentUser.uid);
@@ -716,19 +792,26 @@ async function deleteUserDataAndLogout() {
     deleteErrorMessage.classList.add('hidden');
 
     try {
+        // Fallback dynamic import (parity with dashboard) in case top-level imports change
+        let fDoc = doc, fDeleteDoc = deleteDoc, fCollection = collection, fQuery = query, fGetDocs = getDocs;
+        if (typeof fDoc !== 'function' || typeof fDeleteDoc !== 'function') {
+            const mod = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
+            fDoc = mod.doc; fDeleteDoc = mod.deleteDoc; fCollection = mod.collection; fQuery = mod.query; fGetDocs = mod.getDocs;
+        }
         const userId = currentUser.uid;
         const purchasesPath = `users/${userId}/purchases`;
         const widgetsPath = `users/${userId}/quickLogWidgets`;
         const storesPath = `users/${userId}/customStores`; // Path for custom stores
-        const userDocRef = doc(db, "users", userId);
-        const wallOfFameDocRef = doc(db, "wallOfFame", userId);
+        const userDocRef = fDoc(db, "users", userId);
+        const wallOfFameDocRef = fDoc(db, "wallOfFame", userId);
 
+        // Use existing deleteSubcollection (which still references imported funcs) for efficiency
         await Promise.all([
             deleteSubcollection(db, purchasesPath),
             deleteSubcollection(db, widgetsPath),
-            deleteSubcollection(db, storesPath), // Delete custom stores
-            deleteDoc(wallOfFameDocRef).catch(err => console.log("No Wall of Fame doc to delete:", err.message)),
-            deleteDoc(userDocRef)
+            deleteSubcollection(db, storesPath),
+            fDeleteDoc(wallOfFameDocRef).catch(err => console.log("No Wall of Fame doc to delete:", err.message)),
+            fDeleteDoc(userDocRef)
         ]);
         
         logout();
@@ -1451,7 +1534,38 @@ function calculateActiveSpendingDays(startDate, endDate, semesterInfo) {
     return activeDays;
 }
 
-// Smart prediction algorithm with pattern recognition and semester awareness
+// Helper: compute quantile (q in [0,1]) from a numeric array (no deps)
+function quantile(arr, q) {
+    if (!arr || arr.length === 0) return 0;
+    const a = [...arr].sort((x, y) => x - y);
+    const pos = (a.length - 1) * q;
+    const base = Math.floor(pos);
+    const rest = pos - base;
+    if (a[base + 1] !== undefined) {
+        return a[base] + rest * (a[base + 1] - a[base]);
+    }
+    return a[base];
+}
+
+// Helper: winsorize values between low/high quantiles (clamp outliers)
+function winsorize(values, lowQ = 0.1, highQ = 0.9) {
+    if (!values || values.length === 0) return [];
+    const lo = quantile(values, lowQ);
+    const hi = quantile(values, highQ);
+    return values.map(v => Math.min(hi, Math.max(lo, v)));
+}
+
+// Helper: simple EMA for recency emphasis (alpha 0..1)
+function ema(values, alpha) {
+    if (!values || values.length === 0) return 0;
+    let s = values[0];
+    for (let i = 1; i < values.length; i++) {
+        s = alpha * values[i] + (1 - alpha) * s;
+    }
+    return s;
+}
+
+// Smart prediction algorithm with robust stats, confidence bands, and semester awareness
 function calculateSmartProjection(purchases, currentBalance, userData) {
     const now = new Date();
     
@@ -1462,25 +1576,27 @@ function calculateSmartProjection(purchases, currentBalance, userData) {
         dailySpending[dateKey] = (dailySpending[dateKey] || 0) + p.total;
     });
     
-    const spendingDays = Object.keys(dailySpending).sort();
+    const spendingDays = Object.keys(dailySpending).sort(); // yyyy-mm-dd ascending
     const dayCount = spendingDays.length;
     
     // Get all spending values for statistical analysis
-    const spendingValues = Object.values(dailySpending);
+    // Limit the window to the most recent 45 spending days to keep stats relevant
+    const allValuesChrono = spendingDays.map(d => dailySpending[d]);
+    const spendingValues = allValuesChrono.slice(-45);
     
     // Calculate basic statistics
     const totalSpent = spendingValues.reduce((sum, val) => sum + val, 0);
-    const simpleAverage = totalSpent / dayCount;
+    const simpleAverage = dayCount > 0 ? totalSpent / dayCount : 0;
     
-    // Calculate weighted average (recent days weighted more)
-    let weightedSum = 0;
-    let weightSum = 0;
-    spendingDays.forEach((day, index) => {
-        const weight = Math.pow(1.5, index / dayCount); // Exponential weighting
-        weightedSum += dailySpending[day] * weight;
-        weightSum += weight;
-    });
-    const weightedAverage = weightedSum / weightSum;
+    // Robust central tendency: median + winsorized mean; Recency via EMA
+    const p50 = quantile(spendingValues, 0.5);
+    const p20 = quantile(spendingValues, 0.2);
+    const p80 = quantile(spendingValues, 0.8);
+    const wins = winsorize(spendingValues, 0.1, 0.9);
+    const winsMean = wins.length ? wins.reduce((s, v) => s + v, 0) / wins.length : simpleAverage;
+    const alpha = 2 / Math.max(spendingValues.length + 1, 2); // classic EMA alpha
+    const emaRecent = ema(spendingValues, alpha);
+    const robustAverage = (p50 * 0.6) + (winsMean * 0.2) + (emaRecent * 0.2);
     
     // Analyze day-of-week patterns
     const weekdaySpending = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
@@ -1493,43 +1609,40 @@ function calculateSmartProjection(purchases, currentBalance, userData) {
     const weekdayAverages = {};
     let hasWeekdayPattern = false;
     for (let day = 0; day < 7; day++) {
-        if (weekdaySpending[day].length > 0) {
-            weekdayAverages[day] = weekdaySpending[day].reduce((sum, val) => sum + val, 0) / weekdaySpending[day].length;
-            if (weekdaySpending[day].length >= 2) hasWeekdayPattern = true;
+        const arr = weekdaySpending[day];
+        if (arr.length >= 3) {
+            // Use median for robustness per weekday
+            const wMed = quantile(arr, 0.5);
+            weekdayAverages[day] = wMed;
+            hasWeekdayPattern = true;
+        } else if (arr.length > 0) {
+            // fallback to trimmed mean
+            const tri = winsorize(arr, 0.2, 0.8);
+            weekdayAverages[day] = tri.reduce((s, v) => s + v, 0) / tri.length;
         } else {
-            weekdayAverages[day] = simpleAverage; // Use simple average as fallback
+            weekdayAverages[day] = robustAverage || simpleAverage;
         }
     }
     
-    // Detect outliers using IQR method
-    const sortedValues = [...spendingValues].sort((a, b) => a - b);
-    const q1Index = Math.floor(sortedValues.length * 0.25);
-    const q3Index = Math.floor(sortedValues.length * 0.75);
-    const q1 = sortedValues[q1Index];
-    const q3 = sortedValues[q3Index];
-    const iqr = q3 - q1;
-    const outlierThreshold = q3 + 1.5 * iqr;
-    
-    // Remove outliers and recalculate
-    const nonOutlierValues = spendingValues.filter(val => val <= outlierThreshold);
-    const adjustedAverage = nonOutlierValues.length > 0 
-        ? nonOutlierValues.reduce((sum, val) => sum + val, 0) / nonOutlierValues.length
-        : simpleAverage;
+    // Derive band factors from quantiles; guard for zeros
+    const upperFactor = (p50 > 0 && p80 > 0) ? Math.max(1.05, p80 / p50) : 1.25;
+    const lowerFactor = (p50 > 0 && p20 > 0) ? Math.max(0.4, Math.min(0.95, p20 / p50)) : 0.75;
     
     // Determine projection method based on data quality
     let projectionMethod;
     let dailyBurnRate;
     let confidence;
     
+    // Determine projection method based on data quality
     if (dayCount < 3) {
         // Very limited data - use conservative estimate
-        dailyBurnRate = Math.min(simpleAverage, currentBalance / 120); // Don't project less than 4 months
+        dailyBurnRate = Math.min(robustAverage || simpleAverage, currentBalance / 120);
         projectionMethod = "conservative";
         confidence = "low";
     } else if (dayCount < 7) {
         // Limited data - blend simple and weighted averages
-        dailyBurnRate = (simpleAverage + weightedAverage + adjustedAverage) / 3;
-        projectionMethod = "blended";
+        dailyBurnRate = (robustAverage * 0.6) + (simpleAverage * 0.4);
+        projectionMethod = "robust-blend";
         confidence = "medium";
     } else if (hasWeekdayPattern && dayCount >= 14) {
         // Good data with patterns - use day-of-week based projection
@@ -1538,8 +1651,8 @@ function calculateSmartProjection(purchases, currentBalance, userData) {
         // Will calculate per-day in the projection loop
     } else {
         // Moderate data - use weighted average with outlier adjustment
-        dailyBurnRate = (weightedAverage * 0.7 + adjustedAverage * 0.3);
-        projectionMethod = "weighted";
+        dailyBurnRate = robustAverage;
+        projectionMethod = "robust";
         confidence = "medium-high";
     }
     
@@ -1574,13 +1687,13 @@ function calculateSmartProjection(purchases, currentBalance, userData) {
             const targetDailyBurn = currentBalance / Math.max(activeRemainingDays, 1);
             
             // Blend current burn rate with target
-            if (dailyBurnRate) {
+        if (dailyBurnRate) {
                 // If burning too fast, apply stronger correction
                 if (dailyBurnRate > targetDailyBurn * 1.5) {
                     dailyBurnRate = targetDailyBurn * 1.1; // Allow 10% overage
                     projectionMethod += " (semester-adjusted)";
                 } else if (dailyBurnRate > targetDailyBurn * 1.2) {
-                    dailyBurnRate = (dailyBurnRate * 0.6 + targetDailyBurn * 0.4);
+            dailyBurnRate = (dailyBurnRate * 0.6 + targetDailyBurn * 0.4);
                     projectionMethod += " (semester-balanced)";
                 }
             }
@@ -1592,6 +1705,9 @@ function calculateSmartProjection(purchases, currentBalance, userData) {
         }
     }
     
+    // Horizon guardrails for thin data
+    const horizonDays = dayCount <= 4 ? 21 : 180;
+
     return {
         dailyBurnRate,
         weekdayAverages,
@@ -1599,7 +1715,9 @@ function calculateSmartProjection(purchases, currentBalance, userData) {
         confidence,
         hasWeekdayPattern: hasWeekdayPattern && dayCount >= 14,
         semesterInfo,
-        spendingMultipliers
+        spendingMultipliers,
+        band: { lowerFactor, upperFactor },
+        horizonDays
     };
 }
 
@@ -1691,10 +1809,18 @@ function renderChart(userData, purchases) {
     projectionData.push(lastActualBalance);
 
     let projectedBalance = lastActualBalance;
+    let projectedBalanceUpper = lastActualBalance;
+    let projectedBalanceLower = lastActualBalance;
     let dayCounter = 1;
     let zeroDate = null;
     let semesterEndWarning = null;
-    const maxProjectionDays = 180;
+    const maxProjectionDays = projection.horizonDays || 180;
+
+    // Confidence band arrays (align with labels)
+    const upperProjectionData = new Array(actualData.length - 1).fill(null);
+    upperProjectionData.push(lastActualBalance);
+    const lowerProjectionData = new Array(actualData.length - 1).fill(null);
+    lowerProjectionData.push(lastActualBalance);
     
     // Enhanced projection loop for Denison students
     while (projectedBalance > 0 && dayCounter <= maxProjectionDays) {
@@ -1702,9 +1828,11 @@ function renderChart(userData, purchases) {
         projectionDate.setDate(lastActualDate.getDate() + dayCounter);
         labels.push(projectionDate.toISOString().split('T')[0]);
         
-        let dailyBurn = projection.hasWeekdayPattern 
+    let dailyBurn = projection.hasWeekdayPattern 
             ? projection.weekdayAverages[projectionDate.getDay()] 
             : projection.dailyBurnRate;
+    let dailyUpper = dailyBurn * (projection.band?.upperFactor || 1.25);
+    let dailyLower = dailyBurn * (projection.band?.lowerFactor || 0.75);
         
         // Apply semester-aware spending for Denison students
         if (userData.isDenisonStudent && projection.semesterInfo) {
@@ -1713,15 +1841,21 @@ function renderChart(userData, purchases) {
             // Check if we're in a break period
             if (dateInfo.currentPeriod === 'break' || dateInfo.currentPeriod === 'winter-break' || 
                 dateInfo.currentPeriod === 'summer' || dateInfo.currentPeriod === 'off-campus') {
-                dailyBurn = 0; // No spending during breaks
+        dailyBurn = 0; // No spending during breaks
+        dailyUpper = 0;
+        dailyLower = 0;
             } else if (dateInfo.isFinalsWeek) {
-                dailyBurn *= projection.spendingMultipliers['finals'] || 1.4;
+        const mult = projection.spendingMultipliers['finals'] || 1.4;
+        dailyBurn *= mult; dailyUpper *= mult; dailyLower *= mult;
             } else if (dateInfo.upcomingBreak && dateInfo.upcomingBreak.daysUntil <= 3) {
-                dailyBurn *= projection.spendingMultipliers['pre-break'] || 1.3;
+        const mult = projection.spendingMultipliers['pre-break'] || 1.3;
+        dailyBurn *= mult; dailyUpper *= mult; dailyLower *= mult;
             } else if (dateInfo.semesterProgress < 15) {
-                dailyBurn *= projection.spendingMultipliers['early-semester'] || 1.2;
+        const mult = projection.spendingMultipliers['early-semester'] || 1.2;
+        dailyBurn *= mult; dailyUpper *= mult; dailyLower *= mult;
             } else if (dateInfo.semesterProgress > 80) {
-                dailyBurn *= projection.spendingMultipliers['late-semester'] || 0.9;
+        const mult = projection.spendingMultipliers['late-semester'] || 0.9;
+        dailyBurn *= mult; dailyUpper *= mult; dailyLower *= mult;
             }
             
             // Check if balance runs out before semester end
@@ -1738,9 +1872,23 @@ function renderChart(userData, purchases) {
                 }
             }
         }
+
+        // Avoid confusing flat days: if pattern suggests ~0 spend (likely due to sparse weekday data),
+        // blend with overall daily rate unless it's a real break/off-campus day
+        if (dailyBurn < 0.01 && !(userData.isDenisonStudent && projection.semesterInfo)) {
+            const base = projection.dailyBurnRate || 0;
+            const blended = base * 0.7 + dailyBurn * 0.3;
+            dailyUpper = blended * (projection.band?.upperFactor || 1.25);
+            dailyLower = blended * (projection.band?.lowerFactor || 0.75);
+            dailyBurn = blended;
+        }
         
-        projectedBalance -= dailyBurn;
-        projectionData.push(Math.max(0, projectedBalance));
+    projectedBalance -= dailyBurn;
+    projectedBalanceUpper -= dailyUpper;
+    projectedBalanceLower -= dailyLower;
+    projectionData.push(Math.max(0, projectedBalance));
+    upperProjectionData.push(Math.max(0, projectedBalanceUpper));
+    lowerProjectionData.push(Math.max(0, projectedBalanceLower));
         
         if (projectedBalance <= 0 && !zeroDate) {
             zeroDate = projectionDate;
@@ -1798,12 +1946,41 @@ function renderChart(userData, purchases) {
                     pointRadius: 5,
                     pointBackgroundColor: '#4CAF50',
                 },
+                // Confidence band (P20–P80) as a shaded region
+                {
+                    label: 'Likely outcome range (best-case)',
+                    data: lowerProjectionData,
+                    borderColor: 'rgba(231, 76, 60, 0)',
+                    backgroundColor: 'rgba(231, 76, 60, 0)',
+                    fill: false,
+                    pointRadius: 0,
+                    tension: 0.1,
+                    borderWidth: 0,
+                    // Hide from legend and tooltips
+                    skipLegend: true,
+                    _isBand: true,
+                    tooltip: { enabled: false },
+                },
+                {
+                    label: 'Likely outcome range',
+                    data: upperProjectionData,
+                    borderColor: 'rgba(231, 76, 60, 0.15)',
+                    backgroundColor: 'rgba(231, 76, 60, 0.12)',
+                    fill: '-1', // fill to previous dataset to create band
+                    pointRadius: 0,
+                    tension: 0.1,
+                    borderWidth: 0,
+                    _isBand: true,
+                    // Keep a single legend entry; tooltips off for the band
+                    tooltip: { enabled: false },
+                },
                 {
                     label: `Projected (${projection.projectionMethod})`,
                     data: projectionData,
                     borderColor: '#E74C3C',
                     backgroundColor: 'rgba(231, 76, 60, 0.1)',
-                    fill: { target: 'origin', above: 'rgba(231, 76, 60, 0.1)' },
+                    // Do not fill to origin; the band conveys uncertainty
+                    fill: false,
                     borderDash: projection.confidence === 'high' ? [0, 0] : [5, 5],
                     borderWidth: 3,
                     tension: 0.1,
@@ -1827,8 +2004,17 @@ function renderChart(userData, purchases) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                title: { display: true, text: titleText, font: { size: 16, family: "'Patrick Hand', cursive" }, color: 'var(--text-primary)', padding: { bottom: 15 } },
-                legend: { display: true, position: 'bottom' },
+                title: { display: true, text: [titleText, 'Shaded band shows where your balance is most likely to land.'], font: { size: 16, family: "'Patrick Hand', cursive" }, color: 'var(--text-primary)', padding: { bottom: 15 } },
+                legend: { 
+                    display: true, 
+                    position: 'bottom',
+                    labels: {
+                        filter: (legendItem, chartData) => {
+                            const ds = chartData?.datasets?.[legendItem.datasetIndex];
+                            return !(ds && ds.skipLegend);
+                        }
+                    }
+                },
                 tooltip: { callbacks: { label: (context) => `${context.dataset.label}: ${formatBalanceValue(Number(context.raw), balanceInfo)}` } }
             },
             scales: {
@@ -1974,6 +2160,10 @@ function initializeViewToggle(userData, purchaseHistory) {
 function renderHeatmap(purchases) {
     const heatmapContainer = document.getElementById('spending-heatmap');
     if (!heatmapContainer) return;
+
+    // Track currently active cell and last show time to prevent instant hide on mobile
+    let activeHeatmapCell = null;
+    let lastHeatmapShowTs = 0;
     
     // Get selected period
     const activePeriodBtn = document.querySelector('.period-btn.active');
@@ -2060,8 +2250,64 @@ function renderHeatmap(purchases) {
         }
         
         // Add tooltip on hover
-        cell.addEventListener('mouseenter', (e) => showHeatmapTooltip(e, dateKey, spending));
-        cell.addEventListener('mouseleave', hideHeatmapTooltip);
+        // Desktop hover (only on devices that support hover)
+        const hasHover = window.matchMedia && window.matchMedia('(hover: hover)').matches;
+        if (hasHover) {
+            cell.addEventListener('mouseenter', (e) => showHeatmapTooltip(e, dateKey, spending));
+            cell.addEventListener('mouseleave', hideHeatmapTooltip);
+        }
+
+        // Mobile/touch-friendly: show on tap/click
+        // Prefer Pointer Events where supported
+        const preferPointer = 'onpointerup' in window;
+        if (preferPointer) {
+            cell.addEventListener('pointerup', (e) => {
+                // Only handle direct taps/clicks; ignore mouseup from drag
+                if (e.pointerType === 'touch' || e.pointerType === 'pen' || e.pointerType === 'mouse') {
+                    e.stopPropagation();
+                    // Toggle behavior: if tapping same cell shortly after, hide instead
+                    const targetCell = e.currentTarget || e.target.closest('.heatmap-cell');
+                    const now = performance.now();
+                    if (activeHeatmapCell === targetCell && now - lastHeatmapShowTs < 600) {
+                        hideHeatmapTooltip();
+                        activeHeatmapCell = null;
+                        return;
+                    }
+                    showHeatmapTooltip(e, dateKey, spending);
+                    activeHeatmapCell = targetCell;
+                    lastHeatmapShowTs = performance.now();
+                }
+            });
+        } else {
+            // Fallback to click for older browsers
+            cell.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const targetCell = e.currentTarget || e.target.closest('.heatmap-cell');
+                const now = performance.now();
+                if (activeHeatmapCell === targetCell && now - lastHeatmapShowTs < 600) {
+                    hideHeatmapTooltip();
+                    activeHeatmapCell = null;
+                    return;
+                }
+                showHeatmapTooltip(e, dateKey, spending);
+                activeHeatmapCell = targetCell;
+                lastHeatmapShowTs = performance.now();
+            });
+            // Optional: basic touchstart support
+            cell.addEventListener('touchend', (e) => {
+                e.stopPropagation();
+                const targetCell = e.currentTarget || e.target.closest('.heatmap-cell');
+                const now = performance.now();
+                if (activeHeatmapCell === targetCell && now - lastHeatmapShowTs < 600) {
+                    hideHeatmapTooltip();
+                    activeHeatmapCell = null;
+                    return;
+                }
+                showHeatmapTooltip(e, dateKey, spending);
+                activeHeatmapCell = targetCell;
+                lastHeatmapShowTs = performance.now();
+            });
+        }
         
         currentWeek.appendChild(cell);
         
@@ -2081,6 +2327,23 @@ function renderHeatmap(purchases) {
     }
     
     heatmapContainer.appendChild(weeksContainer);
+
+    // One-time outside-tap handler to hide tooltip on mobile
+    if (!heatmapContainer.dataset.boundOutside) {
+        document.addEventListener('pointerdown', (e) => {
+            const target = e.target;
+            const isCell = target && (target.classList?.contains('heatmap-cell') || target.closest?.('.heatmap-cell'));
+            const isTooltip = target && (target.id === 'heatmap-tooltip' || target.closest?.('#heatmap-tooltip'));
+            // Guard: ignore hides right after showing to prevent flash
+            if (!isCell && !isTooltip) {
+                const now = performance.now();
+                if (now - lastHeatmapShowTs < 150) return;
+                hideHeatmapTooltip();
+                activeHeatmapCell = null;
+            }
+    }, { passive: true });
+        heatmapContainer.dataset.boundOutside = '1';
+    }
     
     // Add month labels
     const monthLabels = generateMonthLabels(startDate, today);
@@ -2159,48 +2422,41 @@ function showHeatmapTooltip(event, date, spending) {
         <div class="tooltip-amount">${spending > 0 ? spendingDisplay : 'No spending'}</div>
     `;
     
-    // Make the tooltip measurable without causing a "flying" animation
+    // Prepare tooltip for accurate measurement on first show
+    tooltip.style.position = 'absolute'; // ensure offsetParent is used
+    tooltip.style.top = '0px';
+    tooltip.style.left = '0px';
     tooltip.style.transition = 'none';
     tooltip.style.visibility = 'hidden';
-    tooltip.classList.remove('hidden'); // Ensure it's not display: none
+    tooltip.classList.remove('hidden'); // ensure it's not display:none
 
-    // Use requestAnimationFrame to ensure the browser has rendered the tooltip
-    // before we try to measure its dimensions. This prevents the initial
-    // positioning bug where getBoundingClientRect() might return incorrect values.
+    // Double-rAF to ensure layout stabilizes before measuring (fixes first-click misposition)
     requestAnimationFrame(() => {
-        const cell = event.target;
-        // The offsetParent is the nearest ancestor with a position other than 'static' (e.g., the card).
-        const offsetParent = tooltip.offsetParent || document.body;
+        requestAnimationFrame(() => {
+            const cell = event.target.closest ? (event.target.closest('.heatmap-cell') || event.target) : event.target;
+            // Anchor to closest positioned ancestor if available (stats card/heatmap container), else body
+            const anchoredParent = tooltip.offsetParent || tooltip.closest?.('.stats-card') || tooltip.closest?.('#heatmap-view') || document.body;
 
-        const tooltipRect = tooltip.getBoundingClientRect();
-        const cellRect = cell.getBoundingClientRect();
-        const parentRect = offsetParent.getBoundingClientRect();
+            const tooltipRect = tooltip.getBoundingClientRect();
+            const cellRect = cell.getBoundingClientRect();
+            const parentRect = anchoredParent.getBoundingClientRect();
 
-        // Calculate position relative to the offsetParent.
-        let top = (cellRect.top - parentRect.top) - tooltipRect.height - 8; // 8px margin above
-        let left = (cellRect.left - parentRect.left) + (cellRect.width / 2) - (tooltipRect.width / 2);
+            // Calculate position relative to the anchoredParent
+            let top = (cellRect.top - parentRect.top) - tooltipRect.height - 8; // 8px above
+            let left = (cellRect.left - parentRect.left) + (cellRect.width / 2) - (tooltipRect.width / 2);
 
-        // Boundary checks to keep the tooltip within its container
-        if (top < 0) {
-            top = (cellRect.bottom - parentRect.top) + 8; // Place below if no space above
-        }
-        if (left < 0) {
-            left = 5; // Small margin from the edge
-        }
-        if (left + tooltipRect.width > parentRect.width) {
-            left = parentRect.width - tooltipRect.width - 5;
-        }
+            // Keep within container bounds
+            if (top < 0) top = (cellRect.bottom - parentRect.top) + 8; // place below if not enough space
+            if (left < 0) left = 5;
+            if (left + tooltipRect.width > parentRect.width) left = parentRect.width - tooltipRect.width - 5;
 
-        // Use absolute positioning relative to the offsetParent.
-        tooltip.style.position = 'absolute';
-        tooltip.style.top = `${top}px`;
-        tooltip.style.left = `${left}px`;
+            tooltip.style.top = `${top}px`;
+            tooltip.style.left = `${left}px`;
 
-        // Now make it visible and re-enable transitions
-        tooltip.style.visibility = 'visible';
-        setTimeout(() => {
-            tooltip.style.transition = '';
-        }, 50); // Small delay to ensure smooth transition re-enabling
+            // Reveal and re-enable transitions
+            tooltip.style.visibility = 'visible';
+            setTimeout(() => { tooltip.style.transition = ''; }, 50);
+        });
     });
 }
 
@@ -2306,6 +2562,14 @@ function initializeWhatIfScenario(userData, purchases) {
             
             // Show initial projection immediately
             updateWhatIfProjection(userData, purchases);
+
+            // Hide uncertainty band while What‑If is active
+            if (spendingChart?.data?.datasets) {
+                spendingChart.data.datasets.forEach(ds => {
+                    if (ds && ds._isBand) ds.hidden = true;
+                });
+                spendingChart.update();
+            }
             
             // Add helper text with context based on balance
             const helperText = document.createElement('div');
@@ -2508,13 +2772,56 @@ function updateWhatIfProjection(userData, purchases) {
     
     // Update chart with new data
     spendingChart.data.labels = labels;
-    spendingChart.data.datasets[0].data = actualData;
-    spendingChart.data.datasets[1].data = projectionData;
-    spendingChart.data.datasets[1].label = 'What-If Scenario';
-    spendingChart.data.datasets[1].borderColor = '#9C27B0';
-    spendingChart.data.datasets[1].backgroundColor = 'rgba(156, 39, 176, 0.1)';
-    spendingChart.data.datasets[1].borderDash = [8, 4];
-    spendingChart.data.datasets[1].tension = 0.3;
+    // Keep Actual data in dataset[0]
+    if (spendingChart.data.datasets[0]) {
+        spendingChart.data.datasets[0].data = actualData;
+    }
+
+    // Hide the default projected line while What‑If is active
+    const dsList = spendingChart.data.datasets;
+    const projectedIdx = dsList.findIndex(d => typeof d.label === 'string' && d.label.startsWith('Projected ('));
+    if (projectedIdx >= 0) {
+        dsList[projectedIdx].hidden = true;
+    }
+
+    // Find or create the dedicated What‑If dataset
+    let whatIfIdx = dsList.findIndex(d => d && d._whatIf === true);
+    const balanceInfoWI = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
+    const wiLabel = `What-If: ${formatBalanceValue(targetDaily, balanceInfoWI)}/day`;
+    const whatIfDataset = {
+        _whatIf: true,
+        label: wiLabel,
+        data: projectionData,
+        borderColor: '#9C27B0',
+        backgroundColor: 'rgba(156, 39, 176, 0.1)',
+        borderDash: [8, 4],
+        tension: 0.3,
+    fill: false,
+    pointRadius: 4,
+    pointStyle: 'rectRot',
+    pointBackgroundColor: '#9C27B0',
+    pointBorderColor: '#9C27B0',
+    pointHoverRadius: 5,
+        order: 10 // draw on top
+    };
+    if (whatIfIdx === -1) {
+        dsList.push(whatIfDataset);
+    } else {
+        // Update in place
+        const ds = dsList[whatIfIdx];
+        ds.label = wiLabel;
+        ds.data = projectionData;
+        ds.borderColor = '#9C27B0';
+        ds.backgroundColor = 'rgba(156, 39, 176, 0.1)';
+        ds.borderDash = [8, 4];
+        ds.tension = 0.3;
+    ds.fill = false;
+    ds.pointRadius = 4;
+    ds.pointStyle = 'rectRot';
+    ds.pointBackgroundColor = '#9C27B0';
+    ds.pointBorderColor = '#9C27B0';
+        ds.order = 10;
+    }
     
     // Format the end date text
     const balanceInfo = userBalanceTypes.find(bt => bt.id === selectedBalanceType);
@@ -2589,6 +2896,14 @@ function updateWhatIfProjection(userData, purchases) {
         }
     }
     
+    // Sync chart title to What‑If message while preserving subtitle line
+    const titlePlugin = spendingChart.options?.plugins?.title;
+    if (titlePlugin) {
+        const current = titlePlugin.text;
+        const subtitle = Array.isArray(current) ? current[1] : 'Shaded band shows where your balance is most likely to land (not a guarantee).';
+        titlePlugin.text = [titleText, subtitle];
+    }
+
     spendingChart.update();
 }
 

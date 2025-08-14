@@ -24,7 +24,8 @@ let loadingIndicator, dashboardContainer, pageTitle, welcomeMessage, userAvatar,
     quickLogWidgetsContainer, saveAsWidgetCheckbox, openDeleteAccountBtn, deleteConfirmModalOverlay,
     deleteCancelBtn, deleteConfirmBtn, deleteErrorMessage, customPaymentType, pricePrefix,
     tabletopGrid, universityBadge, customLogSaveWidgetBtn, lazyLogModal, lazyLogForm,
-    lazyLogInputsContainer, lazyLogCancelBtn, lazyLogError, lazyLogTitle, lazyLogSubtitle, eodUpdateBtn;
+    lazyLogInputsContainer, lazyLogCancelBtn, lazyLogError, lazyLogTitle, lazyLogSubtitle, eodUpdateBtn,
+    leaderboardHeadlineEl;
 
 // --- App State ---
 let map = null;
@@ -32,6 +33,49 @@ let leafletReady = false;
 let currentUser = null;
 let currentUserData = null; // To store user profile data globally
 let selectedPfpFile = null;
+
+// Avatar cache config (similar idea to weather TTL caching)
+const AVATAR_CACHE_KEY = 'avatarCache:v1';
+const AVATAR_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function getCachedAvatar() {
+    try {
+        const raw = localStorage.getItem(AVATAR_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.url || !parsed.dataUrl || !parsed.ts) return null;
+        return parsed;
+    } catch (_) {
+        return null;
+    }
+}
+
+function setCachedAvatar(url, dataUrl) {
+    try {
+        localStorage.setItem(AVATAR_CACHE_KEY, JSON.stringify({ url, dataUrl, ts: Date.now() }));
+    } catch (_) {}
+}
+
+async function fetchAvatarAsDataURL(url) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 6000);
+    try {
+        const res = await fetch(url, { cache: 'no-store', mode: 'cors', signal: controller.signal });
+        if (!res.ok) throw new Error('Avatar fetch failed: ' + res.status);
+        const blob = await res.blob();
+        // Avoid stuffing very large images into localStorage (>600KB)
+        if (blob.size > 600000) return null;
+        const reader = new FileReader();
+        const dataUrl = await new Promise((resolve, reject) => {
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+        return dataUrl;
+    } finally {
+        clearTimeout(id);
+    }
+}
 let firebaseServices = null;
 let isDeleteModeActive = false;
 let pressTimer = null;
@@ -568,6 +612,11 @@ async function saveRenamedBalances() {
         userBalanceTypes = updated;
         if (currentUserData) currentUserData.balanceTypes = updated;
         cachedBalanceHTML = null; // force fresh render with new labels
+        // If the map was initialized, destroy it so it picks up new labels next open
+        if (typeof map !== 'undefined' && map) {
+            try { map.remove(); } catch(_) {}
+            map = null;
+        }
         renderBalanceCards(currentUserData);
         updateBalancesUI(currentUserData.balances);
         populatePaymentDropdown(currentUserData);
@@ -587,6 +636,22 @@ function assignDOMElements() {
     welcomeMessage = document.getElementById('welcome-message');
     universityBadge = document.getElementById('university-badge');
     userAvatar = document.getElementById('user-avatar');
+    if (userAvatar) {
+        // Help with cross-origin avatars
+        try { userAvatar.setAttribute('crossorigin', 'anonymous'); } catch(_) {}
+        // Fallback to initials or cached data if the network avatar fails
+        userAvatar.addEventListener('error', () => {
+            const cached = getCachedAvatar();
+            if (cached && cached.dataUrl) {
+                userAvatar.src = cached.dataUrl;
+            } else if (currentUser && currentUser.displayName) {
+                const initial = currentUser.displayName.charAt(0).toUpperCase();
+                const svg = `<svg width="56" height="56" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="28" ry="28" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="28" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
+                const svgUrl = `data:image/svg+xml;base64,${btoa(svg)}`;
+                userAvatar.src = svgUrl;
+            }
+        }, { once: true });
+    }
     avatarButton = document.getElementById('avatar-button');
     tabletopGrid = document.getElementById('tabletop-grid');
     creditsBalanceEl = document.getElementById('credits-balance');
@@ -599,6 +664,7 @@ function assignDOMElements() {
     tabItems = document.querySelectorAll('.tab-item[data-section]');
     mainSections = document.querySelectorAll('.main-section');
     leaderboardList = document.getElementById('leaderboard-list');
+    leaderboardHeadlineEl = document.getElementById('leaderboard-headline-text');
     publicLeaderboardContainer = document.getElementById('public-leaderboard-container');
     publicLeaderboardCheckbox = document.getElementById('public-leaderboard-checkbox');
     weatherWidget = document.getElementById('weather-widget');
@@ -700,21 +766,19 @@ function setupEventListeners() {
     // FAB Logic
     if (mainFab && fabContainer) {
         const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        if (isMobile) {
-            mainFab.addEventListener('click', (e) => {
-                e.preventDefault();
-                fabContainer.classList.toggle('expanded');
+        mainFab.addEventListener('click', (e) => {
+            e.preventDefault();
+            fabContainer.classList.toggle('expanded');
+            const backdrop = document.getElementById('fab-backdrop');
+            if (backdrop) backdrop.inert = !fabContainer.classList.contains('expanded');
+        });
+        document.addEventListener('click', (e) => {
+            if (!fabContainer.contains(e.target) && !mainFab.contains(e.target)) {
+                fabContainer.classList.remove('expanded');
                 const backdrop = document.getElementById('fab-backdrop');
-                if (backdrop) backdrop.inert = !fabContainer.classList.contains('expanded');
-            });
-            document.addEventListener('click', (e) => {
-                if (!fabContainer.contains(e.target)) {
-                    fabContainer.classList.remove('expanded');
-                    const backdrop = document.getElementById('fab-backdrop');
-                    if (backdrop) backdrop.inert = true;
-                }
-            });
-        }
+                if (backdrop) backdrop.inert = true;
+            }
+        });
     }
 
     if (customLogBtn) customLogBtn.addEventListener('click', async () => {
@@ -810,6 +874,8 @@ async function deleteUserDataAndLogout() {
     deleteErrorMessage.classList.add('hidden');
 
     try {
+        // Dynamically import Firestore helpers (was causing ReferenceError before)
+        const { doc, deleteDoc, collection, query, getDocs } = await fs();
         const userId = currentUser.uid;
         const purchasesPath = `users/${userId}/purchases`;
         const widgetsPath = `users/${userId}/quickLogWidgets`;
@@ -1081,6 +1147,26 @@ async function saveLazyLogData(db, logDate) {
     }
     
     if (!hasChanges) {
+        // If it's an EOD submission with no numeric changes, still grant the daily 0.5 boost
+        if (lazyLogForm.dataset.isLazyLog === 'false') {
+            try {
+                await grantEODBoost(db);
+                // keep local cache in sync for UI reads
+                // grantEODBoost already updated currentUserData.leaderboardScore
+                lazyLogModal.classList.add('hidden');
+                showSuccessMessage('✓ EOD saved!');
+                // Refresh private leaderboard if visible
+                try { await fetchAndRenderLeaderboard(db); } catch (_) {}
+            } catch (e) {
+                console.warn('[EOD] Failed during no-change boost:', e);
+                showQuickLogError('Could not apply EOD boost. Try again.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Update Balances';
+            }
+            return;
+        }
+        // Lazy Log with no changes: just close out quietly
         lazyLogModal.classList.add('hidden');
         submitBtn.disabled = false;
         submitBtn.textContent = 'Update Balances';
@@ -1123,6 +1209,17 @@ async function saveLazyLogData(db, logDate) {
         currentUserData.balances = updatePayload.balances;
         updateBalancesUI(currentUserData.balances);
         
+    // After a successful EOD (not lazy log), grant a 0.5 leaderboard boost
+        if (lazyLogForm.dataset.isLazyLog === 'false') {
+            try {
+        await grantEODBoost(db);
+        // Refresh private leaderboard if visible
+        try { await fetchAndRenderLeaderboard(db); } catch (_) {}
+            } catch (e) {
+                console.warn('[EOD] Failed to set leaderboardScore boost:', e);
+            }
+        }
+        
         lazyLogModal.classList.add('hidden');
         showSuccessMessage('✓ Balances updated!');
 
@@ -1134,6 +1231,44 @@ async function saveLazyLogData(db, logDate) {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Update Balances';
     }
+}
+
+// Grant the daily 0.5 leaderboard boost for EOD submissions (idempotent per calendar day)
+async function grantEODBoost(db) {
+    const { doc, setDoc, updateDoc, getDoc } = await fs();
+    const userDocRefLive = doc(db, "users", currentUser.uid);
+    const current = Number(currentUserData?.currentStreak || 0);
+
+    // Accumulate half-credits across days, but only once per calendar day
+    const snap = await getDoc(userDocRefLive);
+    const existing = snap.exists() ? snap.data() : {};
+    const existingScore = typeof existing.leaderboardScore === 'number' ? existing.leaderboardScore : Number(existing.currentStreak || 0);
+    const todayStr = new Date().toISOString().slice(0,10); // yyyy-mm-dd (client local)
+    const base = Math.max(existingScore, current);
+    let leaderboardScore = existingScore;
+
+    if (existing.lastEODBoostDate !== todayStr) {
+        leaderboardScore = base + 0.5; // add today’s half-credit
+        await updateDoc(userDocRefLive, { leaderboardScore, lastEODBoostDate: todayStr });
+    } else {
+        // already boosted today; keep score as-is
+        leaderboardScore = existingScore;
+    }
+
+    if (currentUserData?.showOnWallOfFame) {
+        const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
+        await setDoc(wallOfFameDocRef, {
+            displayName: currentUser.displayName || "Anonymous",
+            photoURL: currentUser.photoURL || "",
+            currentStreak: current,
+            longestStreak: Number(currentUserData?.longestStreak || current),
+            leaderboardScore,
+            bio: currentUserData?.bio || ""
+        }, { merge: true });
+    }
+
+    // keep local cache in sync for UI reads
+    currentUserData.leaderboardScore = leaderboardScore;
 }
 
 
@@ -1351,9 +1486,27 @@ function closeMapModal() {
 }
 
 function updateAvatar(photoURL, displayName) {
+    const cached = getCachedAvatar();
+    const now = Date.now();
+    const hasFreshCache = cached && cached.dataUrl && cached.url === photoURL && (now - cached.ts) < AVATAR_TTL_MS;
     if (photoURL) {
-        userAvatar.src = photoURL;
-        pfpPreview.src = photoURL;
+        if (hasFreshCache) {
+            userAvatar.src = cached.dataUrl;
+            pfpPreview.src = cached.dataUrl;
+        } else {
+            // Set remote URL immediately (may be behind auth/CDN)
+            userAvatar.src = photoURL;
+            pfpPreview.src = photoURL;
+            // Background revalidation: try to cache as data URL if not fresh
+            (async () => {
+                try {
+                    const dataUrl = await fetchAvatarAsDataURL(photoURL);
+                    if (dataUrl) {
+                        setCachedAvatar(photoURL, dataUrl);
+                    }
+                } catch (_) {}
+            })();
+        }
     } else {
         const initial = displayName ? displayName.charAt(0).toUpperCase() : '?';
         const svg = `<svg width="56" height="56" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="28" ry="28" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="28" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
@@ -1453,6 +1606,11 @@ async function saveProfile(db) {
             updateData.photoURL = downloadURL;
             await updateProfile(currentUser, { photoURL: downloadURL });
             updateAvatar(downloadURL, currentUser.displayName);
+            // Warm the local cache with a data URL (best-effort)
+            try {
+                const dataUrl = await fetchAvatarAsDataURL(downloadURL);
+                if (dataUrl) setCachedAvatar(downloadURL, dataUrl);
+            } catch(_) {}
         }
         if (db && docRefFactory && updateDocFn && getDocFn && setDocFn) {
             const userDocRef = docRefFactory(db, "users", currentUser.uid);
@@ -1713,11 +1871,15 @@ async function logCustomPurchase(db) {
         });
 
         const newBalance = currentBalance - itemPrice;
+        // Preserve any EOD half-credit: do not decrease leaderboardScore below existing value
+        const existingScore = typeof userData.leaderboardScore === 'number' ? userData.leaderboardScore : (userData.currentStreak || 0);
+        const newLeaderboardScore = Math.max(existingScore, currentStreak);
         const updatePayload = {
             [`balances.${paymentType}`]: newBalance,
             currentStreak: currentStreak,
             longestStreak: longestStreak,
-            lastLogDate: Timestamp.now()
+            lastLogDate: Timestamp.now(),
+            leaderboardScore: newLeaderboardScore
         };
         await updateDoc(userDocRef, updatePayload);
         
@@ -1739,13 +1901,14 @@ async function logCustomPurchase(db) {
             }
         }
 
-        if (userData.showOnWallOfFame && currentUser?.uid) {
+    if (userData.showOnWallOfFame && currentUser?.uid) {
             const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
             await setDoc(wallOfFameDocRef, {
                 displayName: currentUser.displayName || "Anonymous",
                 photoURL: currentUser.photoURL || "",
                 currentStreak: currentStreak,
-                longestStreak: longestStreak,
+        longestStreak: longestStreak,
+        leaderboardScore: newLeaderboardScore,
                 bio: userData.bio || ""
             }, { merge: true });
         }
@@ -1968,13 +2131,18 @@ async function logFromWidget(db, widgetData, buttonEl) {
         updateData.currentStreak = currentStreak;
         updateData.longestStreak = Math.max(longestStreak, currentStreak);
         updateData.lastLogDate = Timestamp.now();
-        await updateDoc(userDocRef, updateData);
+    // Preserve any EOD half-credit previously granted
+    const existingScore = typeof userData.leaderboardScore === 'number' ? userData.leaderboardScore : (userData.currentStreak || 0);
+    const newLeaderboardScore = Math.max(existingScore, currentStreak);
+    updateData.leaderboardScore = newLeaderboardScore;
+    await updateDoc(userDocRef, updateData);
 
-        if (userData.showOnWallOfFame) {
+    if (userData.showOnWallOfFame) {
             const wallOfFameDocRef = doc(db, "wallOfFame", currentUser.uid);
             await setDoc(wallOfFameDocRef, { 
                 currentStreak,
                 longestStreak: Math.max(longestStreak, currentStreak),
+        leaderboardScore: newLeaderboardScore,
                 displayName: currentUser.displayName || "Anonymous",
                 photoURL: currentUser.photoURL || "",
                 bio: userData.bio || ""
@@ -2034,51 +2202,254 @@ async function fetchAndRenderLeaderboard(db) {
     
     try {
         const querySnapshot = await getDocs(q);
-        const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        leaderboardList.innerHTML = '';
-        users.forEach((user, index) => {
-            const item = document.createElement('div');
-            item.className = 'leaderboard-item';
-            if (user.id === currentUser.uid) item.classList.add('current-user');
-
-            const initial = user.displayName ? user.displayName.charAt(0).toUpperCase() : '?';
-            const svgAvatar = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="20" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
-            const avatarSrc = user.photoURL || `data:image/svg+xml;base64,${btoa(svgAvatar)}`;
-            
-            const bioHtml = user.bio ? `<div class="leaderboard-bio">"${user.bio}"</div>` : '';
-            
-            // Create trophy badge for longest streak if it's higher than current
-            const longestStreak = user.longestStreak || 0;
-            const currentStreak = user.currentStreak || 0;
-            const showTrophy = longestStreak > currentStreak;
-            
-            const streakDisplay = showTrophy ? 
-                `<div class="streak-container">
-                    <span class="leaderboard-streak">🔥 ${currentStreak}</span>
-                    <div class="best-streak-badge" title="Personal Best">
-                        <span class="trophy-icon">🏆</span>
-                        <span class="trophy-number">${longestStreak}</span>
-                    </div>
-                </div>` :
-                `<span class="leaderboard-streak">🔥 ${currentStreak}</span>`;
-
-            item.innerHTML = `
-                <span class="leaderboard-rank">#${index + 1}</span>
-                <img src="${avatarSrc}" alt="${user.displayName}" class="leaderboard-avatar" width="48" height="48" loading="lazy" decoding="async">
-                <div class="leaderboard-details">
-                    <span class="leaderboard-name">${user.displayName}</span>
-                    ${bioHtml}
-                </div>
-                ${streakDisplay}
-            `;
-            leaderboardList.appendChild(item);
+        // Always include the current user, even if Firestore does not return them
+        if (currentUser && !users.some(u => u.id === currentUser.uid)) {
+            users.push({
+                id: currentUser.uid,
+                displayName: currentUser.displayName || (currentUserData?.displayName) || 'You',
+                photoURL: currentUser.photoURL || (currentUserData?.photoURL) || '',
+                currentStreak: Number(currentUserData?.currentStreak || 0),
+                longestStreak: Number(currentUserData?.longestStreak || 0),
+                leaderboardScore: (typeof currentUserData?.leaderboardScore === 'number') ? currentUserData.leaderboardScore : Number(currentUserData?.currentStreak || 0),
+                bio: currentUserData?.bio || ''
+            });
+        }
+        // Sort by leaderboardScore (if present), else currentStreak, desc
+        users.sort((a,b) => {
+            const sa = (typeof a.leaderboardScore === 'number') ? a.leaderboardScore : (a.currentStreak || 0);
+            const sb = (typeof b.leaderboardScore === 'number') ? b.leaderboardScore : (b.currentStreak || 0);
+            return sb - sa;
         });
+
+    leaderboardList.innerHTML = '';
+        users.forEach((user, index) => {
+            try {
+                const item = document.createElement('div');
+                item.className = 'leaderboard-item';
+                if (index === 0) item.classList.add('top-one');
+                if (currentUser && user.id === currentUser.uid) item.classList.add('current-user');
+
+                const safeName = user.displayName || 'User';
+                const initial = safeName.charAt(0).toUpperCase();
+                const svgAvatar = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="20" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
+                // Use UTF-8 data URL to avoid btoa Unicode issues
+                const avatarSrc = user.photoURL || `data:image/svg+xml;utf8,${encodeURIComponent(svgAvatar)}`;
+                
+                const bioHtml = user.bio ? `<div class="leaderboard-bio">"${user.bio}"</div>` : '';
+                
+                // Create trophy badge for longest streak if it's higher than current
+                const longestStreak = user.longestStreak || 0;
+                const score = (typeof user.leaderboardScore === 'number') ? user.leaderboardScore : (user.currentStreak || 0);
+                const currentStreak = user.currentStreak || 0;
+                const showTrophy = longestStreak > currentStreak;
+                
+                const streakDisplay = showTrophy ? 
+                    `<div class="streak-container">
+                        <span class="leaderboard-streak">🔥 ${currentStreak}</span>
+                        <div class="best-streak-badge" title="Personal Best">
+                            <span class="trophy-icon">🏆</span>
+                            <span class="trophy-number">${longestStreak}</span>
+                        </div>
+                    </div>` :
+                    `<span class="leaderboard-streak">🔥 ${Number.isInteger(score) ? score : score} </span>`;
+
+                item.innerHTML = `
+                    <span class="leaderboard-rank">#${index + 1}</span>
+                    <div class="avatar-wrap"><img src="${avatarSrc}" alt="${safeName}" class="leaderboard-avatar" width="48" height="48" loading="lazy" decoding="async"></div>
+                    <div class="leaderboard-details">
+                        <span class="leaderboard-name">${safeName}</span>
+                        ${bioHtml}
+                    </div>
+                    ${streakDisplay}
+                `;
+                leaderboardList.appendChild(item);
+            } catch (renderErr) {
+                console.warn('[Leaderboard] Skipped a user due to render error:', renderErr);
+            }
+        });
+
+        // After rendering, compute and update the dynamic headline
+        try {
+            updateLeaderboardHeadline(users);
+        } catch (e) {
+            console.debug('[Leaderboard] headline update skipped:', e);
+        }
 
     } catch (error) {
         console.error("Error fetching leaderboard:", error);
         leaderboardList.innerHTML = '<p>Could not load leaderboard.</p>';
     }
+}
+
+// --- Dynamic Streakboard Headline ---
+function getPrevLeaderboardState() {
+    try {
+        const raw = localStorage.getItem('leaderboard:prev');
+        return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+}
+
+function setPrevLeaderboardState(state) {
+    try { localStorage.setItem('leaderboard:prev', JSON.stringify(state)); } catch {}
+}
+
+function toKeyed(users) {
+    const arr = users.map((u, idx) => ({ id: u.id, name: u.displayName || 'Someone', score: (typeof u.leaderboardScore === 'number') ? u.leaderboardScore : (u.currentStreak || 0), rank: idx + 1 }));
+    const byId = new Map(arr.map(u => [u.id, u]));
+    return { arr, byId };
+}
+
+function isClose(a, b) { return Math.abs(a - b) <= 1; }
+
+// TTL for repeating tie/close messages before a vibe break
+const HEADLINE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function pickGenZHeadline(context) {
+    const { topNow, topPrev, overtakes, tiesAtTop, userShift, closeRace, users } = context;
+    const you = users.find(u => u.id === (currentUser?.uid));
+
+    const tieVariants = (a, b) => [
+        `${a} and ${b} are neck and neck rn 😮‍💨`,
+        `Top spot is in a standoff rn: ${a} vs ${b} 📸`,
+        `${a} & ${b} locked in a dead heat fr 🔥`,
+    ];
+    const closeVariants = (a, b) => [
+        `${a} vs ${b} is basically a photo finish 📸`,
+        `${a} is breathing down ${b}’s neck 😤`,
+        `${a} & ${b} trading places like it’s musical chairs 🎶`,
+    ];
+    const moods = [
+        'The Streakboard’s feeling extra cozy today 🧸',
+        'Everyone’s in their grind era fr 🔥',
+        'It’s giving consistent. We love to see it ✨',
+        'Numbers moving quiet… calm before the glow up 🌊',
+        'Streaks on streaks, vibes on vibes 🌈',
+        'The leaderboard is lit today 🔥',
+        'We’re all just vibing here ✌️',
+        'It’s a good day to have a good day 🌞',
+        'Just another day in the cozy corner of the internet 🌍',
+        'Feeling good, living better ✨',
+        'Vibes are high, and so are the scores! 🚀',
+    ];
+
+    // Priority: new #1, overtakes, ties, user shift, close race, fallback mood
+    if (topNow && topPrev && topNow.id !== topPrev.id) {
+        return { text: `${topNow.name} just snatched the crown from ${topPrev.name} 👑✨`, type: 'newTop' };
+    }
+    if (overtakes && overtakes.length) {
+        const o = overtakes[0];
+        return { text: `${o.winner.name} low key zoomed past ${o.loser.name} 🚀`, type: 'overtake' };
+    }
+    if (tiesAtTop && tiesAtTop.length >= 2) {
+        const a = tiesAtTop[0].name, b = tiesAtTop[1].name;
+        const choices = tieVariants(a, b);
+        return { text: choices[Math.floor(Math.random() * choices.length)], type: 'tieTop' };
+    }
+    if (you && userShift && userShift.dir !== 0) {
+        if (userShift.dir < 0) return { text: `You climbed to #${you.rank} — main character energy 💫`, type: 'userUp' };
+        if (userShift.dir > 0) return { text: `Slipped to #${you.rank} — it happens, we move 🫶`, type: 'userDown' };
+    }
+    if (closeRace) {
+        const a = closeRace[0].name, b = closeRace[1].name;
+        const choices = closeVariants(a, b);
+        return { text: choices[Math.floor(Math.random() * choices.length)], type: 'closeRace' };
+    }
+    // Fallback vibes
+    return { text: moods[Math.floor(Math.random() * moods.length)], type: 'vibe' };
+}
+
+function getLastHeadlineState() {
+    try {
+        const raw = localStorage.getItem('leaderboard:headline:last');
+        return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+}
+
+function setLastHeadlineState(state) {
+    try { localStorage.setItem('leaderboard:headline:last', JSON.stringify(state)); } catch {}
+}
+
+function updateLeaderboardHeadline(users) {
+    if (!leaderboardHeadlineEl || !users || users.length === 0) return;
+    const now = toKeyed(users);
+    const prev = getPrevLeaderboardState();
+
+    let headline = null;
+    let context = { users: now.arr };
+
+    // Determine top change and ties
+    const topNow = now.arr[0];
+    context.topNow = topNow;
+    if (prev?.arr?.length) {
+        const prevTop = prev.arr[0];
+        context.topPrev = prevTop;
+        const topScore = topNow.score;
+        const secondScore = now.arr[1]?.score ?? null;
+        if (secondScore !== null && topScore === secondScore) {
+            context.tiesAtTop = now.arr.filter(u => u.score === topScore).slice(0, 3);
+        }
+        // Overtakes: someone moved ahead of someone they were behind
+        const overtakes = [];
+        now.arr.slice(0, 5).forEach(curr => {
+            const before = prev.byId?.get(curr.id);
+            if (!before) return;
+            // Find any user that was ahead before but is now behind
+            prev.arr.forEach(prevUser => {
+                if (prevUser.rank < before.rank) { // was ahead before
+                    const currRival = now.byId.get(prevUser.id);
+                    if (currRival && curr.rank < currRival.rank) {
+                        overtakes.push({ winner: curr, loser: currRival });
+                    }
+                }
+            });
+        });
+        context.overtakes = overtakes;
+        // User shift
+        if (currentUser?.uid) {
+            const youNow = now.byId.get(currentUser.uid);
+            const youPrev = prev.byId?.get(currentUser.uid);
+            if (youNow && youPrev) {
+                context.userShift = { dir: Math.sign(youPrev.rank - youNow.rank), from: youPrev.rank, to: youNow.rank };
+            }
+        }
+        // Close race among top 3
+        if (now.arr.length >= 2 && isClose(now.arr[0].score, now.arr[1].score)) {
+            context.closeRace = [now.arr[0], now.arr[1]];
+        }
+    }
+
+    const picked = pickGenZHeadline(context);
+    const last = getLastHeadlineState();
+    const ttlTypes = new Set(['tieTop', 'closeRace']);
+    let finalText = picked.text;
+    let finalType = picked.type;
+    const sameType = last && last.type === finalType;
+    if (ttlTypes.has(finalType) && last) {
+        const age = Date.now() - last.ts;
+        if (sameType && age >= HEADLINE_TTL_MS) {
+            // inject a vibe break after TTL
+            const vibes = [
+                'The Streakboard’s feeling extra cozy today 🧸',
+                'Everyone’s in their grind era fr 🔥',
+                'It’s giving consistent. We love to see it ✨',
+                'Numbers moving quiet… calm before the glow up 🌊',
+            ];
+            finalText = vibes[Math.floor(Math.random() * vibes.length)];
+            finalType = 'vibeCooldown';
+        } else if (sameType && age < HEADLINE_TTL_MS && last.text === finalText) {
+            // nudge to avoid exact repeat within TTL
+            finalText = finalText + ' ';
+        }
+    }
+    if (finalText) {
+        leaderboardHeadlineEl.textContent = finalText;
+    }
+
+    // Persist state for next diff
+    setPrevLeaderboardState({ arr: now.arr, byIdObj: Object.fromEntries(now.byId) });
+    setLastHeadlineState({ type: finalType, ts: Date.now(), text: finalText });
 }
 
 
@@ -2152,21 +2523,16 @@ async function fetchAndRenderWeather() {
     if (weatherWidget.dataset.loading === '1' || weatherWidget.dataset.loaded === '1') return;
     weatherWidget.dataset.loading = '1';
     // Defer weather fetch until section is near viewport to reduce TBT/CPU
-    const startFetch = async () => {
-        weatherWidget.innerHTML = `<div class="spinner"></div>`;
-        const lat = 40.08;
-        const lon = -82.49;
-        const apiUrl = `/.netlify/functions/getWeather?lat=${lat}&lon=${lon}`;
+    const WEATHER_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+    const lat = 40.08;
+    const lon = -82.49;
+    const cacheKey = `weather:${lat},${lon}`;
 
+    const renderFromData = (data) => {
         try {
-            const response = await fetch(apiUrl);
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Error fetching weather');
-
             const temp = Math.round(data.main.temp);
             const description = data.weather[0].description;
             const iconCode = data.weather[0].icon;
-
             weatherWidget.innerHTML = `
                 <div class="weather-content">
                     <img src="https://openweathermap.org/img/wn/${iconCode}@2x.png" alt="${description}" class="weather-icon" width="80" height="80" loading="lazy" decoding="async">
@@ -2177,13 +2543,57 @@ async function fetchAndRenderWeather() {
                     </div>
                 </div>
             `;
-            weatherWidget.dataset.loaded = '1';
-            delete weatherWidget.dataset.loading;
+        } catch (e) {
+            console.warn('Render weather failed, falling back to error.', e);
+            weatherWidget.innerHTML = `<p class="weather-error">Could not load weather data.</p>`;
+        }
+        weatherWidget.dataset.loaded = '1';
+        delete weatherWidget.dataset.loading;
+        // Persist attribute so cachedBalanceHTML keeps it
+        weatherWidget.setAttribute('data-loaded', '1');
+    };
+
+    // Try client-side cache first
+    const now = Date.now();
+    try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.ts && parsed.data) {
+                const age = now - parsed.ts;
+                if (age < WEATHER_CACHE_TTL_MS) {
+                    // Fresh: render and skip network
+                    renderFromData(parsed.data);
+                    return;
+                } else {
+                    // Stale: render immediately, then revalidate in background
+                    renderFromData(parsed.data);
+                    // Allow a background refresh below
+                    weatherWidget.dataset.loaded = '';
+                }
+            }
+        }
+    } catch (e) {
+        console.debug('Weather cache parse error, will fetch fresh.', e);
+    }
+
+    const startFetch = async () => {
+        weatherWidget.innerHTML = `<div class="spinner"></div>`;
+        const apiUrl = `/.netlify/functions/getWeather?lat=${lat}&lon=${lon}`;
+
+        try {
+            const response = await fetch(apiUrl);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Error fetching weather');
+            // Cache and render
+            try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data })); } catch {}
+            renderFromData(data);
         } catch (error) {
             console.error("Weather fetch error:", error);
             weatherWidget.innerHTML = `<p class="weather-error">Could not load weather data.</p>`;
             weatherWidget.dataset.loaded = '1';
             delete weatherWidget.dataset.loading;
+            weatherWidget.setAttribute('data-loaded', '1');
         }
     };
 
@@ -2211,6 +2621,13 @@ async function fetchAndRenderWeather() {
 
 function initializeMap() {
     if (!mapRenderTarget || map) return;
+
+    // Build a label resolver using the user's renamed balanceTypes (fallback to capitalized id)
+    const getLabelFor = (id) => {
+        const bt = (currentUserData?.balanceTypes || userBalanceTypes || []).find(t => t.id === id);
+        const lbl = (bt && bt.label && bt.label.trim()) ? bt.label.trim() : (id.charAt(0).toUpperCase() + id.slice(1));
+        return lbl;
+    };
 
     const locations = [
         { name: 'Ross Granville Market', address: 'Inside Slayter Union', coords: [40.0630707, -82.5189282], accepts: ['credits'] },
@@ -2253,7 +2670,8 @@ function initializeMap() {
     locations.forEach(location => {
         let icon = creditsIcon;
         if (location.accepts.includes('dining') || location.accepts.includes('swipes')) icon = diningIcon;
-        const popupContent = `<div style="font-family: 'Nunito', sans-serif; text-align: center;"><strong style="font-size: 1.1em;">${location.name}</strong><br>${location.address}<br><em style="font-size: 0.9em; color: #555;">Accepts: ${location.accepts.join(', ')}</em></div>`;
+        const acceptsLabels = location.accepts.map(getLabelFor).join(', ');
+        const popupContent = `<div style="font-family: 'Nunito', sans-serif; text-align: center;"><strong style="font-size: 1.1em;">${location.name}</strong><br>${location.address}<br><em style="font-size: 0.9em; color: #555;">Accepts: ${acceptsLabels}</em></div>`;
         L.marker(location.coords, { icon: icon }).addTo(map).bindPopup(popupContent);
     });
 

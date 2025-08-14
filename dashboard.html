@@ -141,7 +141,11 @@
                         <p class="newspaper-date" id="newspaper-date"></p>
                     </div>
                     <div class="newspaper-columns">
-                        <h3 class="section-headline">The Streakboard’s Feeling Extra Cozy Today</h3>
+                        <h3 class="section-headline">
+                            <span id="leaderboard-headline-text" aria-live="polite">The Streakboard’s Feeling Extra Cozy Today</span>
+                            <button class="streak-info-btn pfp-button save-button streak-info" type="button" aria-label="How do streaks work?" data-tip="Log once a day (purchase or EOD) to keep your streak. Skip a day and it resets. EOD adds +0.5 each day, so your score is your streak or that EOD total—whichever is higher.">?
+                            </button>
+                        </h3>
                         <div id="leaderboard-list" class="leaderboard-list">
                             <!-- Leaderboard will be rendered here -->
                         </div>
@@ -252,16 +256,14 @@
         </div>
     </div>
 
-    <div id="public-leaderboard-container" class="public-leaderboard-container hidden">
+    <div id="public-leaderboard-container" class="public-leaderboard-container hidden" role="region" aria-label="Top of the Grind opt-in">
         <label class="public-leaderboard-toggle">
-            <input type="checkbox" id="public-leaderboard-checkbox">
-            <span class="slider"></span>
+            <input type="checkbox" id="public-leaderboard-checkbox" aria-label="Toggle Top of the Grind">
+            <span class="slider" aria-hidden="true"></span>
         </label>
-        <span>
-            Show me on "Top of the Grind"?
-            <small style="opacity: 0.75; font-size: 0.70rem; display: block; line-height: 1.1; max-width: 220px;">
-                When enabled, your display name, avatar, streak and status become visible on the public campus leaderboard. You can turn this off anytime.
-            </small>
+        <span class="public-leaderboard-label">
+            Top of the Grind
+            <button class="info-dot" type="button" aria-label="What does this do?" data-tip="When enabled, your display name, avatar & streak become visible on the public campus leaderboard. You can turn this off anytime.">i</button>
         </span>
     </div>
 
