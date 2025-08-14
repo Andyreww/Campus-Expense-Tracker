@@ -54,13 +54,19 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Rename Balance Labels
             </button>
-            
-            <!-- Delete Account Section -->
-            <div style="border-top: 2px solid var(--border-color); margin: 2rem 0 1.5rem 0;"></div>
-            <button id="open-delete-account-button" class="delete-account-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                Delete Account
-            </button>
+
+            <!-- Feedback & Support + Delete Account (side-by-side) -->
+            <div style="border-top: 2px solid var(--border-color); margin: 1.25rem 0 1rem 0;"></div>
+            <div class="pfp-row-2btn" style="display:flex; gap:0.75rem;">
+                <a id="feedback-support-btn" href="mailto:ajangulo8@gmail.com?subject=Nooksii%20Feedback" class="pfp-button save-button" style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none;" title="Opens your email app (works best on mobile)" aria-label="Send Feedback & Support email">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z" fill="none"/><path d="M22 6l-10 7L2 6"/></svg>
+                    <span>Feedback &amp; Support</span>
+                </a>
+                <button id="open-delete-account-button" class="delete-account-btn" style="flex:1; display:flex; align-items:center; justify-content:center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                    Delete Account
+                </button>
+            </div>
         </div>
     </div>
 
@@ -139,6 +145,12 @@
                         <h2 class="newspaper-title">The Daily Grind</h2>
                         <p class="newspaper-subtitle">"Little Sips of Big News"</p>
                         <p class="newspaper-date" id="newspaper-date"></p>
+                        <div class="leaderboard-actions" style="display:flex; justify-content:center; margin: 4px 0 0;">
+                            <a id="roadmap-link" href="roadmap.html" class="pfp-button upload-button" style="display:inline-flex; gap:6px; align-items:center; text-decoration:none; padding:4px 8px; font-size:0.8rem; transform:translateZ(0); flex:0 0 auto; box-sizing:border-box;" aria-label="Open Roadmap and Voting">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M19 9l-5 5-4-4-3 3"/></svg>
+                                <span>Roadmap</span>
+                            </a>
+                        </div>
                     </div>
                     <div class="newspaper-columns">
                         <h3 class="section-headline">

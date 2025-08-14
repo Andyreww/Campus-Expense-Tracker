@@ -85,6 +85,104 @@ let lastBalanceSignature = '';
 // Rename balance modal elements
 let renameBalancesModal, renameBalancesForm, renameBalancesCloseBtn, renameBalancesSaveBtn, renameBalancesBtn;
 
+// --- Leaderboard avatar session-LRU (avoid persistent storage) ---
+const AVATAR_LRU_MAX_ENTRIES = 40;
+const AVATAR_LRU_MAX_BYTES = 2 * 1024 * 1024; // ~2MB across session
+const AVATAR_LRU_MAX_BLOB = 120 * 1024; // skip caching very large images
+const avatarLRU = new Map(); // url -> { objectUrl, size }
+let avatarLRUTotalBytes = 0;
+let avatarObserver = null;
+
+function avatarLRUGet(url) {
+    if (!url || !avatarLRU.has(url)) return null;
+    const value = avatarLRU.get(url);
+    // mark as recently used
+    avatarLRU.delete(url); avatarLRU.set(url, value);
+    return value.objectUrl;
+}
+
+function avatarLRUPut(url, objectUrl, size) {
+    if (!url || !objectUrl) return;
+    // size guard
+    if (typeof size === 'number' && size > AVATAR_LRU_MAX_BLOB) return; 
+    if (avatarLRU.has(url)) {
+        const prev = avatarLRU.get(url);
+        try { URL.revokeObjectURL(prev.objectUrl); } catch(_) {}
+        avatarLRUTotalBytes -= (prev.size || 0);
+        avatarLRU.delete(url);
+    }
+    avatarLRU.set(url, { objectUrl, size: size || 0 });
+    avatarLRUTotalBytes += (size || 0);
+    // evict LRU until within caps
+    while ((avatarLRU.size > AVATAR_LRU_MAX_ENTRIES) || (avatarLRUTotalBytes > AVATAR_LRU_MAX_BYTES)) {
+        const firstKey = avatarLRU.keys().next().value;
+        if (!firstKey) break;
+        const entry = avatarLRU.get(firstKey);
+        avatarLRU.delete(firstKey);
+        avatarLRUTotalBytes -= (entry?.size || 0);
+        try { if (entry?.objectUrl) URL.revokeObjectURL(entry.objectUrl); } catch(_) {}
+    }
+}
+
+async function prefetchAvatarObjectURL(url) {
+    try {
+        if (!url) return null;
+        const existing = avatarLRUGet(url);
+        if (existing) return existing;
+        const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+        if (!res.ok) return null;
+        const blob = await res.blob();
+        if (blob && blob.size && blob.size > AVATAR_LRU_MAX_BLOB) return null; // too large
+        const objUrl = URL.createObjectURL(blob);
+        avatarLRUPut(url, objUrl, blob.size || 0);
+        return objUrl;
+    } catch (_) { return null; }
+}
+
+function getAvatarObserver() {
+    if (avatarObserver) return avatarObserver;
+    avatarObserver = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            const img = entry.target;
+            const url = img.getAttribute('data-avatar-url');
+            if (!url) { avatarObserver.unobserve(img); continue; }
+            // best-effort prefetch; we keep current src (HTTP cache handles reuse)
+            prefetchAvatarObjectURL(url).finally(() => {
+                avatarObserver.unobserve(img);
+            });
+        }
+    }, { root: null, rootMargin: '100px', threshold: 0.01 });
+    // Cleanup on unload
+    window.addEventListener('beforeunload', () => {
+        for (const [, entry] of avatarLRU) {
+            try { URL.revokeObjectURL(entry.objectUrl); } catch(_) {}
+        }
+        avatarLRU.clear(); avatarLRUTotalBytes = 0;
+    }, { once: true });
+    return avatarObserver;
+}
+
+function applyLeaderboardAvatar(imgEl, photoURL, fallbackInitial) {
+    if (!imgEl) return;
+    try { imgEl.setAttribute('crossorigin', 'anonymous'); } catch(_) {}
+    if (!photoURL) return; // already has initials placeholder
+    const cachedObj = avatarLRUGet(photoURL);
+    if (cachedObj) {
+        imgEl.src = cachedObj; // fast path
+        return;
+    }
+    // Keep remote URL (benefits from HTTP cache) and lazy prefetch when visible
+    imgEl.src = photoURL;
+    imgEl.onerror = () => {
+        // fallback to initials svg
+        const svg = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="20" fill="#FFF" text-anchor="middle" dy=".3em">${fallbackInitial}</text></svg>`;
+        imgEl.src = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    };
+    imgEl.setAttribute('data-avatar-url', photoURL);
+    getAvatarObserver().observe(imgEl);
+}
+
 // --- Main App Initialization ---
 async function main() {
     assignDOMElements();
@@ -251,10 +349,37 @@ function renderDashboard(userData) {
             month: 'long', 
             day: 'numeric' 
         });
+        // After date renders, size the Roadmap link to be a bit shorter than the date width
+        requestAnimationFrame(() => {
+            const dateEl = newspaperDate;
+            const roadmapLink = document.getElementById('roadmap-link');
+            if (!dateEl || !roadmapLink) return;
+            const dateWidth = dateEl.getBoundingClientRect().width;
+            // target ~85% of date width, with min/max for responsiveness
+            const target = Math.max(110, Math.min(240, Math.round(dateWidth * 0.85)));
+            roadmapLink.style.width = target + 'px';
+            roadmapLink.style.justifyContent = 'center';
+            roadmapLink.style.whiteSpace = 'nowrap';
+        });
     }
     
     loadingIndicator.style.display = 'none';
     dashboardContainer.style.display = 'block';
+
+    // Keep Roadmap width synced on resize/orientation changes
+    const syncRoadmapWidth = () => {
+        const dateEl = newspaperDate;
+        const roadmapLink = document.getElementById('roadmap-link');
+        if (!dateEl || !roadmapLink) return;
+        const dateWidth = dateEl.getBoundingClientRect().width;
+        const target = Math.max(110, Math.min(240, Math.round(dateWidth * 0.85)));
+        roadmapLink.style.width = target + 'px';
+    };
+    window.addEventListener('resize', () => requestAnimationFrame(syncRoadmapWidth));
+    window.addEventListener('orientationchange', () => requestAnimationFrame(syncRoadmapWidth));
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => requestAnimationFrame(syncRoadmapWidth));
+    }
     
     // Bind critical tab navigation immediately so active highlight works even if user clicks fast
     setupCriticalTabListeners();
@@ -2265,6 +2390,13 @@ async function fetchAndRenderLeaderboard(db) {
                     ${streakDisplay}
                 `;
                 leaderboardList.appendChild(item);
+
+                // Hook avatar session cache
+                try {
+                    const img = item.querySelector('img.leaderboard-avatar');
+                    const initialChar = initial;
+                    applyLeaderboardAvatar(img, user.photoURL || '', initialChar);
+                } catch(_) {}
             } catch (renderErr) {
                 console.warn('[Leaderboard] Skipped a user due to render error:', renderErr);
             }
