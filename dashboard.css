@@ -1503,6 +1503,30 @@ body {
     color: white;
     border-color: #388E3C;
 }
+
+/* Roadmap link – blend with newspaper background */
+#roadmap-link {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+    border-width: 2px;
+    border-style: solid;
+    border-bottom-width: 3px; /* subtle 3D, but lighter than default */
+    box-shadow: none;
+}
+#roadmap-link:hover {
+    background-color: var(--bg-primary);
+    transform: none; /* avoid big pop */
+    border-bottom-width: 3px;
+}
+#roadmap-link:active {
+    transform: none;
+    border-bottom-width: 2px;
+}
+#roadmap-link:focus-visible {
+    outline: 2px solid var(--border-color);
+    outline-offset: 2px;
+}
 .save-button:hover {
     background-color: var(--brand-primary);
 }
