@@ -1,5 +1,6 @@
 // --- IMPORTS ---
 import { firebaseReady, logout } from './auth.js';
+import { AVATAR_CACHE_KEY, AVATAR_TTL_MS, getCachedAvatar, setCachedAvatar, fetchAvatarAsDataURL, initialsAvatarDataUri } from './avatar.js';
 import { doc, getDoc, updateDoc, collection, query, orderBy, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 import { updateProfile, deleteUser } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -25,47 +26,6 @@ let userDataCache = null;
 let userBalanceTypes = [];
 let unlockedForecasts = {}; // State to track unlocked forecasts per balance type
 
-// Avatar cache config (shared with dashboard)
-const AVATAR_CACHE_KEY = 'avatarCache:v1';
-const AVATAR_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-function getCachedAvatar() {
-    try {
-        const raw = localStorage.getItem(AVATAR_CACHE_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (!parsed || !parsed.url || !parsed.dataUrl || !parsed.ts) return null;
-        return parsed;
-    } catch (_) {
-        return null;
-    }
-}
-
-function setCachedAvatar(url, dataUrl) {
-    try {
-        localStorage.setItem(AVATAR_CACHE_KEY, JSON.stringify({ url, dataUrl, ts: Date.now() }));
-    } catch (_) {}
-}
-
-async function fetchAvatarAsDataURL(url) {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), 6000);
-    try {
-        const res = await fetch(url, { cache: 'no-store', mode: 'cors', signal: controller.signal });
-        if (!res.ok) throw new Error('Avatar fetch failed: ' + res.status);
-        const blob = await res.blob();
-        if (blob.size > 600000) return null; // Skip very large images
-        const reader = new FileReader();
-        const dataUrl = await new Promise((resolve, reject) => {
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-        return dataUrl;
-    } finally {
-        clearTimeout(id);
-    }
-}
 
 // --- Main App Initialization ---
 async function main() {
@@ -100,6 +60,36 @@ async function main() {
         }
 
         checkProfile();
+
+        // Persistently observe auth changes to handle live account switching
+        try {
+            const { onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
+            let lastAuthUid = currentUser?.uid || null;
+            onAuthStateChanged(auth, (u) => {
+                if (!u) {
+                    window.location.replace('/login.html');
+                    return;
+                }
+                if (u.uid !== lastAuthUid) {
+                    lastAuthUid = u.uid;
+                    currentUser = u;
+                    // Reset UI bits immediately
+                    try {
+                        const initial = (u.displayName || '?').charAt(0).toUpperCase();
+                        const ph = initialsAvatarDataUri(initial, 56);
+                        if (userAvatar) userAvatar.src = ph;
+                        if (pfpPreview) pfpPreview.src = ph;
+                        if (historyList) historyList.innerHTML = '';
+                        if (insightsList) insightsList.innerHTML = '';
+                        if (spendingChart) { try { spendingChart.destroy(); } catch(_) {}; spendingChart = null; }
+                    } catch(_) {}
+                    // Clear cached state
+                    purchaseData = null; userDataCache = null; unlockedForecasts = {}; selectedBalanceType = null;
+                    // Reload
+                    checkProfile();
+                }
+            });
+        } catch(_) {}
 
     } catch (error) {
         console.error('Fatal Error on Statistics:', error);
@@ -641,28 +631,39 @@ function updateAvatar(photoURL, displayName) {
     const cached = getCachedAvatar();
     const now = Date.now();
     const hasFreshCache = cached && cached.dataUrl && cached.url === photoURL && (now - cached.ts) < AVATAR_TTL_MS;
+    const toInitials = () => {
+        const initial = displayName ? displayName.charAt(0).toUpperCase() : '?';
+        const uri = initialsAvatarDataUri(initial, 56);
+        if (userAvatar) userAvatar.src = uri;
+        if (pfpPreview) pfpPreview.src = uri;
+    };
     if (photoURL) {
         if (hasFreshCache) {
             if (userAvatar) userAvatar.src = cached.dataUrl;
             if (pfpPreview) pfpPreview.src = cached.dataUrl;
+            // background refresh
+            (async () => {
+                try {
+                    const dataUrl = await fetchAvatarAsDataURL(photoURL);
+                    if (dataUrl) setCachedAvatar(photoURL, dataUrl);
+                } catch(_) {}
+            })();
         } else {
-            if (userAvatar) userAvatar.src = photoURL;
-            if (pfpPreview) pfpPreview.src = photoURL;
+            // Avoid cross-account cache leak; use initials while fetching
+            toInitials();
             (async () => {
                 try {
                     const dataUrl = await fetchAvatarAsDataURL(photoURL);
                     if (dataUrl) {
                         setCachedAvatar(photoURL, dataUrl);
+                        if (userAvatar) userAvatar.src = dataUrl;
+                        if (pfpPreview) pfpPreview.src = dataUrl;
                     }
-                } catch (_) {}
+                } catch(_) {}
             })();
         }
     } else {
-        const initial = displayName ? displayName.charAt(0).toUpperCase() : '?';
-        const svg = `<svg width="56" height="56" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="28" ry="28" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="28" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
-        const svgUrl = `data:image/svg+xml;base64,${btoa(svg)}`;
-        if (userAvatar) userAvatar.src = svgUrl;
-        if (pfpPreview) pfpPreview.src = svgUrl;
+        toInitials();
     }
 }
 
@@ -794,22 +795,56 @@ async function deleteUserDataAndLogout() {
     try {
         // Fallback dynamic import (parity with dashboard) in case top-level imports change
         let fDoc = doc, fDeleteDoc = deleteDoc, fCollection = collection, fQuery = query, fGetDocs = getDocs;
+        let fRunTransaction = null;
         if (typeof fDoc !== 'function' || typeof fDeleteDoc !== 'function') {
             const mod = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
-            fDoc = mod.doc; fDeleteDoc = mod.deleteDoc; fCollection = mod.collection; fQuery = mod.query; fGetDocs = mod.getDocs;
+            fDoc = mod.doc; fDeleteDoc = mod.deleteDoc; fCollection = mod.collection; fQuery = mod.query; fGetDocs = mod.getDocs; fRunTransaction = mod.runTransaction;
+        } else {
+            // Use already-imported symbols if available
+            try { const mod = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js'); fRunTransaction = mod.runTransaction; } catch {}
         }
         const userId = currentUser.uid;
         const purchasesPath = `users/${userId}/purchases`;
         const widgetsPath = `users/${userId}/quickLogWidgets`;
         const storesPath = `users/${userId}/customStores`; // Path for custom stores
+        const featureVotesPath = `users/${userId}/featureVotes`; // Roadmap votes
         const userDocRef = fDoc(db, "users", userId);
         const wallOfFameDocRef = fDoc(db, "wallOfFame", userId);
 
-        // Use existing deleteSubcollection (which still references imported funcs) for efficiency
+        // 1) Clean up Roadmap votes: for each voted poll, decrement count and remove from recentVoters
+        try {
+            const votesRef = fCollection(db, 'users', userId, 'featureVotes');
+            const votesSnap = await fGetDocs(fQuery(votesRef));
+            const txs = [];
+            votesSnap.forEach(v => {
+                const pollId = v.id;
+                const pollRef = fDoc(db, 'featurePolls', pollId);
+                if (fRunTransaction) {
+                    txs.push(
+                        fRunTransaction(db, async (tx) => {
+                            const pollDoc = await tx.get(pollRef);
+                            if (!pollDoc.exists()) return;
+                            const data = pollDoc.data() || {};
+                            const currentVoteCount = data.voteCount || 0;
+                            const voters = Array.isArray(data.recentVoters) ? data.recentVoters : [];
+                            const updatedVoters = voters.filter(vr => vr && vr.uid !== userId);
+                            const newCount = Math.max(0, currentVoteCount - 1);
+                            tx.update(pollRef, { voteCount: newCount, recentVoters: updatedVoters });
+                        }).catch(err => console.warn('Vote cleanup txn failed for', pollId, err))
+                    );
+                }
+            });
+            await Promise.all(txs);
+        } catch (e) {
+            console.warn('Feature votes cleanup skipped:', e);
+        }
+
+        // 2) Use existing deleteSubcollection for efficiency
         await Promise.all([
             deleteSubcollection(db, purchasesPath),
             deleteSubcollection(db, widgetsPath),
             deleteSubcollection(db, storesPath),
+            deleteSubcollection(db, featureVotesPath),
             fDeleteDoc(wallOfFameDocRef).catch(err => console.log("No Wall of Fame doc to delete:", err.message)),
             fDeleteDoc(userDocRef)
         ]);

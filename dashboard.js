@@ -1,5 +1,6 @@
 // --- IMPORTS ---
 import { firebaseReady, logout } from './auth.js';
+import { AVATAR_CACHE_KEY, AVATAR_TTL_MS, getCachedAvatar, setCachedAvatar, fetchAvatarAsDataURL, isAvatarOnCooldown, setAvatarCooldown, initialsAvatarDataUri } from './avatar.js';
 // Firestore/auth modules now loaded dynamically to trim initial JS cost
 let firestoreModule = null; // populated on first Firestore need
 let authModule = null;      // populated on first auth utility need
@@ -34,48 +35,6 @@ let currentUser = null;
 let currentUserData = null; // To store user profile data globally
 let selectedPfpFile = null;
 
-// Avatar cache config (similar idea to weather TTL caching)
-const AVATAR_CACHE_KEY = 'avatarCache:v1';
-const AVATAR_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-function getCachedAvatar() {
-    try {
-        const raw = localStorage.getItem(AVATAR_CACHE_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (!parsed || !parsed.url || !parsed.dataUrl || !parsed.ts) return null;
-        return parsed;
-    } catch (_) {
-        return null;
-    }
-}
-
-function setCachedAvatar(url, dataUrl) {
-    try {
-        localStorage.setItem(AVATAR_CACHE_KEY, JSON.stringify({ url, dataUrl, ts: Date.now() }));
-    } catch (_) {}
-}
-
-async function fetchAvatarAsDataURL(url) {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), 6000);
-    try {
-        const res = await fetch(url, { cache: 'no-store', mode: 'cors', signal: controller.signal });
-        if (!res.ok) throw new Error('Avatar fetch failed: ' + res.status);
-        const blob = await res.blob();
-        // Avoid stuffing very large images into localStorage (>600KB)
-        if (blob.size > 600000) return null;
-        const reader = new FileReader();
-        const dataUrl = await new Promise((resolve, reject) => {
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-        return dataUrl;
-    } finally {
-        clearTimeout(id);
-    }
-}
 let firebaseServices = null;
 let isDeleteModeActive = false;
 let pressTimer = null;
@@ -93,34 +52,6 @@ const avatarLRU = new Map(); // url -> { objectUrl, size }
 let avatarLRUTotalBytes = 0;
 let avatarObserver = null;
 
-// Cooldown for failing avatar hosts (avoid hammering lh3.googleusercontent.com 429s)
-const AVATAR_FAIL_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
-const AVATAR_COOLDOWN_SS_KEY = 'avatarCooldownHosts:v1';
-const avatarCooldownByHost = new Map();
-try {
-    const raw = sessionStorage.getItem(AVATAR_COOLDOWN_SS_KEY);
-    if (raw) {
-        const obj = JSON.parse(raw);
-        for (const [host, ts] of Object.entries(obj)) avatarCooldownByHost.set(host, ts);
-    }
-} catch(_) {}
-function persistAvatarCooldown() {
-    try {
-        const obj = {}; for (const [k,v] of avatarCooldownByHost.entries()) obj[k]=v;
-        sessionStorage.setItem(AVATAR_COOLDOWN_SS_KEY, JSON.stringify(obj));
-    } catch(_) {}
-}
-function hostFromURL(url) { try { return new URL(url).host; } catch { return ''; } }
-function isAvatarOnCooldown(url) {
-    const host = hostFromURL(url); if (!host) return false;
-    const ts = avatarCooldownByHost.get(host); if (!ts) return false;
-    return (Date.now() - ts) < AVATAR_FAIL_COOLDOWN_MS;
-}
-function setAvatarCooldown(url) {
-    const host = hostFromURL(url); if (!host) return;
-    avatarCooldownByHost.set(host, Date.now());
-    persistAvatarCooldown();
-}
 
 function avatarLRUGet(url) {
     if (!url || !avatarLRU.has(url)) return null;
@@ -136,7 +67,6 @@ function avatarLRUPut(url, objectUrl, size) {
     if (typeof size === 'number' && size > AVATAR_LRU_MAX_BLOB) return; 
     if (avatarLRU.has(url)) {
         const prev = avatarLRU.get(url);
-        try { URL.revokeObjectURL(prev.objectUrl); } catch(_) {}
         avatarLRUTotalBytes -= (prev.size || 0);
         avatarLRU.delete(url);
     }
@@ -149,8 +79,18 @@ function avatarLRUPut(url, objectUrl, size) {
         const entry = avatarLRU.get(firstKey);
         avatarLRU.delete(firstKey);
         avatarLRUTotalBytes -= (entry?.size || 0);
-        try { if (entry?.objectUrl) URL.revokeObjectURL(entry.objectUrl); } catch(_) {}
+    // Do not revoke object URLs here; they may still be in use by <img> elements.
+    // We clean them up on page unload or when replaced for the same URL.
     }
+}
+
+// Clear all session avatar object URLs (used on account switch)
+function purgeAvatarLRU() {
+    try {
+    // Do not revoke here to avoid breaking any in-flight <img> elements.
+        avatarLRU.clear();
+        avatarLRUTotalBytes = 0;
+    } catch(_) {}
 }
 
 async function prefetchAvatarObjectURL(url) {
@@ -201,8 +141,13 @@ function applyLeaderboardAvatar(imgEl, photoURL, fallbackInitial) {
     try { imgEl.setAttribute('crossorigin', 'anonymous'); } catch(_) {}
     // Always start with initials (prevents immediate network request)
     const initial = (fallbackInitial || '?').toUpperCase();
-    const svg = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="20" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
-    imgEl.src = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    imgEl.src = initialsAvatarDataUri(initial, 40);
+    // Robust error fallback: if any load fails (e.g., revoked blob), restore initials
+    imgEl.onerror = () => {
+        try { imgEl.onerror = null; } catch(_) {}
+        try { imgEl.removeAttribute('data-avatar-url'); } catch(_) {}
+        imgEl.src = initialsAvatarDataUri(initial, 40);
+    };
     if (!photoURL) return;
     const cachedObj = avatarLRUGet(photoURL);
     if (cachedObj) { imgEl.src = cachedObj; return; }
@@ -268,6 +213,49 @@ async function main() {
     const db = await services.db;
     firebaseServices.db = db;
         checkProfile();
+
+        // Persistently observe auth changes to handle live account switching
+        try {
+            const { onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
+            let lastAuthUid = currentUser?.uid || null;
+            onAuthStateChanged(auth, (u) => {
+                // Redirect if signed out
+                if (!u) {
+                    window.location.replace('/login.html');
+                    return;
+                }
+                // If user identity actually changed, reset UI/state
+                if (u.uid !== lastAuthUid) {
+                    lastAuthUid = u.uid;
+                    currentUser = u;
+                    // Reset per-user UI bits immediately
+                    try {
+                        const initial = (u.displayName || '?').charAt(0).toUpperCase();
+                        const ph = initialsAvatarDataUri(initial, 56);
+                        if (userAvatar) userAvatar.src = ph;
+                        if (pfpPreview) pfpPreview.src = ph;
+                    } catch(_) {}
+                    // Clear session avatar LRU to avoid cross-user bleed-through
+                    purgeAvatarLRU();
+                    // Clear leaderboard UI quickly; re-render after profile fetch
+                    try {
+                        if (leaderboardList) leaderboardList.innerHTML = '<div class="spinner" style="margin: 2rem auto;"></div>';
+                        if (leaderboardHeadlineEl) leaderboardHeadlineEl.textContent = '';
+                    } catch(_) {}
+                    // Clear some cached state
+                    currentUserData = null; userBalanceTypes = []; cachedBalanceHTML = null; lastBalanceSignature = '';
+                    // Fetch the new user profile and re-render
+                    checkProfile();
+                    // If the leaderboard tab is visible, refresh it now
+                    try {
+                        const activeSection = document.querySelector('.main-section.active');
+                        if (activeSection && activeSection.id === 'leaderboard-section') {
+                            fetchAndRenderLeaderboard(db);
+                        }
+                    } catch(_) {}
+                }
+            });
+        } catch(_) {}
 
     } catch (error) {
         console.error('Fatal Error on Dashboard:', error);
@@ -1029,18 +1017,47 @@ async function deleteUserDataAndLogout() {
 
     try {
         // Dynamically import Firestore helpers (was causing ReferenceError before)
-        const { doc, deleteDoc, collection, query, getDocs } = await fs();
+        const { doc, deleteDoc, collection, query, getDocs, runTransaction } = await fs();
         const userId = currentUser.uid;
         const purchasesPath = `users/${userId}/purchases`;
         const widgetsPath = `users/${userId}/quickLogWidgets`;
         const storesPath = `users/${userId}/customStores`; // Path for custom stores
+        const featureVotesPath = `users/${userId}/featureVotes`; // Roadmap votes
         const userDocRef = doc(db, "users", userId);
         const wallOfFameDocRef = doc(db, "wallOfFame", userId);
 
+        // 1) Clean up Roadmap votes: for each voted poll, decrement count and remove from recentVoters
+        try {
+            const votesRef = collection(db, 'users', userId, 'featureVotes');
+            const votesSnap = await getDocs(query(votesRef));
+            const txs = [];
+            votesSnap.forEach(v => {
+                const pollId = v.id;
+                const pollRef = doc(db, 'featurePolls', pollId);
+                txs.push(
+                    runTransaction(db, async (tx) => {
+                        const pollDoc = await tx.get(pollRef);
+                        if (!pollDoc.exists()) return;
+                        const data = pollDoc.data() || {};
+                        const currentVoteCount = data.voteCount || 0;
+                        const voters = Array.isArray(data.recentVoters) ? data.recentVoters : [];
+                        const updatedVoters = voters.filter(vr => vr && vr.uid !== userId);
+                        const newCount = Math.max(0, currentVoteCount - 1);
+                        tx.update(pollRef, { voteCount: newCount, recentVoters: updatedVoters });
+                    }).catch(err => console.warn('Vote cleanup txn failed for', pollId, err))
+                );
+            });
+            await Promise.all(txs);
+        } catch (e) {
+            console.warn('Feature votes cleanup skipped:', e);
+        }
+
+        // 2) Delete all user data
         await Promise.all([
             deleteSubcollection(db, purchasesPath),
             deleteSubcollection(db, widgetsPath),
             deleteSubcollection(db, storesPath), // Delete custom stores
+            deleteSubcollection(db, featureVotesPath), // Delete feature votes
             deleteDoc(wallOfFameDocRef).catch(err => console.log("No Wall of Fame doc to delete:", err.message)),
             deleteDoc(userDocRef)
         ]);
@@ -1643,48 +1660,39 @@ function updateAvatar(photoURL, displayName) {
     const cached = getCachedAvatar();
     const now = Date.now();
     const hasFreshCache = cached && cached.dataUrl && cached.url === photoURL && (now - cached.ts) < AVATAR_TTL_MS;
+    const toInitials = () => {
+        const initial = displayName ? displayName.charAt(0).toUpperCase() : '?';
+        const uri = initialsAvatarDataUri(initial, 56);
+        if (userAvatar) userAvatar.src = uri;
+        if (pfpPreview) pfpPreview.src = uri;
+    };
     if (photoURL) {
         if (hasFreshCache) {
-            userAvatar.src = cached.dataUrl;
-            pfpPreview.src = cached.dataUrl;
+            if (userAvatar) userAvatar.src = cached.dataUrl;
+            if (pfpPreview) pfpPreview.src = cached.dataUrl;
             // optional background refresh
             (async () => { try { const dataUrl = await fetchAvatarAsDataURL(photoURL); if (dataUrl) setCachedAvatar(photoURL, dataUrl); } catch(e) { if (String(e).includes('429')) setAvatarCooldown(photoURL); } })();
         } else {
-            // If on cooldown, avoid network and use cache or initials
-            if (isAvatarOnCooldown(photoURL)) {
-                if (cached && cached.dataUrl) { userAvatar.src = cached.dataUrl; pfpPreview.src = cached.dataUrl; }
-                else {
-                    const initial = displayName ? displayName.charAt(0).toUpperCase() : '?';
-                    const svg = `<svg width="56" height="56" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="28" ry="28" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="28" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
-                    const svgUrl = `data:image/svg+xml;base64,${btoa(svg)}`;
-                    userAvatar.src = svgUrl; pfpPreview.src = svgUrl;
-                }
-            } else {
-                // Use cache or initials first to avoid immediate remote request
-                if (cached && cached.dataUrl) { userAvatar.src = cached.dataUrl; pfpPreview.src = cached.dataUrl; }
-                else {
-                    const initial = displayName ? displayName.charAt(0).toUpperCase() : '?';
-                    const svg = `<svg width="56" height="56" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="28" ry="28" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="28" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
-                    const svgUrl = `data:image/svg+xml;base64,${btoa(svg)}`;
-                    userAvatar.src = svgUrl; pfpPreview.src = svgUrl;
-                }
-                // Background revalidation fetch
-                (async () => {
-                    try {
-                        const dataUrl = await fetchAvatarAsDataURL(photoURL);
-                        if (dataUrl) setCachedAvatar(photoURL, dataUrl);
-                    } catch (e) {
-                        if (String(e).includes('429')) setAvatarCooldown(photoURL);
+            // Avoid showing another user's cached avatar; use initials as placeholder
+            toInitials();
+            // If on cooldown, skip fetch
+            if (isAvatarOnCooldown(photoURL)) return;
+            // Background revalidation fetch -> swap in when ready and cache
+            (async () => {
+                try {
+                    const dataUrl = await fetchAvatarAsDataURL(photoURL);
+                    if (dataUrl) {
+                        setCachedAvatar(photoURL, dataUrl);
+                        if (userAvatar) userAvatar.src = dataUrl;
+                        if (pfpPreview) pfpPreview.src = dataUrl;
                     }
-                })();
-            }
+                } catch (e) {
+                    if (String(e).includes('429')) setAvatarCooldown(photoURL);
+                }
+            })();
         }
     } else {
-        const initial = displayName ? displayName.charAt(0).toUpperCase() : '?';
-        const svg = `<svg width="56" height="56" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="28" ry="28" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="28" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
-        const svgUrl = `data:image/svg+xml;base64,${btoa(svg)}`;
-        userAvatar.src = svgUrl;
-        pfpPreview.src = svgUrl;
+        toInitials();
     }
 }
 
@@ -2368,15 +2376,43 @@ async function fetchAndRenderLeaderboard(db) {
     if (!leaderboardList) return;
     leaderboardList.innerHTML = '<div class="spinner" style="margin: 2rem auto;"></div>';
     
-    const { collection, query, orderBy, getDocs } = await fs();
+    const { collection, query, orderBy, getDocs, limit, where } = await fs();
     const usersRef = collection(db, "users");
-    const q = query(usersRef, orderBy("currentStreak", "desc"));
+    // Broad list without orderBy to avoid dropping docs due to missing fields/index nuances
+    const q = query(usersRef, limit(500));
     
     try {
-        const querySnapshot = await getDocs(q);
-        let users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let users = [];
+    let usersQueryFailed = false;
+        try {
+            const querySnapshot = await getDocs(q);
+            users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (err) {
+            usersQueryFailed = true;
+            console.warn('[Leaderboard] users query failed (will try wallOfFame):', err?.code || err);
+        }
 
-        // Always include the current user, even if Firestore does not return them
+        // Always merge public wallOfFame entries so the list doesn’t shrink to 1 if private reads are limited
+        try {
+            const wallRef = collection(db, 'wallOfFame');
+            const wq = query(wallRef, orderBy('leaderboardScore', 'desc'), limit(100));
+            const wSnap = await getDocs(wq);
+            const pub = wSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            users = [...users, ...pub];
+        } catch (e) {
+            console.warn('[Leaderboard] wallOfFame supplement failed:', e?.code || e);
+        }
+        // Extra supplement: pull public-enabled users from users if rules allow
+        try {
+            const pubUsersQ = query(usersRef, where('showOnWallOfFame','==', true), orderBy('leaderboardScore','desc'), limit(100));
+            const puSnap = await getDocs(pubUsersQ);
+            const pubUsers = puSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            users = [...users, ...pubUsers];
+        } catch (e2) {
+            // Ignored silently; some rulesets won’t allow this
+        }
+
+    // Always include the current user, even if Firestore does not return them
         if (currentUser && !users.some(u => u.id === currentUser.uid)) {
             users.push({
                 id: currentUser.uid,
@@ -2388,12 +2424,25 @@ async function fetchAndRenderLeaderboard(db) {
                 bio: currentUserData?.bio || ''
             });
         }
-        // Sort by leaderboardScore (if present), else currentStreak, desc
-        users.sort((a,b) => {
+        // Filter to users with a positive streak or score, dedupe by id, then sort by leaderboardScore/currentStreak
+        users = users.filter(u => {
+            const score = typeof u.leaderboardScore === 'number' ? u.leaderboardScore : (u.currentStreak || 0);
+            return typeof score === 'number' && score > 0;
+        });
+        // Dedupe by id in case sources overlap, then sort by leaderboardScore/currentStreak
+    const byId = new Map();
+    for (const u of users) { if (u?.id) byId.set(u.id, u); }
+    users = Array.from(byId.values());
+
+    // Sort by leaderboardScore (if present), else currentStreak, desc
+    users.sort((a,b) => {
             const sa = (typeof a.leaderboardScore === 'number') ? a.leaderboardScore : (a.currentStreak || 0);
             const sb = (typeof b.leaderboardScore === 'number') ? b.leaderboardScore : (b.currentStreak || 0);
             return sb - sa;
         });
+
+    // Debug counts to help diagnose rules-related single-row cases
+    try { console.debug('[Leaderboard] total users after merge/dedupe:', users.length); } catch(_) {}
 
     leaderboardList.innerHTML = '';
         users.forEach((user, index) => {
@@ -2442,7 +2491,38 @@ async function fetchAndRenderLeaderboard(db) {
                 try {
                     const img = item.querySelector('img.leaderboard-avatar');
                     const initialChar = initial;
-                    applyLeaderboardAvatar(img, user.photoURL || '', initialChar);
+                    // Universal guard: fall back to initials on any image failure
+                    if (img) {
+                        img.onerror = () => {
+                            try { img.onerror = null; } catch(_) {}
+                            try { img.removeAttribute('data-avatar-url'); } catch(_) {}
+                            img.src = initialsAvatarDataUri(initialChar, 40);
+                        };
+                    }
+                    let usedCachedSelfAvatar = false;
+                    // If this row is the current user, prefer the cached data URL immediately (no flicker)
+                    if (currentUser && user.id === currentUser.uid) {
+                        try {
+                            const cached = getCachedAvatar();
+                            const now = Date.now();
+                            if (cached && cached.dataUrl && cached.url && user.photoURL && cached.url === user.photoURL && (now - cached.ts) < AVATAR_TTL_MS) {
+                                try { img.setAttribute('crossorigin', 'anonymous'); } catch(_) {}
+                                img.src = cached.dataUrl;
+                                // Also guard with an error fallback in case of decode errors
+                                img.onerror = () => {
+                                    try { img.onerror = null; } catch(_) {}
+                                    img.src = initialsAvatarDataUri(initialChar, 40);
+                                };
+                                if (user.photoURL) img.setAttribute('data-avatar-url', user.photoURL);
+                                // Warm the session LRU in the background without forcing a swap
+                                prefetchAvatarObjectURL(user.photoURL || '');
+                                usedCachedSelfAvatar = true;
+                            }
+                        } catch(_) {}
+                    }
+                    if (!usedCachedSelfAvatar) {
+                        applyLeaderboardAvatar(img, user.photoURL || '', initialChar);
+                    }
                 } catch(_) {}
             } catch (renderErr) {
                 console.warn('[Leaderboard] Skipped a user due to render error:', renderErr);
@@ -2648,12 +2728,16 @@ async function handlePublicToggle(e, db) {
         if (isChecked) {
             const userDoc = await getDoc(userDocRef);
             if (userDoc.exists()) {
-                const { displayName, photoURL, currentStreak, longestStreak, bio } = userDoc.data();
+                const { displayName, photoURL, currentStreak, longestStreak, leaderboardScore, bio } = userDoc.data();
+                const safeName = (currentUser?.displayName) || displayName || "Anonymous";
+                const safePhoto = (currentUser?.photoURL) || photoURL || "";
+                const score = (typeof leaderboardScore === 'number') ? leaderboardScore : Number(currentStreak || 0);
                 await setDoc(wallOfFameDocRef, { 
-                    displayName, 
-                    photoURL, 
-                    currentStreak: currentStreak || 0,
-                    longestStreak: longestStreak || 0,
+                    displayName: safeName,
+                    photoURL: safePhoto,
+                    currentStreak: Number(currentStreak || 0),
+                    longestStreak: Number(longestStreak || 0),
+                    leaderboardScore: score,
                     bio: bio || ""
                 }, { merge: true });
             }
@@ -2661,6 +2745,8 @@ async function handlePublicToggle(e, db) {
             await deleteDoc(wallOfFameDocRef);
         }
         showSuccessMessage(isChecked ? '✓ Added to Top Grind' : 'Removed from Top Grind');
+        // Refresh leaderboard view to reflect changes
+        try { if (db) await fetchAndRenderLeaderboard(db); } catch(_) {}
     } catch (error) {
         console.error("Error updating Top of the Grind status:", error);
         // Revert UI state on failure

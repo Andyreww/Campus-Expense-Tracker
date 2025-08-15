@@ -61,7 +61,12 @@
                     Nooksii
                 </h1>
             </a>
-            <a href="index.html" id="dashboard-button" class="desktop-cta-button">Back to Main Page</a>
+            <div class="header-right-group">
+                <a href="index.html" id="dashboard-button" class="desktop-cta-button">Back to Main Page</a>
+                <a href="dashboard.html#leaderboard-section" id="user-avatar-link" class="user-avatar-link hidden">
+                    <img id="user-avatar-img" src="" alt="User Avatar" class="user-avatar" width="32" height="32" loading="lazy" decoding="async" crossorigin="anonymous" />
+                </a>
+            </div>
         </div>
     </header>
 
@@ -247,6 +252,7 @@
     <script type="module">
         // Import the central firebaseReady promise from auth.js
         import { firebaseReady } from './auth.js';
+        import { getCachedAvatar, fetchAvatarAsDataURL, setCachedAvatar } from './avatar.js';
         // Import necessary Firestore functions
         import { 
             getFirestore, collection, doc,
@@ -262,6 +268,8 @@
             const auth = await services.auth;
             const db = await services.db;
             const pollListContainer = document.getElementById('poll-list');
+            const userAvatarLink = document.getElementById('user-avatar-link');
+            const userAvatarImg = document.getElementById('user-avatar-img');
             let currentUser = null; 
             let userVotes = {};
             let userVotesListener = null; // To hold the listener unsubscribe function
@@ -463,6 +471,34 @@
                 }
 
                 if (user) {
+                    // Show header avatar linking to Dashboard leaderboard
+                    if (userAvatarLink && userAvatarImg) {
+                        userAvatarLink.classList.remove('hidden');
+                        userAvatarLink.href = 'dashboard.html#leaderboard-section';
+                        // cache-first avatar handling via shared helpers
+                        try {
+                            const cached = getCachedAvatar();
+                            const now = Date.now();
+                            const AVATAR_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+                            const fresh = cached && cached.url === user.photoURL && (now - cached.ts) < AVATAR_TTL_MS;
+                            if (user.photoURL && fresh) {
+                                userAvatarImg.src = cached.dataUrl;
+                            } else if (user.photoURL) {
+                                userAvatarImg.src = user.photoURL;
+                                (async () => {
+                                    try {
+                                        const dataUrl = await fetchAvatarAsDataURL(user.photoURL);
+                                        if (dataUrl) setCachedAvatar(user.photoURL, dataUrl);
+                                    } catch {}
+                                })();
+                            } else {
+                                const initial = (user.displayName || user.email || '?').charAt(0).toUpperCase();
+                                const svg = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito" font-size="20" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
+                                userAvatarImg.src = `data:image/svg+xml;base64,${btoa(svg)}`;
+                            }
+                        } catch {}
+                    }
+
                     // If user is logged in, listen for their specific votes
                     const votesRef = collection(db, 'users', user.uid, 'featureVotes');
                     userVotesListener = onSnapshot(votesRef, (snapshot) => {
@@ -476,6 +512,7 @@
                         console.error("Error listening to user votes:", error);
                     });
                 } else {
+                    if (userAvatarLink) userAvatarLink.classList.add('hidden');
                     // If user logs out, clear local vote data and update UI
                     userVotes = {};
                     updateUserVoteStatus();
