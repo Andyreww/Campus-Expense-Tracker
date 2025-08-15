@@ -6,17 +6,37 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 // This is the main function Netlify will run
 exports.handler = async (event) => {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': event.headers?.origin || '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 204, headers: corsHeaders };
+  }
   // We only want to handle POST requests
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+    return { statusCode: 405, headers: corsHeaders, body: 'Method Not Allowed' };
   }
 
   // Get the user's email from the request
-  const { email } = JSON.parse(event.body);
+  // Accept JSON, form-encoded, or raw email strings; support base64 bodies
+  const rawBody = event.isBase64Encoded
+    ? Buffer.from(event.body || '', 'base64').toString('utf8')
+    : (event.body || '');
+  let email = undefined;
+  try {
+    const parsed = JSON.parse(rawBody || '{}');
+    email = parsed?.email;
+  } catch (_) {
+    const m = /email=([^&\s]+)/i.exec(rawBody);
+    if (m) email = decodeURIComponent(m[1]);
+    else if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(rawBody.trim())) email = rawBody.trim();
+  }
 
   // Make sure we actually got an email
   if (!email) {
-    return { statusCode: 400, body: 'Email is required.' };
+    return { statusCode: 400, headers: corsHeaders, body: 'Email is required.' };
   }
 
   // --- NEW, MORE DETAILED TRY...CATCH BLOCK ---
@@ -45,16 +65,16 @@ exports.handler = async (event) => {
     // If Resend gives us an error, we log it in detail
     if (error) {
       console.error('Error from Resend:', error);
-      return { statusCode: 400, body: JSON.stringify(error) };
+      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify(error) };
     }
 
     // If it works, we log the success data
     console.log('Email sent successfully! Resend ID:', data.id);
-    return { statusCode: 200, body: JSON.stringify(data) };
+  return { statusCode: 200, headers: corsHeaders, body: JSON.stringify(data) };
 
   } catch (error) {
     // This will catch any other general errors
     console.error('A general error occurred:', error);
-    return { statusCode: 500, body: JSON.stringify({ message: 'Something went wrong.' }) };
+  return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ message: 'Something went wrong.' }) };
   }
 };

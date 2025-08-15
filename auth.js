@@ -179,7 +179,7 @@ export const logout = async () => {
 
 // Email functions with deduplication
 const emailQueue = new Map();
-const EMAIL_COOLDOWN = 5000;
+const EMAIL_COOLDOWN = 7000; // avoid fast double taps on mobile
 
 async function sendEmail(endpoint, email) {
     const now = Date.now();
@@ -188,12 +188,29 @@ async function sendEmail(endpoint, email) {
     if (lastSent && now - lastSent < EMAIL_COOLDOWN) return;
     
     emailQueue.set(email, now);
-    
-    fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-    }).catch(console.error);
+    try {
+        const payload = JSON.stringify({ email });
+        // Try sendBeacon first for reliability during redirects/page unload on mobile
+        if (navigator.sendBeacon) {
+            const blob = new Blob([payload], { type: 'application/json' });
+            const ok = navigator.sendBeacon(endpoint, blob);
+            if (ok) return;
+        }
+        // Fallback to fetch with keepalive so redirects don’t cancel the request
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            mode: 'cors',
+            keepalive: true,
+            headers: { 'Content-Type': 'application/json' },
+            body: payload
+        });
+        if (!res.ok) {
+            const text = await res.text().catch(() => '');
+            console.warn('[EMAIL] Send failed:', res.status, text);
+        }
+    } catch (e) {
+        console.warn('[EMAIL] Network error while sending:', e);
+    }
 }
 
 // Helper functions
