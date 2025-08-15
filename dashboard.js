@@ -93,6 +93,35 @@ const avatarLRU = new Map(); // url -> { objectUrl, size }
 let avatarLRUTotalBytes = 0;
 let avatarObserver = null;
 
+// Cooldown for failing avatar hosts (avoid hammering lh3.googleusercontent.com 429s)
+const AVATAR_FAIL_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+const AVATAR_COOLDOWN_SS_KEY = 'avatarCooldownHosts:v1';
+const avatarCooldownByHost = new Map();
+try {
+    const raw = sessionStorage.getItem(AVATAR_COOLDOWN_SS_KEY);
+    if (raw) {
+        const obj = JSON.parse(raw);
+        for (const [host, ts] of Object.entries(obj)) avatarCooldownByHost.set(host, ts);
+    }
+} catch(_) {}
+function persistAvatarCooldown() {
+    try {
+        const obj = {}; for (const [k,v] of avatarCooldownByHost.entries()) obj[k]=v;
+        sessionStorage.setItem(AVATAR_COOLDOWN_SS_KEY, JSON.stringify(obj));
+    } catch(_) {}
+}
+function hostFromURL(url) { try { return new URL(url).host; } catch { return ''; } }
+function isAvatarOnCooldown(url) {
+    const host = hostFromURL(url); if (!host) return false;
+    const ts = avatarCooldownByHost.get(host); if (!ts) return false;
+    return (Date.now() - ts) < AVATAR_FAIL_COOLDOWN_MS;
+}
+function setAvatarCooldown(url) {
+    const host = hostFromURL(url); if (!host) return;
+    avatarCooldownByHost.set(host, Date.now());
+    persistAvatarCooldown();
+}
+
 function avatarLRUGet(url) {
     if (!url || !avatarLRU.has(url)) return null;
     const value = avatarLRU.get(url);
@@ -126,11 +155,11 @@ function avatarLRUPut(url, objectUrl, size) {
 
 async function prefetchAvatarObjectURL(url) {
     try {
-        if (!url) return null;
+    if (!url || isAvatarOnCooldown(url)) return null;
         const existing = avatarLRUGet(url);
         if (existing) return existing;
-        const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
-        if (!res.ok) return null;
+    const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+    if (!res.ok) { if (res.status === 429) setAvatarCooldown(url); return null; }
         const blob = await res.blob();
         if (blob && blob.size && blob.size > AVATAR_LRU_MAX_BLOB) return null; // too large
         const objUrl = URL.createObjectURL(blob);
@@ -147,8 +176,12 @@ function getAvatarObserver() {
             const img = entry.target;
             const url = img.getAttribute('data-avatar-url');
             if (!url) { avatarObserver.unobserve(img); continue; }
-            // best-effort prefetch; we keep current src (HTTP cache handles reuse)
-            prefetchAvatarObjectURL(url).finally(() => {
+            // Prefetch and update image when ready
+            prefetchAvatarObjectURL(url).then((objUrl) => {
+                if (objUrl) {
+                    img.src = objUrl;
+                }
+            }).finally(() => {
                 avatarObserver.unobserve(img);
             });
         }
@@ -166,19 +199,14 @@ function getAvatarObserver() {
 function applyLeaderboardAvatar(imgEl, photoURL, fallbackInitial) {
     if (!imgEl) return;
     try { imgEl.setAttribute('crossorigin', 'anonymous'); } catch(_) {}
-    if (!photoURL) return; // already has initials placeholder
+    // Always start with initials (prevents immediate network request)
+    const initial = (fallbackInitial || '?').toUpperCase();
+    const svg = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="20" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
+    imgEl.src = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    if (!photoURL) return;
     const cachedObj = avatarLRUGet(photoURL);
-    if (cachedObj) {
-        imgEl.src = cachedObj; // fast path
-        return;
-    }
-    // Keep remote URL (benefits from HTTP cache) and lazy prefetch when visible
-    imgEl.src = photoURL;
-    imgEl.onerror = () => {
-        // fallback to initials svg
-        const svg = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="20" fill="#FFF" text-anchor="middle" dy=".3em">${fallbackInitial}</text></svg>`;
-        imgEl.src = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-    };
+    if (cachedObj) { imgEl.src = cachedObj; return; }
+    if (isAvatarOnCooldown(photoURL)) return;
     imgEl.setAttribute('data-avatar-url', photoURL);
     getAvatarObserver().observe(imgEl);
 }
@@ -766,6 +794,7 @@ function assignDOMElements() {
         try { userAvatar.setAttribute('crossorigin', 'anonymous'); } catch(_) {}
         // Fallback to initials or cached data if the network avatar fails
         userAvatar.addEventListener('error', () => {
+            try { if (userAvatar && userAvatar.currentSrc) setAvatarCooldown(userAvatar.currentSrc); } catch(_) {}
             const cached = getCachedAvatar();
             if (cached && cached.dataUrl) {
                 userAvatar.src = cached.dataUrl;
@@ -1618,19 +1647,37 @@ function updateAvatar(photoURL, displayName) {
         if (hasFreshCache) {
             userAvatar.src = cached.dataUrl;
             pfpPreview.src = cached.dataUrl;
+            // optional background refresh
+            (async () => { try { const dataUrl = await fetchAvatarAsDataURL(photoURL); if (dataUrl) setCachedAvatar(photoURL, dataUrl); } catch(e) { if (String(e).includes('429')) setAvatarCooldown(photoURL); } })();
         } else {
-            // Set remote URL immediately (may be behind auth/CDN)
-            userAvatar.src = photoURL;
-            pfpPreview.src = photoURL;
-            // Background revalidation: try to cache as data URL if not fresh
-            (async () => {
-                try {
-                    const dataUrl = await fetchAvatarAsDataURL(photoURL);
-                    if (dataUrl) {
-                        setCachedAvatar(photoURL, dataUrl);
+            // If on cooldown, avoid network and use cache or initials
+            if (isAvatarOnCooldown(photoURL)) {
+                if (cached && cached.dataUrl) { userAvatar.src = cached.dataUrl; pfpPreview.src = cached.dataUrl; }
+                else {
+                    const initial = displayName ? displayName.charAt(0).toUpperCase() : '?';
+                    const svg = `<svg width="56" height="56" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="28" ry="28" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="28" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
+                    const svgUrl = `data:image/svg+xml;base64,${btoa(svg)}`;
+                    userAvatar.src = svgUrl; pfpPreview.src = svgUrl;
+                }
+            } else {
+                // Use cache or initials first to avoid immediate remote request
+                if (cached && cached.dataUrl) { userAvatar.src = cached.dataUrl; pfpPreview.src = cached.dataUrl; }
+                else {
+                    const initial = displayName ? displayName.charAt(0).toUpperCase() : '?';
+                    const svg = `<svg width="56" height="56" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="28" ry="28" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="28" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
+                    const svgUrl = `data:image/svg+xml;base64,${btoa(svg)}`;
+                    userAvatar.src = svgUrl; pfpPreview.src = svgUrl;
+                }
+                // Background revalidation fetch
+                (async () => {
+                    try {
+                        const dataUrl = await fetchAvatarAsDataURL(photoURL);
+                        if (dataUrl) setCachedAvatar(photoURL, dataUrl);
+                    } catch (e) {
+                        if (String(e).includes('429')) setAvatarCooldown(photoURL);
                     }
-                } catch (_) {}
-            })();
+                })();
+            }
         }
     } else {
         const initial = displayName ? displayName.charAt(0).toUpperCase() : '?';
@@ -2359,8 +2406,8 @@ async function fetchAndRenderLeaderboard(db) {
                 const safeName = user.displayName || 'User';
                 const initial = safeName.charAt(0).toUpperCase();
                 const svgAvatar = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" ry="20" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito, sans-serif" font-size="20" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
-                // Use UTF-8 data URL to avoid btoa Unicode issues
-                const avatarSrc = user.photoURL || `data:image/svg+xml;utf8,${encodeURIComponent(svgAvatar)}`;
+                // Always start with initials to avoid immediate remote fetches; lazy-load real avatar later
+                const avatarSrc = `data:image/svg+xml;utf8,${encodeURIComponent(svgAvatar)}`;
                 
                 const bioHtml = user.bio ? `<div class="leaderboard-bio">"${user.bio}"</div>` : '';
                 
@@ -2382,7 +2429,7 @@ async function fetchAndRenderLeaderboard(db) {
 
                 item.innerHTML = `
                     <span class="leaderboard-rank">#${index + 1}</span>
-                    <div class="avatar-wrap"><img src="${avatarSrc}" alt="${safeName}" class="leaderboard-avatar" width="48" height="48" loading="lazy" decoding="async"></div>
+                    <div class="avatar-wrap"><img src="${avatarSrc}" alt="${safeName}" class="leaderboard-avatar" width="48" height="48" loading="lazy" decoding="async" ${user.photoURL ? `data-avatar-url="${user.photoURL}"` : ''}></div>
                     <div class="leaderboard-details">
                         <span class="leaderboard-name">${safeName}</span>
                         ${bioHtml}

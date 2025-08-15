@@ -197,14 +197,61 @@ function updateUIForAuth(user, elements) {
             elements.heroCtaButton.href = isLoggedIn ? 'dashboard.html' : 'login.html';
         }
         
-        // Update avatar if logged in
+        // Update avatar if logged in (cache-first, then background revalidate)
         if (isLoggedIn && elements.userAvatarImg) {
-            if (user.photoURL) {
-                elements.userAvatarImg.src = user.photoURL;
+            const img = elements.userAvatarImg;
+            img.crossOrigin = 'anonymous';
+            const AVATAR_CACHE_KEY = 'avatarCache:v1';
+            const AVATAR_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+            const getCached = () => {
+                try {
+                    const raw = localStorage.getItem(AVATAR_CACHE_KEY);
+                    if (!raw) return null;
+                    const parsed = JSON.parse(raw);
+                    if (!parsed || !parsed.url || !parsed.dataUrl || !parsed.ts) return null;
+                    return parsed;
+                } catch { return null; }
+            };
+            const setCached = (url, dataUrl) => {
+                try { localStorage.setItem(AVATAR_CACHE_KEY, JSON.stringify({ url, dataUrl, ts: Date.now() })); } catch {}
+            };
+            const fetchAsDataURL = async (url) => {
+                const controller = new AbortController();
+                const to = setTimeout(() => controller.abort(), 6000);
+                try {
+                    const res = await fetch(url, { cache: 'no-store', mode: 'cors', signal: controller.signal });
+                    if (!res.ok) throw new Error('Avatar fetch failed: ' + res.status);
+                    const blob = await res.blob();
+                    if (blob.size > 600000) return null; // skip very large
+                    const reader = new FileReader();
+                    const dataUrl = await new Promise((resolve, reject) => {
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                    return dataUrl;
+                } finally { clearTimeout(to); }
+            };
+
+            const cached = getCached();
+            const now = Date.now();
+            const photoURL = user.photoURL || '';
+            const fresh = cached && cached.url === photoURL && (now - cached.ts) < AVATAR_TTL_MS;
+            if (photoURL && fresh) {
+                img.src = cached.dataUrl;
+            } else if (photoURL) {
+                img.src = photoURL;
+                // Revalidate in background
+                (async () => {
+                    try {
+                        const dataUrl = await fetchAsDataURL(photoURL);
+                        if (dataUrl) setCached(photoURL, dataUrl);
+                    } catch {}
+                })();
             } else {
                 const initial = (user.displayName || user.email).charAt(0).toUpperCase();
                 const svg = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="20" fill="#a2c4c6"/><text x="50%" y="50%" font-family="Nunito" font-size="20" fill="#FFF" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
-                elements.userAvatarImg.src = `data:image/svg+xml;base64,${btoa(svg)}`;
+                img.src = `data:image/svg+xml;base64,${btoa(svg)}`;
             }
         }
         

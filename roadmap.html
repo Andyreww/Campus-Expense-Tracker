@@ -306,9 +306,29 @@
                 progressFillEl.style.width = `${progress}%`;
 
                 const voters = data.recentVoters || [];
-                let votersHTML = voters.slice(-5).reverse().map(voter => 
-                    `<img src="${voter.photoURL || `https://i.pravatar.cc/40?u=${voter.uid}`}" alt="${voter.displayName}" class="voter-avatar" title="${voter.displayName}" onerror="this.onerror=null;this.src='https://i.pravatar.cc/40';">`
-                ).join('');
+                // Prefer real photos; if missing or failing, fall back to deterministic avatar service.
+                // Avoid repeated 429s by honoring a simple per-host cooldown stored in sessionStorage.
+                const cooldownKey = 'avatarCooldownByHost:v1';
+                const now = Date.now();
+                let cooldowns = {};
+                try { cooldowns = JSON.parse(sessionStorage.getItem(cooldownKey)) || {}; } catch {}
+                const isOnCooldown = (host) => (cooldowns[host] && now < cooldowns[host]);
+                const setCooldown = (host, ms) => {
+                    cooldowns[host] = now + ms;
+                    try { sessionStorage.setItem(cooldownKey, JSON.stringify(cooldowns)); } catch {}
+                };
+                const COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+                const votersHTML = voters.slice(-5).reverse().map(voter => {
+                    const url = voter.photoURL || '';
+                    try {
+                        const u = new URL(url);
+                        if (url && !isOnCooldown(u.host)) {
+                            return `<img src="${url}" alt="${voter.displayName}" class="voter-avatar" title="${voter.displayName}" crossorigin="anonymous" onerror="try{const h=new URL(this.currentSrc).host;const raw=sessionStorage.getItem('${cooldownKey}');let cd=raw?JSON.parse(raw):{};cd[h]=Date.now()+${COOLDOWN_MS};sessionStorage.setItem('${cooldownKey}',JSON.stringify(cd));}catch(e){};this.onerror=null;this.src='https://i.pravatar.cc/40?u=${voter.uid}';">`;
+                        }
+                    } catch {}
+                    return `<img src="https://i.pravatar.cc/40?u=${voter.uid}" alt="${voter.displayName}" class="voter-avatar" title="${voter.displayName}">`;
+                }).join('');
 
                 if (totalVotes > 5) {
                     votersHTML += `<div class="voter-avatar more-votes">+${totalVotes - 5}</div>`;
