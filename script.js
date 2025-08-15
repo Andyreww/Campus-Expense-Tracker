@@ -6,6 +6,7 @@ let firestoreModule = null;
 let threeModule = null;
 
 // Lazy load Firebase auth module
+import { getCachedAvatar, setCachedAvatar, fetchAvatarAsDataURL } from './avatar.js';
 const getFirebaseAuth = async () => {
     if (!firebaseModule) {
         const { firebaseReady } = await import('./auth.js');
@@ -201,41 +202,10 @@ function updateUIForAuth(user, elements) {
         if (isLoggedIn && elements.userAvatarImg) {
             const img = elements.userAvatarImg;
             img.crossOrigin = 'anonymous';
-            const AVATAR_CACHE_KEY = 'avatarCache:v1';
-            const AVATAR_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-            const getCached = () => {
-                try {
-                    const raw = localStorage.getItem(AVATAR_CACHE_KEY);
-                    if (!raw) return null;
-                    const parsed = JSON.parse(raw);
-                    if (!parsed || !parsed.url || !parsed.dataUrl || !parsed.ts) return null;
-                    return parsed;
-                } catch { return null; }
-            };
-            const setCached = (url, dataUrl) => {
-                try { localStorage.setItem(AVATAR_CACHE_KEY, JSON.stringify({ url, dataUrl, ts: Date.now() })); } catch {}
-            };
-            const fetchAsDataURL = async (url) => {
-                const controller = new AbortController();
-                const to = setTimeout(() => controller.abort(), 6000);
-                try {
-                    const res = await fetch(url, { cache: 'no-store', mode: 'cors', signal: controller.signal });
-                    if (!res.ok) throw new Error('Avatar fetch failed: ' + res.status);
-                    const blob = await res.blob();
-                    if (blob.size > 600000) return null; // skip very large
-                    const reader = new FileReader();
-                    const dataUrl = await new Promise((resolve, reject) => {
-                        reader.onload = () => resolve(reader.result);
-                        reader.onerror = reject;
-                        reader.readAsDataURL(blob);
-                    });
-                    return dataUrl;
-                } finally { clearTimeout(to); }
-            };
-
-            const cached = getCached();
+            const cached = getCachedAvatar();
             const now = Date.now();
             const photoURL = user.photoURL || '';
+            const AVATAR_TTL_MS = 7 * 24 * 60 * 60 * 1000;
             const fresh = cached && cached.url === photoURL && (now - cached.ts) < AVATAR_TTL_MS;
             if (photoURL && fresh) {
                 img.src = cached.dataUrl;
@@ -244,8 +214,8 @@ function updateUIForAuth(user, elements) {
                 // Revalidate in background
                 (async () => {
                     try {
-                        const dataUrl = await fetchAsDataURL(photoURL);
-                        if (dataUrl) setCached(photoURL, dataUrl);
+                        const dataUrl = await fetchAvatarAsDataURL(photoURL);
+                        if (dataUrl) setCachedAvatar(photoURL, dataUrl);
                     } catch {}
                 })();
             } else {
@@ -388,7 +358,7 @@ async function setupWallOfFame() {
         // Clear skeleton loader and show real data
         wallOfFameList.innerHTML = ''; 
         
-        querySnapshot.forEach(doc => {
+    querySnapshot.forEach(doc => {
             const user = doc.data();
             const card = document.createElement('div');
             card.className = 'fame-player-card';
@@ -406,6 +376,23 @@ async function setupWallOfFame() {
                 <span class="fame-name">${displayName}</span>
                 <span class="fame-streak">🔥 ${scoreLabel}-day streak</span>
             `;
+            // Insert bio safely if present (quote style, trimmed for layout)
+            if (user.bio && typeof user.bio === 'string') {
+                const nameEl = card.querySelector('.fame-name');
+                const bioEl = document.createElement('span');
+                bioEl.className = 'fame-bio';
+                const trimmed = user.bio.trim();
+                const short = trimmed.length > 80 ? trimmed.slice(0, 77) + '…' : trimmed;
+                bioEl.textContent = `"${short}"`;
+                bioEl.title = trimmed; // full text on hover
+                // Make sure it renders under the name
+                bioEl.style.display = 'block';
+                bioEl.style.marginTop = '2px';
+                bioEl.style.fontSize = '0.85rem';
+                bioEl.style.color = 'var(--muted-text, #6b7280)';
+                if (nameEl) nameEl.insertAdjacentElement('afterend', bioEl);
+                else card.appendChild(bioEl);
+            }
             wallOfFameList.appendChild(card);
         });
         

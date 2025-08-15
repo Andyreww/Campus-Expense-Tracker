@@ -856,9 +856,12 @@ body {
     height: 48px;
     border-radius: 50%;
     object-fit: cover;
+    object-position: center;
     border: 2px solid var(--bg-secondary);
     box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     flex-shrink: 0;
+    /* Hide default broken-image icon; JS restores initials on error */
+    background-color: transparent;
 }
 
 .leaderboard-details {
