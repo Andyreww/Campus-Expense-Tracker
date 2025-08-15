@@ -8,16 +8,38 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const SENDER_EMAIL = 'Nooksii <welcome@nooksii.com>';
 
 export const handler = async (event) => {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': event.headers?.origin || '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 204, headers: corsHeaders };
+  }
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+    return { statusCode: 405, headers: corsHeaders, body: 'Method Not Allowed' };
   }
 
   try {
-    const { email } = JSON.parse(event.body);
+    // Accept JSON, form-encoded, or raw email strings; support base64 bodies
+    const rawBody = event.isBase64Encoded
+      ? Buffer.from(event.body || '', 'base64').toString('utf8')
+      : (event.body || '');
+    let email = undefined;
+    try {
+      const parsed = JSON.parse(rawBody || '{}');
+      email = parsed?.email;
+    } catch (_) {
+      // Not JSON; try form-encoded or raw
+      const m = /email=([^&\s]+)/i.exec(rawBody);
+      if (m) email = decodeURIComponent(m[1]);
+      else if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(rawBody.trim())) email = rawBody.trim();
+    }
 
-    if (!email) {
-      return { statusCode: 400, body: 'Email is required' };
+  if (!email) {
+      return { statusCode: 400, headers: corsHeaders, body: 'Email is required' };
     }
 
     console.log(`Sending pre-launch confirmation email to: ${email}`);
@@ -62,14 +84,14 @@ export const handler = async (event) => {
 
     if (error) {
       console.error({ error });
-      return { statusCode: 500, body: JSON.stringify(error) };
+      return { statusCode: 500, headers: corsHeaders, body: JSON.stringify(error) };
     }
 
     console.log('Pre-launch email sent successfully:', data);
-    return { statusCode: 200, body: 'Email sent successfully' };
+    return { statusCode: 200, headers: corsHeaders, body: 'Email sent successfully' };
 
   } catch (error) {
     console.error('An unexpected error occurred:', error);
-    return { statusCode: 500, body: `Error: ${error.message}` };
+    return { statusCode: 500, headers: corsHeaders, body: `Error: ${error.message}` };
   }
 };
